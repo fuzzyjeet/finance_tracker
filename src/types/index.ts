@@ -10,8 +10,25 @@ export interface Account {
   balance: number;
   color: string;
   billing_cycle_day?: number;
+  currency: string;
   created_at: string;
 }
+
+export const CURRENCY_OPTIONS = [
+  { value: 'EUR', label: '€ Euro',              symbol: '€' },
+  { value: 'USD', label: '$ US Dollar',          symbol: '$' },
+  { value: 'GBP', label: '£ British Pound',      symbol: '£' },
+  { value: 'CHF', label: 'CHF Swiss Franc',      symbol: 'CHF' },
+  { value: 'JPY', label: '¥ Japanese Yen',       symbol: '¥' },
+  { value: 'CAD', label: 'CA$ Canadian Dollar',  symbol: 'CA$' },
+  { value: 'AUD', label: 'A$ Australian Dollar', symbol: 'A$' },
+  { value: 'INR', label: '₹ Indian Rupee',       symbol: '₹' },
+  { value: 'SEK', label: 'kr Swedish Krona',     symbol: 'kr' },
+  { value: 'PLN', label: 'zł Polish Zloty',      symbol: 'zł' },
+];
+
+export const getCurrencySymbol = (currency: string): string =>
+  CURRENCY_OPTIONS.find(c => c.value === currency)?.symbol ?? currency;
 
 export interface Category {
   id: string;

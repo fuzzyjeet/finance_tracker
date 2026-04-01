@@ -5,141 +5,159 @@ from models import Account, Category, Transaction, Budget, Tag
 
 
 CATEGORIES = [
-    # Expense categories
-    {"name": "Food & Dining", "icon": "🍔", "color": "#f97316", "type": "expense"},
-    {"name": "Transport", "icon": "🚗", "color": "#3b82f6", "type": "expense"},
-    {"name": "Shopping", "icon": "🛍️", "color": "#8b5cf6", "type": "expense"},
-    {"name": "Entertainment", "icon": "🎬", "color": "#ec4899", "type": "expense"},
-    {"name": "Housing", "icon": "🏠", "color": "#14b8a6", "type": "expense"},
-    {"name": "Utilities", "icon": "💡", "color": "#f59e0b", "type": "expense"},
-    {"name": "Healthcare", "icon": "🏥", "color": "#ef4444", "type": "expense"},
-    {"name": "Education", "icon": "📚", "color": "#06b6d4", "type": "expense"},
-    {"name": "Travel", "icon": "✈️", "color": "#84cc16", "type": "expense"},
-    {"name": "Personal Care", "icon": "💅", "color": "#f472b6", "type": "expense"},
-    # Income categories
-    {"name": "Salary", "icon": "💼", "color": "#22c55e", "type": "income"},
-    {"name": "Freelance", "icon": "💻", "color": "#10b981", "type": "income"},
-    {"name": "Investment Returns", "icon": "📈", "color": "#6366f1", "type": "income"},
-    {"name": "Other Income", "icon": "💰", "color": "#a3e635", "type": "income"},
+    {"name": "Food & Dining",    "icon": "🍔", "color": "#f97316", "type": "expense"},
+    {"name": "Transport",        "icon": "🚆", "color": "#3b82f6", "type": "expense"},
+    {"name": "Shopping",         "icon": "🛍️", "color": "#8b5cf6", "type": "expense"},
+    {"name": "Entertainment",    "icon": "🎬", "color": "#ec4899", "type": "expense"},
+    {"name": "Housing",          "icon": "🏠", "color": "#14b8a6", "type": "expense"},
+    {"name": "Utilities",        "icon": "💡", "color": "#f59e0b", "type": "expense"},
+    {"name": "Healthcare",       "icon": "🏥", "color": "#ef4444", "type": "expense"},
+    {"name": "Education",        "icon": "📚", "color": "#06b6d4", "type": "expense"},
+    {"name": "Travel",           "icon": "✈️", "color": "#84cc16", "type": "expense"},
+    {"name": "Personal Care",    "icon": "💅", "color": "#f472b6", "type": "expense"},
+    {"name": "Salary",           "icon": "💼", "color": "#22c55e", "type": "income"},
+    {"name": "Freelance",        "icon": "💻", "color": "#10b981", "type": "income"},
+    {"name": "Investment Returns","icon": "📈","color": "#6366f1", "type": "income"},
+    {"name": "Other Income",     "icon": "💰", "color": "#a3e635", "type": "income"},
+]
+
+TAGS = [
+    {"name": "Essential",    "color": "#22c55e"},
+    {"name": "Subscription", "color": "#3b82f6"},
+    {"name": "Work",         "color": "#8b5cf6"},
+    {"name": "Personal",     "color": "#f97316"},
+    {"name": "Holiday",      "color": "#ec4899"},
 ]
 
 
 def seed_data():
     db = SessionLocal()
     try:
-        # Only seed if no categories exist
         if db.query(Category).count() > 0:
             return
 
-        # Create categories
+        # Categories
         cats = {}
         for c in CATEGORIES:
             cat = Category(id=str(uuid.uuid4()), **c)
             db.add(cat)
             cats[c["name"]] = cat
-
         db.flush()
 
-        # Create accounts
-        checking = Account(
+        # Tags
+        tags = {}
+        for t in TAGS:
+            tag = Tag(id=str(uuid.uuid4()), **t)
+            db.add(tag)
+            tags[t["name"]] = tag
+        db.flush()
+
+        # Accounts (all EUR, German banks)
+        girokonto = Account(
             id=str(uuid.uuid4()),
-            name="Chase Checking",
+            name="Deutsche Bank Girokonto",
             type="checking",
             balance=0.0,
-            color="#3b82f6",
+            color="#0018a8",
+            currency="EUR",
         )
-        savings = Account(
+        sparkasse = Account(
             id=str(uuid.uuid4()),
-            name="Wells Fargo Savings",
+            name="Sparkasse Tagesgeld",
             type="savings",
             balance=0.0,
-            color="#22c55e",
+            color="#ff0000",
+            currency="EUR",
         )
-        credit = Account(
+        kreditkarte = Account(
             id=str(uuid.uuid4()),
-            name="Visa Credit Card",
+            name="Barclays Kreditkarte",
             type="credit_card",
             balance=0.0,
-            color="#ef4444",
-            billing_cycle_day=25,
+            color="#1a1a2e",
+            currency="EUR",
+            billing_cycle_day=28,
         )
-        db.add_all([checking, savings, credit])
+        db.add_all([girokonto, sparkasse, kreditkarte])
         db.flush()
 
         today = date.today()
 
-        def days_ago(n):
+        def d(n):
             return (today - timedelta(days=n)).isoformat()
 
-        # 20 sample transactions over last 60 days
-        transactions_data = [
+        # 20 transactions representing life in Germany (EUR)
+        txns_data = [
             # Income
-            {"date": days_ago(55), "amount": 4500.00, "type": "income", "payee": "Acme Corp", "category": "Salary", "account": checking},
-            {"date": days_ago(25), "amount": 4500.00, "type": "income", "payee": "Acme Corp", "category": "Salary", "account": checking},
-            {"date": days_ago(40), "amount": 800.00, "type": "income", "payee": "Side Project Client", "category": "Freelance", "account": checking},
-            {"date": days_ago(10), "amount": 150.00, "type": "income", "payee": "Dividend Payment", "category": "Investment Returns", "account": savings},
-            # Expenses - Checking
-            {"date": days_ago(52), "amount": 1200.00, "type": "expense", "payee": "Landlord", "category": "Housing", "account": checking},
-            {"date": days_ago(22), "amount": 1200.00, "type": "expense", "payee": "Landlord", "category": "Housing", "account": checking},
-            {"date": days_ago(48), "amount": 85.00, "type": "expense", "payee": "Electric Company", "category": "Utilities", "account": checking},
-            {"date": days_ago(18), "amount": 90.00, "type": "expense", "payee": "Electric Company", "category": "Utilities", "account": checking},
-            {"date": days_ago(50), "amount": 45.00, "type": "expense", "payee": "Internet Provider", "category": "Utilities", "account": checking},
-            # Expenses - Credit Card
-            {"date": days_ago(45), "amount": 127.50, "type": "expense", "payee": "Whole Foods", "category": "Food & Dining", "account": credit},
-            {"date": days_ago(38), "amount": 62.00, "type": "expense", "payee": "Shell Gas Station", "category": "Transport", "account": credit},
-            {"date": days_ago(30), "amount": 89.99, "type": "expense", "payee": "Amazon", "category": "Shopping", "account": credit},
-            {"date": days_ago(28), "amount": 35.00, "type": "expense", "payee": "Spotify + Netflix", "category": "Entertainment", "account": credit},
-            {"date": days_ago(20), "amount": 210.00, "type": "expense", "payee": "Trader Joe's", "category": "Food & Dining", "account": credit},
-            {"date": days_ago(15), "amount": 55.00, "type": "expense", "payee": "CVS Pharmacy", "category": "Healthcare", "account": credit},
-            {"date": days_ago(12), "amount": 145.00, "type": "expense", "payee": "Uber + Lyft", "category": "Transport", "account": credit},
-            {"date": days_ago(8), "amount": 320.00, "type": "expense", "payee": "Delta Airlines", "category": "Travel", "account": credit},
-            {"date": days_ago(5), "amount": 78.00, "type": "expense", "payee": "Target", "category": "Shopping", "account": credit},
+            {"date": d(58), "amount": 4200.00, "type": "income",   "payee": "SAP SE – Gehalt",             "cat": "Salary",           "acct": girokonto},
+            {"date": d(28), "amount": 4200.00, "type": "income",   "payee": "SAP SE – Gehalt",             "cat": "Salary",           "acct": girokonto},
+            {"date": d(42), "amount": 650.00,  "type": "income",   "payee": "Freelance Rechnung #2024-03", "cat": "Freelance",        "acct": girokonto},
+            {"date": d(14), "amount": 87.50,   "type": "income",   "payee": "Trade Republic Dividende",    "cat": "Investment Returns","acct": sparkasse},
+            # Housing
+            {"date": d(55), "amount": 1100.00, "type": "expense",  "payee": "Vermieter – Kaltmiete",       "cat": "Housing",          "acct": girokonto},
+            {"date": d(25), "amount": 1100.00, "type": "expense",  "payee": "Vermieter – Kaltmiete",       "cat": "Housing",          "acct": girokonto},
+            # Utilities
+            {"date": d(50), "amount": 94.00,   "type": "expense",  "payee": "Vattenfall Strom",            "cat": "Utilities",        "acct": girokonto},
+            {"date": d(20), "amount": 94.00,   "type": "expense",  "payee": "Vattenfall Strom",            "cat": "Utilities",        "acct": girokonto},
+            {"date": d(48), "amount": 39.99,   "type": "expense",  "payee": "Telekom Internet & Festnetz", "cat": "Utilities",        "acct": girokonto},
+            # Food & Dining (credit card)
+            {"date": d(45), "amount": 73.40,   "type": "expense",  "payee": "REWE Mitte",                  "cat": "Food & Dining",    "acct": kreditkarte},
+            {"date": d(32), "amount": 54.80,   "type": "expense",  "payee": "Aldi Süd",                    "cat": "Food & Dining",    "acct": kreditkarte},
+            {"date": d(18), "amount": 68.20,   "type": "expense",  "payee": "Lidl Prenzlauer Berg",        "cat": "Food & Dining",    "acct": kreditkarte},
+            {"date": d(8),  "amount": 42.50,   "type": "expense",  "payee": "Markthalle Neun",             "cat": "Food & Dining",    "acct": kreditkarte},
+            # Transport
+            {"date": d(55), "amount": 86.00,   "type": "expense",  "payee": "BVG Monatskarte",             "cat": "Transport",        "acct": kreditkarte},
+            {"date": d(25), "amount": 86.00,   "type": "expense",  "payee": "BVG Monatskarte",             "cat": "Transport",        "acct": kreditkarte},
+            # Entertainment
+            {"date": d(40), "amount": 17.99,   "type": "expense",  "payee": "Netflix",                     "cat": "Entertainment",    "acct": kreditkarte},
+            {"date": d(40), "amount": 10.99,   "type": "expense",  "payee": "Spotify",                     "cat": "Entertainment",    "acct": kreditkarte},
+            # Shopping
+            {"date": d(22), "amount": 89.95,   "type": "expense",  "payee": "Zalando",                     "cat": "Shopping",         "acct": kreditkarte},
             # Savings transfer
-            {"date": days_ago(35), "amount": 500.00, "type": "transfer", "payee": "Transfer to Savings", "category": None, "account": checking, "to_account": savings},
-            # Credit card payment (transfer)
-            {"date": days_ago(20), "amount": 400.00, "type": "transfer", "payee": "Credit Card Payment", "category": None, "account": checking, "to_account": credit},
+            {"date": d(35), "amount": 400.00,  "type": "transfer", "payee": "Überweisung Tagesgeld",       "cat": None,               "acct": girokonto, "to": sparkasse},
+            # Credit card payment
+            {"date": d(15), "amount": 350.00,  "type": "transfer", "payee": "Kreditkarte Abbuchung",       "cat": None,               "acct": girokonto, "to": kreditkarte},
         ]
 
-        for t_data in transactions_data:
+        for td in txns_data:
             t = Transaction(
                 id=str(uuid.uuid4()),
-                date=t_data["date"],
-                amount=t_data["amount"],
-                type=t_data["type"],
-                payee=t_data["payee"],
-                account_id=t_data["account"].id,
-                to_account_id=t_data.get("to_account", {}).id if t_data.get("to_account") else None,
-                category_id=cats[t_data["category"]].id if t_data.get("category") else None,
+                date=td["date"],
+                amount=td["amount"],
+                type=td["type"],
+                payee=td["payee"],
+                account_id=td["acct"].id,
+                to_account_id=td.get("to", None) and td["to"].id,
+                category_id=cats[td["cat"]].id if td.get("cat") else None,
             )
             db.add(t)
-
         db.flush()
 
         # Recalculate balances
         from routers.accounts import recalculate_balance
-        for acct in [checking, savings, credit]:
+        for acct in [girokonto, sparkasse, kreditkarte]:
             recalculate_balance(db, acct.id)
 
-        # Create 3 budgets for current month
+        # Budgets for current month
         current_month = today.strftime("%Y-%m")
-        budget_data = [
-            {"category": "Food & Dining", "amount": 500.00},
-            {"category": "Transport", "amount": 200.00},
-            {"category": "Shopping", "amount": 300.00},
-        ]
-        for b_data in budget_data:
-            b = Budget(
+        for cat_name, amount in [
+            ("Food & Dining", 350.00),
+            ("Transport",     150.00),
+            ("Shopping",      200.00),
+            ("Entertainment",  80.00),
+        ]:
+            db.add(Budget(
                 id=str(uuid.uuid4()),
-                category_id=cats[b_data["category"]].id,
-                amount=b_data["amount"],
+                category_id=cats[cat_name].id,
+                amount=amount,
                 month=current_month,
-            )
-            db.add(b)
+            ))
 
         db.commit()
         print("Database seeded successfully.")
     except Exception as e:
         db.rollback()
         print(f"Seeding error: {e}")
+        raise
     finally:
         db.close()

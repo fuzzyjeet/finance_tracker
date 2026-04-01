@@ -27,6 +27,14 @@ app.include_router(tags.router, prefix="/api/tags", tags=["tags"])
 
 @app.on_event("startup")
 async def startup():
+    # Runtime migration: add new columns if missing
+    from sqlalchemy import text, inspect as sa_inspect
+    with engine.connect() as conn:
+        inspector = sa_inspect(engine)
+        account_cols = [c["name"] for c in inspector.get_columns("accounts")]
+        if "currency" not in account_cols:
+            conn.execute(text("ALTER TABLE accounts ADD COLUMN currency VARCHAR NOT NULL DEFAULT 'EUR'"))
+            conn.commit()
     seed_data()
     start_scheduler()
 

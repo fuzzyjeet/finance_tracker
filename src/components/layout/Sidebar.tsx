@@ -25,7 +25,7 @@ export const Sidebar: React.FC = () => {
         <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
           <TrendingUp size={16} className="text-white" />
         </div>
-        <span className="text-white font-semibold text-base tracking-tight">FinanceTracker</span>
+        <span className="text-white font-semibold text-base tracking-tight">JeetMoney</span>
       </div>
 
       {/* Nav */}

@@ -49,6 +49,7 @@ def create_account(data: AccountCreate, db: Session = Depends(get_db)):
         balance=0.0,
         color=data.color,
         billing_cycle_day=data.billing_cycle_day,
+        currency=data.currency,
     )
     db.add(account)
     db.commit()

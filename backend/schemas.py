@@ -56,6 +56,7 @@ class AccountBase(BaseModel):
     type: str  # checking | savings | credit_card | cash | investment
     color: str = "#3b82f6"
     billing_cycle_day: Optional[int] = None
+    currency: str = "EUR"
 
 
 class AccountCreate(AccountBase):
@@ -67,6 +68,7 @@ class AccountUpdate(BaseModel):
     type: Optional[str] = None
     color: Optional[str] = None
     billing_cycle_day: Optional[int] = None
+    currency: Optional[str] = None
 
 
 class AccountRead(AccountBase):

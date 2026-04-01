@@ -32,6 +32,7 @@ class Account(Base):
     balance = Column(Float, default=0.0, nullable=False)
     color = Column(String, nullable=False, default="#3b82f6")
     billing_cycle_day = Column(Integer, nullable=True)
+    currency = Column(String, nullable=False, default="EUR", server_default="EUR")
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     transactions = relationship("Transaction", foreign_keys="Transaction.account_id", back_populates="account")

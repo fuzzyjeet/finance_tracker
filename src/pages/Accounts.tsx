@@ -8,10 +8,10 @@ import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { Badge } from '../components/ui/Badge';
 import { accountsApi } from '../api/accounts';
-import { Account, AccountType } from '../types';
+import { Account, AccountType, CURRENCY_OPTIONS } from '../types';
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+const formatAmount = (value: number, currency: string) =>
+  new Intl.NumberFormat('de-DE', { style: 'currency', currency }).format(value);
 
 const ACCOUNT_TYPE_OPTIONS = [
   { value: 'checking', label: 'Checking' },
@@ -40,6 +40,7 @@ interface AccountFormData {
   type: string;
   color: string;
   billing_cycle_day: string;
+  currency: string;
 }
 
 const emptyForm: AccountFormData = {
@@ -47,6 +48,7 @@ const emptyForm: AccountFormData = {
   type: 'checking',
   color: '#3b82f6',
   billing_cycle_day: '',
+  currency: 'EUR',
 };
 
 export const Accounts: React.FC = () => {
@@ -82,6 +84,7 @@ export const Accounts: React.FC = () => {
       type: account.type,
       color: account.color,
       billing_cycle_day: account.billing_cycle_day?.toString() ?? '',
+      currency: account.currency ?? 'EUR',
     });
     setModalOpen(true);
   };
@@ -94,6 +97,7 @@ export const Accounts: React.FC = () => {
         type: form.type as Account['type'],
         color: form.color,
         billing_cycle_day: form.billing_cycle_day ? parseInt(form.billing_cycle_day) : undefined,
+        currency: form.currency,
       };
       if (editing) {
         await accountsApi.update(editing.id, payload);
@@ -113,10 +117,6 @@ export const Accounts: React.FC = () => {
     await load();
   };
 
-  const totalBalance = accounts
-    .filter(a => a.type !== 'credit_card')
-    .reduce((sum, a) => sum + a.balance, 0);
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -129,7 +129,7 @@ export const Accounts: React.FC = () => {
     <div>
       <Header
         title="Accounts"
-        subtitle={`Total balance: ${formatCurrency(totalBalance)}`}
+        subtitle={`Total balance across non-credit accounts`}
         actions={<Button onClick={openCreate}><Plus size={16} /> Add Account</Button>}
       />
 
@@ -164,8 +164,9 @@ export const Accounts: React.FC = () => {
               <Badge color={account.color}>
                 {account.type.replace('_', ' ')}
               </Badge>
+              <span className="text-xs text-gray-400 font-medium">{account.currency}</span>
               {account.type === 'credit_card' && account.billing_cycle_day && (
-                <span className="text-xs text-gray-400">Closes day {account.billing_cycle_day}</span>
+                <span className="text-xs text-gray-400">· Closes day {account.billing_cycle_day}</span>
               )}
             </div>
 
@@ -174,7 +175,7 @@ export const Accounts: React.FC = () => {
                 account.balance < 0 ? 'text-red-600' : 'text-gray-900'
               }`}
             >
-              {formatCurrency(account.balance)}
+              {formatAmount(account.balance, account.currency)}
             </p>
           </Card>
         ))}
@@ -193,12 +194,20 @@ export const Accounts: React.FC = () => {
             onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
             placeholder="e.g. Chase Checking"
           />
-          <Select
-            label="Account Type"
-            value={form.type}
-            onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
-            options={ACCOUNT_TYPE_OPTIONS}
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <Select
+              label="Account Type"
+              value={form.type}
+              onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
+              options={ACCOUNT_TYPE_OPTIONS}
+            />
+            <Select
+              label="Currency"
+              value={form.currency}
+              onChange={e => setForm(f => ({ ...f, currency: e.target.value }))}
+              options={CURRENCY_OPTIONS.map(c => ({ value: c.value, label: c.label }))}
+            />
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
             <div className="flex flex-wrap gap-2">

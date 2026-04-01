@@ -2,52 +2,23 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownLeft, ArrowLeftRight } from 'lucide-react';
 import { Header } from '../components/layout/Header';
 import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { Select } from '../components/ui/Select';
 import { Modal } from '../components/ui/Modal';
 import { Badge } from '../components/ui/Badge';
-import { transactionsApi, TransactionPayload } from '../api/transactions';
+import { TransactionFormModal } from '../components/transactions/TransactionFormModal';
+import { transactionsApi } from '../api/transactions';
 import { accountsApi } from '../api/accounts';
 import { categoriesApi } from '../api/categories';
-import { tagsApi } from '../api/tags';
-import { Account, Category, Tag, Transaction } from '../types';
-
-const formatCurrency = (v: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v);
+import { Account, Category, Transaction } from '../types';
 
 const PAGE_SIZE = 20;
 
-interface TxnForm {
-  date: string;
-  billing_date: string;
-  amount: string;
-  type: string;
-  category_id: string;
-  account_id: string;
-  to_account_id: string;
-  payee: string;
-  notes: string;
-  tag_ids: string[];
-}
-
-const emptyForm = (): TxnForm => ({
-  date: new Date().toISOString().split('T')[0],
-  billing_date: '',
-  amount: '',
-  type: 'expense',
-  category_id: '',
-  account_id: '',
-  to_account_id: '',
-  payee: '',
-  notes: '',
-  tag_ids: [],
-});
+const formatCurrency = (v: number) =>
+  new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2 }).format(v);
 
 export const Transactions: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -63,19 +34,12 @@ export const Transactions: React.FC = () => {
   // Modal
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
-  const [form, setForm] = useState<TxnForm>(emptyForm());
-  const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const loadRefs = async () => {
-    const [accts, cats, tgs] = await Promise.all([
-      accountsApi.list(),
-      categoriesApi.list(),
-      tagsApi.list(),
-    ]);
+    const [accts, cats] = await Promise.all([accountsApi.list(), categoriesApi.list()]);
     setAccounts(accts);
     setCategories(cats);
-    setTags(tgs);
   };
 
   const load = useCallback(async (newOffset = 0) => {
@@ -107,55 +71,12 @@ export const Transactions: React.FC = () => {
     load(0);
   }, [load]);
 
-  const openCreate = () => {
-    setEditing(null);
-    setForm(emptyForm());
-    setModalOpen(true);
-  };
+  const openCreate = () => { setEditing(null); setModalOpen(true); };
+  const openEdit = (txn: Transaction) => { setEditing(txn); setModalOpen(true); };
 
-  const openEdit = (txn: Transaction) => {
-    setEditing(txn);
-    setForm({
-      date: txn.date,
-      billing_date: txn.billing_date ?? '',
-      amount: txn.amount.toString(),
-      type: txn.type,
-      category_id: txn.category_id ?? '',
-      account_id: txn.account_id,
-      to_account_id: txn.to_account_id ?? '',
-      payee: txn.payee,
-      notes: txn.notes ?? '',
-      tag_ids: txn.tags?.map(t => t.id) ?? [],
-    });
-    setModalOpen(true);
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const payload: TransactionPayload = {
-        date: form.date,
-        billing_date: form.billing_date || undefined,
-        amount: parseFloat(form.amount),
-        type: form.type,
-        category_id: form.category_id || undefined,
-        account_id: form.account_id,
-        to_account_id: form.to_account_id || undefined,
-        payee: form.payee,
-        notes: form.notes || undefined,
-        tag_ids: form.tag_ids,
-      };
-      if (editing) {
-        await transactionsApi.update(editing.id, payload);
-      } else {
-        await transactionsApi.create(payload);
-      }
-      setModalOpen(false);
-      await load(offset);
-      await loadRefs(); // refresh account balances
-    } finally {
-      setSaving(false);
-    }
+  const handleSaved = async () => {
+    await load(offset);
+    await loadRefs();
   };
 
   const handleDelete = async (id: string) => {
@@ -176,14 +97,6 @@ export const Transactions: React.FC = () => {
     setOffset(newOffset);
     load(newOffset);
   };
-
-  const filteredCategories = categories.filter(c => {
-    if (form.type === 'income') return c.type === 'income' || c.type === 'both';
-    if (form.type === 'expense') return c.type === 'expense' || c.type === 'both';
-    return false;
-  });
-
-  const selectedAccount = accounts.find(a => a.id === form.account_id);
 
   return (
     <div>
@@ -358,136 +271,12 @@ export const Transactions: React.FC = () => {
         </div>
       </div>
 
-      {/* Add/Edit Modal */}
-      <Modal
+      <TransactionFormModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editing ? 'Edit Transaction' : 'Add Transaction'}
-        size="lg"
-      >
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Date"
-              type="date"
-              value={form.date}
-              onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-            />
-            <Select
-              label="Type"
-              value={form.type}
-              onChange={e => setForm(f => ({ ...f, type: e.target.value, category_id: '', to_account_id: '' }))}
-              options={[
-                { value: 'income', label: 'Income' },
-                { value: 'expense', label: 'Expense' },
-                { value: 'transfer', label: 'Transfer' },
-              ]}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Amount"
-              type="number"
-              min={0}
-              step="0.01"
-              value={form.amount}
-              onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
-              placeholder="0.00"
-            />
-            <Input
-              label="Payee"
-              value={form.payee}
-              onChange={e => setForm(f => ({ ...f, payee: e.target.value }))}
-              placeholder="e.g. Whole Foods"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Select
-              label="Account"
-              value={form.account_id}
-              onChange={e => setForm(f => ({ ...f, account_id: e.target.value }))}
-              options={accounts.map(a => ({ value: a.id, label: a.name }))}
-              placeholder="Select account"
-            />
-            {form.type === 'transfer' ? (
-              <Select
-                label="To Account"
-                value={form.to_account_id}
-                onChange={e => setForm(f => ({ ...f, to_account_id: e.target.value }))}
-                options={accounts.filter(a => a.id !== form.account_id).map(a => ({ value: a.id, label: a.name }))}
-                placeholder="Select account"
-              />
-            ) : (
-              <Select
-                label="Category"
-                value={form.category_id}
-                onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}
-                options={filteredCategories.map(c => ({ value: c.id, label: `${c.icon} ${c.name}` }))}
-                placeholder="Select category"
-              />
-            )}
-          </div>
-
-          {selectedAccount?.type === 'credit_card' && (
-            <Input
-              label="Billing Date (optional)"
-              type="date"
-              value={form.billing_date}
-              onChange={e => setForm(f => ({ ...f, billing_date: e.target.value }))}
-              hint="The billing date for credit card transactions"
-            />
-          )}
-
-          <Input
-            label="Notes (optional)"
-            value={form.notes}
-            onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-            placeholder="Add a note..."
-          />
-
-          {tags.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
-              <div className="flex flex-wrap gap-2">
-                {tags.map(tag => (
-                  <button
-                    key={tag.id}
-                    type="button"
-                    onClick={() => setForm(f => ({
-                      ...f,
-                      tag_ids: f.tag_ids.includes(tag.id)
-                        ? f.tag_ids.filter(id => id !== tag.id)
-                        : [...f.tag_ids, tag.id],
-                    }))}
-                    className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all border-2 ${
-                      form.tag_ids.includes(tag.id) ? 'border-current opacity-100' : 'border-transparent opacity-60'
-                    }`}
-                    style={{
-                      backgroundColor: `${tag.color}22`,
-                      color: tag.color,
-                    }}
-                  >
-                    {tag.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button
-              onClick={handleSave}
-              loading={saving}
-              disabled={!form.amount || !form.account_id || !form.payee}
-            >
-              {editing ? 'Save Changes' : 'Add Transaction'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        onSaved={handleSaved}
+        editing={editing}
+      />
 
       {/* Delete Confirm */}
       <Modal

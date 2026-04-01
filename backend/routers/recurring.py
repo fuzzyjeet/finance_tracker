@@ -54,6 +54,34 @@ def list_recurring(db: Session = Depends(get_db)):
     return [RecurringTransactionRead.model_validate(build_recurring_read(r)) for r in items]
 
 
+def _post_recurring_now(db: Session, r: RecurringTransaction):
+    """Post a recurring transaction immediately and advance next_due_date."""
+    from services.scheduler import advance_next_due_date
+    txn = Transaction(
+        id=str(uuid.uuid4()),
+        date=r.next_due_date,
+        amount=r.amount,
+        type=r.type,
+        category_id=r.category_id,
+        account_id=r.account_id,
+        to_account_id=r.to_account_id,
+        payee=r.payee,
+        notes=r.notes,
+        recurring_id=r.id,
+    )
+    db.add(txn)
+    next_due = advance_next_due_date(r, date.fromisoformat(r.next_due_date))
+    if r.end_date and next_due.isoformat() > r.end_date:
+        r.is_active = False
+    else:
+        r.next_due_date = next_due.isoformat()
+    db.commit()
+    recalculate_balance(db, r.account_id)
+    if r.to_account_id:
+        recalculate_balance(db, r.to_account_id)
+    db.commit()
+
+
 @router.post("", response_model=RecurringTransactionRead)
 def create_recurring(data: RecurringTransactionCreate, db: Session = Depends(get_db)):
     tag_ids = data.tag_ids or []
@@ -81,6 +109,10 @@ def create_recurring(data: RecurringTransactionCreate, db: Session = Depends(get
     db.add(r)
     db.commit()
     db.refresh(r)
+    # If auto_post and due today or in the past, post immediately
+    if r.auto_post and r.is_active and r.next_due_date <= date.today().isoformat():
+        _post_recurring_now(db, r)
+        db.refresh(r)
     return RecurringTransactionRead.model_validate(build_recurring_read(r))
 
 
@@ -125,38 +157,9 @@ def delete_recurring(recurring_id: str, db: Session = Depends(get_db)):
 
 @router.post("/{recurring_id}/post-now", response_model=RecurringTransactionRead)
 def post_now(recurring_id: str, db: Session = Depends(get_db)):
-    from services.scheduler import advance_next_due_date
     r = db.query(RecurringTransaction).filter(RecurringTransaction.id == recurring_id).first()
     if not r:
         raise HTTPException(status_code=404, detail="Recurring transaction not found")
-
-    txn = Transaction(
-        id=str(uuid.uuid4()),
-        date=r.next_due_date,
-        amount=r.amount,
-        type=r.type,
-        category_id=r.category_id,
-        account_id=r.account_id,
-        to_account_id=r.to_account_id,
-        payee=r.payee,
-        notes=r.notes,
-        recurring_id=r.id,
-    )
-    db.add(txn)
-
-    next_due = advance_next_due_date(r, date.fromisoformat(r.next_due_date))
-    if r.end_date and next_due.isoformat() > r.end_date:
-        r.is_active = False
-    else:
-        r.next_due_date = next_due.isoformat()
-
-    db.commit()
+    _post_recurring_now(db, r)
     db.refresh(r)
-
-    recalculate_balance(db, r.account_id)
-    if r.to_account_id:
-        recalculate_balance(db, r.to_account_id)
-    db.commit()
-    db.refresh(r)
-
     return RecurringTransactionRead.model_validate(build_recurring_read(r))
