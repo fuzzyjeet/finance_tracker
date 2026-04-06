@@ -195,7 +195,7 @@ export const Recurring: React.FC = () => {
   });
 
   const typeColor = (type: string) =>
-    type === 'income' ? '#22c55e' : type === 'expense' ? '#ef4444' : '#3b82f6';
+    type === 'income' ? '#4edea3' : type === 'expense' ? '#ffb4ab' : '#8ed5ff';
 
   return (
     <div>
@@ -209,31 +209,31 @@ export const Recurring: React.FC = () => {
       {pending.length > 0 && (
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
-            <Clock size={16} className="text-amber-500" />
-            <h2 className="text-sm font-semibold text-gray-700">Pending Approval ({pending.length})</h2>
+            <Clock size={16} className="text-yellow-400" />
+            <h2 className="text-xs font-semibold text-yellow-400 uppercase tracking-widest">Pending Approval ({pending.length})</h2>
           </div>
           <div className="space-y-2">
             {pending.map(item => (
               <div
                 key={item.id}
-                className="flex items-center justify-between px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl"
+                className="flex items-center justify-between px-4 py-3 bg-surface-container border border-yellow-500/20 rounded-xl"
               >
                 <div className="flex items-center gap-3">
                   <div
                     className="w-8 h-8 rounded-lg flex items-center justify-center text-base"
-                    style={{ backgroundColor: item.category ? `${item.category.color}22` : '#f3f4f6' }}
+                    style={{ backgroundColor: item.category ? `${item.category.color}22` : 'rgba(255,255,255,0.05)' }}
                   >
                     {item.category?.icon ?? '💸'}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{item.name}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm font-medium text-on-surface">{item.name}</p>
+                    <p className="text-xs text-slate-500">
                       Due {item.next_due_date} · {item.account_name}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold" style={{ color: typeColor(item.type) }}>
+                  <span className="font-headline text-sm font-bold" style={{ color: typeColor(item.type) }}>
                     {formatCurrency(item.amount)}
                   </span>
                   <Button
@@ -253,73 +253,73 @@ export const Recurring: React.FC = () => {
       {/* All Recurring */}
       {loading ? (
         <div className="flex items-center justify-center h-40">
-          <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
         </div>
       ) : items.length === 0 ? (
         <div className="text-center py-16">
-          <RefreshCw size={32} className="mx-auto text-gray-300 mb-3" />
-          <p className="text-gray-400 text-sm mb-3">No recurring transactions yet</p>
+          <RefreshCw size={32} className="mx-auto text-slate-500 mb-3" />
+          <p className="text-slate-500 text-sm mb-3">No recurring transactions yet</p>
           <Button onClick={openCreate}><Plus size={16} /> Add Recurring</Button>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-surface-container-low rounded-xl border border-white/5 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Frequency</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Account</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Next Due</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Auto Post</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
-                <th className="text-right px-4 py-3 font-medium text-gray-600">Amount</th>
+              <tr className="border-b border-white/5 bg-white/5">
+                <th className="text-left px-4 py-3 text-[10px] font-medium text-slate-500 uppercase tracking-widest">Name</th>
+                <th className="text-left px-4 py-3 text-[10px] font-medium text-slate-500 uppercase tracking-widest">Frequency</th>
+                <th className="text-left px-4 py-3 text-[10px] font-medium text-slate-500 uppercase tracking-widest">Account</th>
+                <th className="text-left px-4 py-3 text-[10px] font-medium text-slate-500 uppercase tracking-widest">Next Due</th>
+                <th className="text-left px-4 py-3 text-[10px] font-medium text-slate-500 uppercase tracking-widest">Auto Post</th>
+                <th className="text-left px-4 py-3 text-[10px] font-medium text-slate-500 uppercase tracking-widest">Status</th>
+                <th className="text-right px-4 py-3 text-[10px] font-medium text-slate-500 uppercase tracking-widest">Amount</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-white/5">
               {items.map(item => (
-                <tr key={item.id} className={`hover:bg-gray-50 transition-colors ${!item.is_active ? 'opacity-50' : ''}`}>
+                <tr key={item.id} className={`hover:bg-white/5 transition-colors ${!item.is_active ? 'opacity-40' : ''}`}>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       <div
                         className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"
-                        style={{ backgroundColor: item.category ? `${item.category.color}22` : '#f3f4f6' }}
+                        style={{ backgroundColor: item.category ? `${item.category.color}22` : 'rgba(255,255,255,0.05)' }}
                       >
                         {item.category?.icon ?? '💸'}
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{item.name}</p>
-                        <p className="text-xs text-gray-400">{item.payee}</p>
+                        <p className="font-medium text-on-surface">{item.name}</p>
+                        <p className="text-xs text-slate-500">{item.payee}</p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="px-4 py-3 text-on-surface-variant">
                     {FREQUENCY_LABELS[item.frequency]}
                     {item.frequency === 'custom' && item.custom_interval_days && (
-                      <span className="text-gray-400"> ({item.custom_interval_days}d)</span>
+                      <span className="text-slate-500"> ({item.custom_interval_days}d)</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{item.account_name}</td>
-                  <td className="px-4 py-3 text-gray-600">{item.next_due_date}</td>
+                  <td className="px-4 py-3 text-on-surface-variant">{item.account_name}</td>
+                  <td className="px-4 py-3 text-on-surface-variant">{item.next_due_date}</td>
                   <td className="px-4 py-3">
-                    <Badge color={item.auto_post ? '#22c55e' : '#f59e0b'}>
+                    <Badge color={item.auto_post ? '#4edea3' : '#f59e0b'}>
                       {item.auto_post ? 'Auto' : 'Manual'}
                     </Badge>
                   </td>
                   <td className="px-4 py-3">
                     <button
                       onClick={() => handleToggleActive(item)}
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-tight transition-colors ${
                         item.is_active
-                          ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                          ? 'bg-secondary/10 text-secondary hover:bg-secondary/20'
+                          : 'bg-surface-container-highest text-slate-500 hover:bg-white/10'
                       }`}
                     >
                       {item.is_active ? 'Active' : 'Inactive'}
                     </button>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <span className="font-semibold" style={{ color: typeColor(item.type) }}>
+                    <span className="font-headline font-bold" style={{ color: typeColor(item.type) }}>
                       {formatCurrency(item.amount)}
                     </span>
                   </td>
@@ -327,13 +327,13 @@ export const Recurring: React.FC = () => {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => openEdit(item)}
-                        className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                        className="p-1 text-slate-500 hover:text-on-surface hover:bg-white/10 rounded transition-colors"
                       >
                         <Pencil size={14} />
                       </button>
                       <button
                         onClick={() => setDeleteConfirm(item.id)}
-                        className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        className="p-1 text-slate-500 hover:text-error hover:bg-error/10 rounded transition-colors"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -466,24 +466,24 @@ export const Recurring: React.FC = () => {
                 type="checkbox"
                 checked={form.auto_post}
                 onChange={e => setForm(f => ({ ...f, auto_post: e.target.checked }))}
-                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                className="w-4 h-4 rounded border-white/20 bg-surface-container-highest text-primary-container focus:ring-primary/50"
               />
-              <span className="text-sm text-gray-700">Auto-post on due date</span>
+              <span className="text-sm text-on-surface-variant">Auto-post on due date</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={form.is_active}
                 onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))}
-                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                className="w-4 h-4 rounded border-white/20 bg-surface-container-highest text-primary-container focus:ring-primary/50"
               />
-              <span className="text-sm text-gray-700">Active</span>
+              <span className="text-sm text-on-surface-variant">Active</span>
             </label>
           </div>
 
           {tags.length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+              <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-widest mb-2">Tags</label>
               <div className="flex flex-wrap gap-2">
                 {tags.map(tag => (
                   <button
@@ -496,7 +496,7 @@ export const Recurring: React.FC = () => {
                         : [...f.tag_ids, tag.id],
                     }))}
                     className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all border-2 ${
-                      form.tag_ids.includes(tag.id) ? 'border-current opacity-100' : 'border-transparent opacity-60'
+                      form.tag_ids.includes(tag.id) ? 'border-current opacity-100' : 'border-transparent opacity-40'
                     }`}
                     style={{ backgroundColor: `${tag.color}22`, color: tag.color }}
                   >
@@ -527,7 +527,7 @@ export const Recurring: React.FC = () => {
         title="Delete Recurring Transaction"
         size="sm"
       >
-        <p className="text-sm text-gray-600 mb-4">
+        <p className="text-sm text-on-surface-variant mb-4">
           Are you sure? This won't delete already-posted transactions.
         </p>
         <div className="flex justify-end gap-2">

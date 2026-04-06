@@ -161,7 +161,6 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
 
   const toggleSplitMode = () => {
     if (!splitMode) {
-      // Enter split mode: pre-fill first split with current amount & category
       setSplits([
         { amount: totalAmount, category_id: form.category_id, notes: '', project_ids: [] },
         { amount: 0, category_id: '', notes: '', project_ids: [] },
@@ -197,6 +196,8 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
   const selectedAccount = accounts.find(a => a.id === form.account_id);
   const canSave = !!form.amount && !!form.account_id && !!form.payee &&
     (!splitMode || splitBalanced);
+
+  const splitInputCls = "w-full px-2 py-1.5 text-sm border border-white/10 rounded-lg bg-surface-container-highest text-on-surface placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-primary/50";
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={editing ? 'Edit Transaction' : 'Add Transaction'} size="lg">
@@ -240,7 +241,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               placeholder="Select category" />
           ) : (
             <div className="flex flex-col justify-end">
-              <div className="h-[38px] flex items-center px-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700 font-medium">
+              <div className="h-[38px] flex items-center px-3 bg-primary/5 border border-primary/20 rounded-lg text-xs text-primary font-medium">
                 Categories set per split below
               </div>
             </div>
@@ -257,17 +258,17 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
         <Input label="Notes (optional)" value={form.notes}
           onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Add a note..." />
 
-        {/* ── Split Section ────────────────────────────────────────── */}
+        {/* Split Section */}
         {form.type !== 'transfer' && (
-          <div className={`rounded-xl border transition-colors ${splitMode ? 'border-blue-200 bg-blue-50/40' : 'border-transparent'}`}>
+          <div className={`rounded-xl border transition-colors ${splitMode ? 'border-primary/20 bg-primary/5' : 'border-transparent'}`}>
             {/* Toggle */}
             <button
               type="button"
               onClick={toggleSplitMode}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors w-full ${
                 splitMode
-                  ? 'text-blue-700 hover:text-blue-800'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                  ? 'text-primary hover:text-primary'
+                  : 'text-slate-500 hover:text-on-surface-variant hover:bg-white/5'
               }`}
             >
               <Split size={14} />
@@ -277,7 +278,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
             {splitMode && (
               <div className="px-3 pb-3 space-y-3">
                 {splits.map((split, i) => (
-                  <div key={i} className="space-y-1.5 pb-2 border-b border-blue-100 last:border-0">
+                  <div key={i} className="space-y-1.5 pb-2 border-b border-primary/10 last:border-0">
                     <div className="flex items-start gap-2">
                       <div className="w-28 shrink-0">
                         <input
@@ -287,14 +288,14 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                           value={split.amount || ''}
                           onChange={e => updateSplit(i, 'amount', parseFloat(e.target.value) || 0)}
                           placeholder="0.00"
-                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className={splitInputCls}
                         />
                       </div>
                       <div className="flex-1">
                         <select
                           value={split.category_id}
                           onChange={e => updateSplit(i, 'category_id', e.target.value)}
-                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                          className={splitInputCls}
                         >
                           <option value="">No category</option>
                           {filteredCategories().map(c => (
@@ -308,12 +309,12 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                           value={split.notes ?? ''}
                           onChange={e => updateSplit(i, 'notes', e.target.value)}
                           placeholder="Note (optional)"
-                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className={splitInputCls}
                         />
                       </div>
                       {splits.length > 2 && (
                         <button type="button" onClick={() => removeSplit(i)}
-                          className="mt-1 p-1 text-gray-400 hover:text-red-500 transition-colors">
+                          className="mt-1 p-1 text-slate-500 hover:text-error transition-colors">
                           <X size={15} />
                         </button>
                       )}
@@ -341,15 +342,15 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                 {/* Running total */}
                 <div className="flex items-center justify-between pt-1">
                   <button type="button" onClick={addSplit}
-                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium">
+                    className="flex items-center gap-1 text-xs text-primary hover:text-primary font-medium">
                     <Plus size={12} /> Add split
                   </button>
-                  <div className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                  <div className={`text-xs font-bold px-2 py-0.5 rounded-full uppercase tracking-tight ${
                     splitBalanced
-                      ? 'bg-green-100 text-green-700'
+                      ? 'bg-secondary/10 text-secondary'
                       : remaining > 0
-                      ? 'bg-amber-100 text-amber-700'
-                      : 'bg-red-100 text-red-700'
+                      ? 'bg-yellow-500/10 text-yellow-400'
+                      : 'bg-error/10 text-error'
                   }`}>
                     {splitBalanced
                       ? `✓ ${allocatedAmount.toFixed(2)} balanced`
@@ -366,35 +367,35 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
         {/* Tags */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-sm font-medium text-gray-700">Tags</label>
+            <label className="text-xs font-medium text-on-surface-variant uppercase tracking-widest">Tags</label>
             <button type="button" onClick={() => setShowTagInput(v => !v)}
-              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700">
+              className="flex items-center gap-1 text-xs text-primary hover:text-primary">
               <Plus size={12} /> New tag
             </button>
           </div>
           {showTagInput && (
-            <div className="flex items-center gap-2 mb-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="flex items-center gap-2 mb-2 p-2 bg-surface-container-highest rounded-lg border border-white/10">
               <input value={newTagName} onChange={e => setNewTagName(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleCreateTag()}
                 placeholder="Tag name" autoFocus
-                className="flex-1 text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                className="flex-1 text-sm border border-white/10 rounded px-2 py-1 bg-surface-container text-on-surface placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-primary/50" />
               <div className="flex gap-1">
                 {TAG_COLORS.map(c => (
                   <button key={c} type="button" onClick={() => setNewTagColor(c)}
-                    className={`w-5 h-5 rounded-full border-2 ${newTagColor === c ? 'border-gray-700' : 'border-transparent'}`}
+                    className={`w-5 h-5 rounded-full border-2 ${newTagColor === c ? 'border-white' : 'border-transparent'}`}
                     style={{ backgroundColor: c }} />
                 ))}
               </div>
               <button type="button" onClick={handleCreateTag} disabled={!newTagName.trim()}
-                className="text-xs bg-blue-600 text-white px-2 py-1 rounded disabled:opacity-40">Add</button>
+                className="text-xs bg-primary-container text-on-primary-container px-2 py-1 rounded font-bold disabled:opacity-40">Add</button>
               <button type="button" onClick={() => setShowTagInput(false)}>
-                <X size={14} className="text-gray-400" />
+                <X size={14} className="text-slate-500" />
               </button>
             </div>
           )}
           <div className="flex flex-wrap gap-1.5 min-h-[32px]">
             {tags.length === 0 && !showTagInput && (
-              <span className="text-xs text-gray-400 self-center">No tags yet — create one above</span>
+              <span className="text-xs text-slate-500 self-center">No tags yet — create one above</span>
             )}
             {tags.map(tag => (
               <button key={tag.id} type="button"
@@ -417,7 +418,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
         {/* Projects (non-split) */}
         {form.type !== 'transfer' && !splitMode && projects.length > 0 && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Projects</label>
+            <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-widest mb-1.5">Projects</label>
             <div className="flex flex-wrap gap-1.5">
               {projects.map(p => {
                 const active = form.project_ids.includes(p.id);

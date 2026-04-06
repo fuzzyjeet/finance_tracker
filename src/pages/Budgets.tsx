@@ -96,7 +96,6 @@ export const Budgets: React.FC = () => {
   const totalBudgeted = budgets.reduce((s, b) => s + b.amount, 0);
   const totalSpent = budgets.reduce((s, b) => s + (b.spent ?? 0), 0);
 
-  // Categories that don't already have a budget this month
   const usedCategoryIds = new Set(budgets.map(b => b.category_id));
   const availableCategories = categories.filter(
     c => !usedCategoryIds.has(c.id) || (editing && c.id === editing.category_id)
@@ -114,16 +113,16 @@ export const Budgets: React.FC = () => {
       <div className="flex items-center gap-3 mb-6">
         <button
           onClick={() => setCurrentDate(d => subMonths(d, 1))}
-          className="p-2 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+          className="p-2 rounded-lg border border-white/10 hover:bg-white/5 text-on-surface-variant transition-colors"
         >
           <ChevronLeft size={16} />
         </button>
-        <span className="text-base font-semibold text-gray-900 min-w-[140px] text-center">
+        <span className="font-headline text-base font-semibold text-white min-w-[140px] text-center">
           {format(currentDate, 'MMMM yyyy')}
         </span>
         <button
           onClick={() => setCurrentDate(d => addMonths(d, 1))}
-          className="p-2 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+          className="p-2 rounded-lg border border-white/10 hover:bg-white/5 text-on-surface-variant transition-colors"
         >
           <ChevronRight size={16} />
         </button>
@@ -132,7 +131,7 @@ export const Budgets: React.FC = () => {
       {/* Project filter */}
       {projects.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 mb-4">
-          <span className="text-xs text-gray-500 font-medium">Exclude projects:</span>
+          <span className="text-[10px] text-slate-500 font-medium uppercase tracking-widest">Exclude projects:</span>
           {projects.map(p => {
             const excluded = excludedProjectIds.includes(p.id);
             return (
@@ -154,7 +153,7 @@ export const Budgets: React.FC = () => {
           {excludedProjectIds.length > 0 && (
             <button
               onClick={() => setExcludedProjectIds([])}
-              className="text-xs text-gray-400 hover:text-gray-600 underline"
+              className="text-xs text-slate-500 hover:text-on-surface-variant underline"
             >
               Clear
             </button>
@@ -166,19 +165,19 @@ export const Budgets: React.FC = () => {
       {budgets.length > 0 && (
         <Card className="mb-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">Overall Budget</span>
-            <span className="text-sm text-gray-500">
+            <span className="text-xs font-medium text-on-surface-variant uppercase tracking-widest">Overall Budget</span>
+            <span className="text-xs text-slate-500">
               {formatCurrency(totalSpent)} / {formatCurrency(totalBudgeted)}
             </span>
           </div>
-          <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+          <div className="h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all ${
                 totalBudgeted > 0 && totalSpent / totalBudgeted > 1
-                  ? 'bg-red-500'
+                  ? 'bg-error'
                   : totalBudgeted > 0 && totalSpent / totalBudgeted > 0.75
-                  ? 'bg-yellow-500'
-                  : 'bg-blue-500'
+                  ? 'bg-yellow-400'
+                  : 'bg-primary'
               }`}
               style={{ width: `${Math.min(100, totalBudgeted > 0 ? (totalSpent / totalBudgeted) * 100 : 0)}%` }}
             />
@@ -188,11 +187,11 @@ export const Budgets: React.FC = () => {
 
       {loading ? (
         <div className="flex items-center justify-center h-40">
-          <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
         </div>
       ) : budgets.length === 0 ? (
         <div className="text-center py-16">
-          <p className="text-gray-400 text-sm mb-3">No budgets for this month</p>
+          <p className="text-slate-500 text-sm mb-3">No budgets for this month</p>
           <Button onClick={openCreate}><Plus size={16} /> Add Budget</Button>
         </div>
       ) : (
@@ -202,8 +201,8 @@ export const Budgets: React.FC = () => {
             const pct = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
             const over = pct > 100;
             const warning = pct > 75 && pct <= 100;
-            const barColor = over ? 'bg-red-500' : warning ? 'bg-yellow-500' : 'bg-green-500';
-            const textColor = over ? 'text-red-600' : warning ? 'text-yellow-600' : 'text-green-600';
+            const barColor = over ? 'bg-error' : warning ? 'bg-yellow-400' : 'bg-secondary';
+            const textColor = over ? 'text-error' : warning ? 'text-yellow-400' : 'text-secondary';
 
             return (
               <Card key={budget.id} className="relative group">
@@ -211,12 +210,12 @@ export const Budgets: React.FC = () => {
                   <div className="flex items-center gap-2.5">
                     <div
                       className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-                      style={{ backgroundColor: budget.category ? `${budget.category.color}22` : '#f3f4f6' }}
+                      style={{ backgroundColor: budget.category ? `${budget.category.color}22` : 'rgba(255,255,255,0.05)' }}
                     >
                       {budget.category?.icon ?? '📦'}
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900 text-sm">
+                      <p className="font-headline font-semibold text-white text-sm">
                         {budget.category?.name ?? 'Unknown'}
                       </p>
                       <p className={`text-xs font-medium ${textColor}`}>
@@ -228,21 +227,21 @@ export const Budgets: React.FC = () => {
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => openEdit(budget)}
-                      className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                      className="p-1.5 text-slate-500 hover:text-on-surface hover:bg-white/10 rounded-lg transition-colors"
                     >
                       <Pencil size={14} />
                     </button>
                     <button
                       onClick={() => setDeleteConfirm(budget.id)}
-                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      className="p-1.5 text-slate-500 hover:text-error hover:bg-error/10 rounded-lg transition-colors"
                     >
                       <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
 
-                <div className="mb-2">
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div className="mb-3">
+                  <div className="h-1 bg-surface-container-highest rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all ${barColor}`}
                       style={{ width: `${Math.min(100, pct)}%` }}
@@ -251,21 +250,21 @@ export const Budgets: React.FC = () => {
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">
-                    Spent: <span className="font-medium text-gray-900">{formatCurrency(spent)}</span>
+                  <span className="text-slate-500">
+                    Spent: <span className="font-medium text-on-surface">{formatCurrency(spent)}</span>
                   </span>
-                  <span className="text-gray-500">
-                    Budget: <span className="font-medium text-gray-900">{formatCurrency(budget.amount)}</span>
+                  <span className="text-slate-500">
+                    Budget: <span className="font-medium text-on-surface">{formatCurrency(budget.amount)}</span>
                   </span>
                 </div>
 
                 {over && (
-                  <div className="mt-2 px-2 py-1 bg-red-50 rounded-lg text-xs text-red-600 font-medium">
+                  <div className="mt-2 px-2 py-1 bg-error/10 rounded-lg text-xs text-error font-medium">
                     Over by {formatCurrency(spent - budget.amount)}
                   </div>
                 )}
                 {!over && (
-                  <div className="mt-2 text-xs text-gray-400">
+                  <div className="mt-2 text-xs text-slate-500">
                     {formatCurrency(budget.amount - spent)} remaining
                   </div>
                 )}
@@ -294,10 +293,10 @@ export const Budgets: React.FC = () => {
           )}
           {editing && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-              <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+              <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-widest mb-1">Category</label>
+              <div className="flex items-center gap-2 px-3 py-2 bg-surface-container-highest border border-white/10 rounded-lg">
                 <span>{editing.category?.icon}</span>
-                <span className="text-sm text-gray-900">{editing.category?.name}</span>
+                <span className="text-sm text-on-surface">{editing.category?.name}</span>
               </div>
             </div>
           )}
@@ -330,7 +329,7 @@ export const Budgets: React.FC = () => {
         title="Delete Budget"
         size="sm"
       >
-        <p className="text-sm text-gray-600 mb-4">
+        <p className="text-sm text-on-surface-variant mb-4">
           Are you sure you want to delete this budget?
         </p>
         <div className="flex justify-end gap-2">

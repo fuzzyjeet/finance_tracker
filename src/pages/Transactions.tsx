@@ -102,6 +102,8 @@ export const Transactions: React.FC = () => {
     load(newOffset);
   };
 
+  const inputCls = "text-sm border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary/50 bg-surface-container-highest text-on-surface placeholder-slate-500";
+
   return (
     <div>
       <Header
@@ -110,21 +112,21 @@ export const Transactions: React.FC = () => {
       />
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-4">
+      <div className="bg-surface-container-low rounded-xl border border-white/5 p-4 mb-4">
         <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
           <div className="relative lg:col-span-2">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
             <input
               value={filterSearch}
               onChange={e => setFilterSearch(e.target.value)}
               placeholder="Search payee..."
-              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`w-full pl-9 pr-3 ${inputCls}`}
             />
           </div>
           <select
             value={filterAccount}
             onChange={e => setFilterAccount(e.target.value)}
-            className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            className={inputCls}
           >
             <option value="">All Accounts</option>
             {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -132,7 +134,7 @@ export const Transactions: React.FC = () => {
           <select
             value={filterCategory}
             onChange={e => setFilterCategory(e.target.value)}
-            className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            className={inputCls}
           >
             <option value="">All Categories</option>
             {categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
@@ -140,7 +142,7 @@ export const Transactions: React.FC = () => {
           <select
             value={filterType}
             onChange={e => setFilterType(e.target.value)}
-            className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            className={inputCls}
           >
             <option value="">All Types</option>
             <option value="income">Income</option>
@@ -152,14 +154,14 @@ export const Transactions: React.FC = () => {
               type="date"
               value={filterFrom}
               onChange={e => setFilterFrom(e.target.value)}
-              className="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`flex-1 ${inputCls}`}
               title="From date"
             />
             <input
               type="date"
               value={filterTo}
               onChange={e => setFilterTo(e.target.value)}
-              className="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`flex-1 ${inputCls}`}
               title="To date"
             />
           </div>
@@ -167,49 +169,49 @@ export const Transactions: React.FC = () => {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-surface-container-low rounded-xl border border-white/5 overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center h-40">
-            <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+            <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
           </div>
         ) : transactions.length === 0 ? (
-          <div className="text-center py-12 text-gray-400 text-sm">No transactions found</div>
+          <div className="text-center py-12 text-slate-500 text-sm">No transactions found</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Date</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Payee</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Category</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Account</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Tags</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-600">Amount</th>
+                <tr className="border-b border-white/5 bg-white/5">
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-slate-500 uppercase tracking-widest">Date</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-slate-500 uppercase tracking-widest">Payee</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-slate-500 uppercase tracking-widest">Category</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-slate-500 uppercase tracking-widest">Account</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-slate-500 uppercase tracking-widest">Tags</th>
+                  <th className="text-right px-4 py-3 text-[10px] font-medium text-slate-500 uppercase tracking-widest">Amount</th>
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-white/5">
                 {transactions.map(txn => {
                   const hasSplits = txn.splits && txn.splits.length > 0;
                   const isExpanded = expandedSplits.has(txn.id);
                   return (
                   <React.Fragment key={txn.id}>
-                  <tr className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
+                  <tr className="hover:bg-white/5 transition-colors">
+                    <td className="px-4 py-3 text-on-surface-variant whitespace-nowrap">
                       <div>{txn.date}</div>
                       {txn.billing_date && (
-                        <div className="text-xs text-gray-400">Bill: {txn.billing_date}</div>
+                        <div className="text-xs text-slate-500">Bill: {txn.billing_date}</div>
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{txn.payee}</div>
-                      {txn.notes && <div className="text-xs text-gray-400 truncate max-w-[200px]">{txn.notes}</div>}
+                      <div className="font-medium text-on-surface">{txn.payee}</div>
+                      {txn.notes && <div className="text-xs text-slate-500 truncate max-w-[200px]">{txn.notes}</div>}
                     </td>
                     <td className="px-4 py-3">
                       {hasSplits ? (
                         <button
                           onClick={() => toggleSplits(txn.id)}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium hover:bg-purple-200 transition-colors"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium hover:bg-primary/20 transition-colors"
                         >
                           {isExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
                           {txn.splits!.length} splits
@@ -217,16 +219,16 @@ export const Transactions: React.FC = () => {
                       ) : txn.category ? (
                         <span className="inline-flex items-center gap-1.5 text-sm">
                           <span>{txn.category.icon}</span>
-                          <span className="text-gray-700">{txn.category.name}</span>
+                          <span className="text-on-surface-variant">{txn.category.name}</span>
                         </span>
                       ) : (
-                        <span className="text-gray-400">—</span>
+                        <span className="text-slate-500">—</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="text-gray-700">{txn.account_name}</div>
+                      <div className="text-on-surface-variant">{txn.account_name}</div>
                       {txn.to_account_name && (
-                        <div className="text-xs text-gray-400">→ {txn.to_account_name}</div>
+                        <div className="text-xs text-slate-500">→ {txn.to_account_name}</div>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -237,9 +239,9 @@ export const Transactions: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <div className={`flex items-center justify-end gap-1 font-semibold ${
-                        txn.type === 'income' ? 'text-green-600' :
-                        txn.type === 'expense' ? 'text-red-600' : 'text-blue-600'
+                      <div className={`flex items-center justify-end gap-1 font-headline font-bold ${
+                        txn.type === 'income' ? 'text-secondary' :
+                        txn.type === 'expense' ? 'text-error' : 'text-primary'
                       }`}>
                         {txn.type === 'income' ? <ArrowDownLeft size={14} /> :
                          txn.type === 'expense' ? <ArrowUpRight size={14} /> :
@@ -252,13 +254,13 @@ export const Transactions: React.FC = () => {
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => openEdit(txn)}
-                          className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                          className="p-1 text-slate-500 hover:text-on-surface hover:bg-white/10 rounded transition-colors"
                         >
                           <Pencil size={14} />
                         </button>
                         <button
                           onClick={() => setDeleteConfirm(txn.id)}
-                          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                          className="p-1 text-slate-500 hover:text-error hover:bg-error/10 rounded transition-colors"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -267,23 +269,23 @@ export const Transactions: React.FC = () => {
                   </tr>
                   {/* Expanded splits row */}
                   {hasSplits && isExpanded && (
-                    <tr className="bg-purple-50 border-b border-purple-100">
+                    <tr className="bg-primary/5 border-b border-primary/10">
                       <td />
                       <td colSpan={4} className="px-4 py-2">
                         <div className="space-y-1">
                           {txn.splits!.map((split, si) => (
-                            <div key={si} className="flex items-center gap-3 text-xs text-gray-700">
-                              <span className="text-gray-400">↳</span>
+                            <div key={si} className="flex items-center gap-3 text-xs text-on-surface-variant">
+                              <span className="text-slate-500">↳</span>
                               {split.category ? (
                                 <span className="flex items-center gap-1">
                                   <span>{split.category.icon}</span>
                                   <span className="font-medium">{split.category.name}</span>
                                 </span>
                               ) : (
-                                <span className="text-gray-400 italic">No category</span>
+                                <span className="text-slate-500 italic">No category</span>
                               )}
-                              {split.notes && <span className="text-gray-400">· {split.notes}</span>}
-                              <span className="ml-auto font-semibold text-red-600">{formatCurrency(split.amount)}</span>
+                              {split.notes && <span className="text-slate-500">· {split.notes}</span>}
+                              <span className="ml-auto font-semibold text-error">{formatCurrency(split.amount)}</span>
                             </div>
                           ))}
                         </div>
@@ -300,8 +302,8 @@ export const Transactions: React.FC = () => {
         )}
 
         {/* Pagination */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
-          <span className="text-sm text-gray-500">
+        <div className="flex items-center justify-between px-4 py-3 border-t border-white/5 bg-white/5">
+          <span className="text-xs text-slate-500 uppercase tracking-widest">
             Showing {offset + 1}–{offset + transactions.length}
           </span>
           <div className="flex items-center gap-2">
@@ -329,7 +331,7 @@ export const Transactions: React.FC = () => {
         title="Delete Transaction"
         size="sm"
       >
-        <p className="text-sm text-gray-600 mb-4">
+        <p className="text-sm text-on-surface-variant mb-4">
           Are you sure you want to delete this transaction?
         </p>
         <div className="flex justify-end gap-2">

@@ -16,11 +16,11 @@ export const Badge: React.FC<BadgeProps> = ({
   if (color) {
     const style =
       variant === 'solid'
-        ? { backgroundColor: color, color: '#fff' }
+        ? { backgroundColor: color, color: '#0b1326' }
         : { backgroundColor: `${color}22`, color };
     return (
       <span
-        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${className}`}
+        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-tight ${className}`}
         style={style}
       >
         {children}
@@ -30,7 +30,7 @@ export const Badge: React.FC<BadgeProps> = ({
 
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 ${className}`}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-tight bg-surface-container-highest text-on-surface-variant ${className}`}
     >
       {children}
     </span>

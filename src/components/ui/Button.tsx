@@ -11,16 +11,16 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses: Record<Variant, string> = {
-  primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500',
-  secondary: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-gray-400',
-  danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
-  ghost: 'bg-transparent text-gray-600 hover:bg-gray-100 focus:ring-gray-400',
+  primary: 'bg-primary-container text-on-primary-container hover:brightness-110 focus:ring-primary/50',
+  secondary: 'bg-surface-container-highest text-on-surface border border-white/10 hover:bg-white/10 focus:ring-white/20',
+  danger: 'bg-error text-on-error hover:brightness-110 focus:ring-error/50',
+  ghost: 'bg-transparent text-on-surface-variant hover:bg-white/5 focus:ring-white/20',
 };
 
 const sizeClasses: Record<Size, string> = {
-  sm: 'px-3 py-1.5 text-sm',
+  sm: 'px-3 py-1.5 text-xs',
   md: 'px-4 py-2 text-sm',
-  lg: 'px-5 py-2.5 text-base',
+  lg: 'px-5 py-2.5 text-sm',
 };
 
 export const Button: React.FC<ButtonProps> = ({
@@ -36,9 +36,9 @@ export const Button: React.FC<ButtonProps> = ({
     <button
       disabled={disabled || loading}
       className={`
-        inline-flex items-center justify-center gap-2 font-medium rounded-lg
-        focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors
-        disabled:opacity-50 disabled:cursor-not-allowed
+        inline-flex items-center justify-center gap-2 font-headline font-bold tracking-tight rounded-lg
+        focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface transition-all
+        active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed
         ${variantClasses[variant]}
         ${sizeClasses[size]}
         ${className}
