@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Transaction Dialog Mockup</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<script>
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "surface": "#0b1326",
+          "surface-dim": "#0b1326",
+          "surface-container": "#171f33",
+          "surface-container-low": "#131b2e",
+          "surface-container-high": "#222a3d",
+          "surface-container-highest": "#2d3449",
+          "on-surface": "#dae2fd",
+          "on-surface-variant": "#bdc8d1",
+          "primary": "#8ed5ff",
+          "primary-container": "#38bdf8",
+          "on-primary-container": "#004965",
+          "secondary": "#4edea3",
+          "error": "#ffb4ab",
+          "outline-variant": "#3e484f",
+        },
+        fontFamily: {
+          headline: ["Space Grotesk", "sans-serif"],
+          body: ["Inter", "sans-serif"],
+        },
+      }
+    }
+  }
+</script>
+<style>
+  body { font-family: 'Inter', sans-serif; background: #060e20; }
+  .glass-panel { background: rgba(23,31,51,0.97); backdrop-filter: blur(20px); }
+
+  /* Type toggle active states */
+  .type-btn { transition: all 0.15s ease; }
+  .type-expense.active  { background: rgba(255,180,171,0.15); color: #ffb4ab; border-color: rgba(255,180,171,0.4); }
+  .type-income.active   { background: rgba(78,222,163,0.15);  color: #4edea3; border-color: rgba(78,222,163,0.4); }
+  .type-transfer.active { background: rgba(142,213,255,0.15); color: #8ed5ff; border-color: rgba(142,213,255,0.4); }
+
+  .type-expense:not(.active)  { color: #4b5563; border-color: rgba(255,255,255,0.07); }
+  .type-income:not(.active)   { color: #4b5563; border-color: rgba(255,255,255,0.07); }
+  .type-transfer:not(.active) { color: #4b5563; border-color: rgba(255,255,255,0.07); }
+
+  /* Amount input */
+  .amount-input { background: transparent; outline: none; border: none; text-align: center; width: 100%; color: white; }
+  .amount-input::placeholder { color: rgba(255,255,255,0.12); }
+  .amount-input:focus { box-shadow: none; }
+
+  /* Styled select rows */
+  .field-row { border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .field-row:last-child { border-bottom: none; }
+
+  /* Collapsible sections */
+  details summary { cursor: pointer; list-style: none; }
+  details summary::-webkit-details-marker { display: none; }
+</style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-8">
+
+<!-- Background dimming overlay -->
+<div class="fixed inset-0 bg-black/60 backdrop-blur-sm"></div>
+
+<!-- Dialog -->
+<div class="relative glass-panel border border-white/5 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between px-6 pt-5 pb-4">
+    <h2 class="font-headline text-lg font-bold text-white">New Transaction</h2>
+    <button class="p-1.5 rounded-lg text-slate-500 hover:text-on-surface hover:bg-white/5 transition-colors">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+
+  <div class="px-6 pb-6 space-y-5">
+
+    <!-- 1. Type Toggle -->
+    <div class="grid grid-cols-3 gap-2">
+      <button class="type-btn type-income active rounded-xl border py-2.5 text-xs font-headline font-bold uppercase tracking-widest flex items-center justify-center gap-1.5">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+        Income
+      </button>
+      <button class="type-btn type-expense rounded-xl border py-2.5 text-xs font-headline font-bold uppercase tracking-widest flex items-center justify-center gap-1.5">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+        Expense
+      </button>
+      <button class="type-btn type-transfer rounded-xl border py-2.5 text-xs font-headline font-bold uppercase tracking-widest flex items-center justify-center gap-1.5">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 16V4m0 0L3 8m4-4 4 4M17 8v12m0 0 4-4m-4 4-4-4"/></svg>
+        Transfer
+      </button>
+    </div>
+
+    <!-- 2. Amount — Hero Input -->
+    <div class="bg-surface-container rounded-xl px-6 py-4 text-center relative">
+      <p class="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Amount</p>
+      <div class="flex items-center justify-center gap-2">
+        <span class="font-headline text-3xl font-bold text-slate-600">€</span>
+        <input
+          class="amount-input font-headline text-4xl font-bold"
+          style="color: #4edea3;"
+          placeholder="0.00"
+          value="1,250.00"
+          type="text"
+        />
+      </div>
+    </div>
+
+    <!-- 3. Payee + Date side by side -->
+    <div class="grid grid-cols-2 gap-3">
+      <div class="bg-surface-container rounded-xl px-3 py-2.5">
+        <p class="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Payee</p>
+        <input class="w-full bg-transparent text-sm text-on-surface outline-none placeholder-slate-600" placeholder="e.g. REWE" value="Freelance Client"/>
+      </div>
+      <div class="bg-surface-container rounded-xl px-3 py-2.5">
+        <p class="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Date</p>
+        <input class="w-full bg-transparent text-sm text-on-surface outline-none" type="date" value="2026-04-06"/>
+      </div>
+    </div>
+
+    <!-- 4. Account + Category stacked as field rows inside a card -->
+    <div class="bg-surface-container rounded-xl overflow-hidden divide-y divide-white/5">
+
+      <!-- Account row -->
+      <div class="flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors cursor-pointer group">
+        <div class="flex items-center gap-2.5">
+          <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background: rgba(34,197,94,0.15)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+          </div>
+          <div>
+            <p class="text-[10px] text-slate-500 uppercase tracking-widest leading-none mb-0.5">Account</p>
+            <p class="text-sm font-medium text-on-surface">Chase Checking</p>
+          </div>
+        </div>
+        <svg class="text-slate-600 group-hover:text-slate-400 transition-colors" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+
+      <!-- Category row -->
+      <div class="flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors cursor-pointer group">
+        <div class="flex items-center gap-2.5">
+          <div class="w-7 h-7 rounded-lg flex items-center justify-center text-base" style="background: rgba(99,102,241,0.15)">
+            💼
+          </div>
+          <div>
+            <p class="text-[10px] text-slate-500 uppercase tracking-widest leading-none mb-0.5">Category</p>
+            <p class="text-sm font-medium text-on-surface">Freelance Income</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="text-[10px] text-primary border border-primary/30 bg-primary/10 px-2 py-0.5 rounded-full font-bold uppercase tracking-tight hover:bg-primary/20 transition-colors">+ New</button>
+          <svg class="text-slate-600 group-hover:text-slate-400 transition-colors" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </div>
+
+      <!-- Notes row -->
+      <div class="flex items-center gap-2.5 px-4 py-3">
+        <div class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style="background: rgba(255,255,255,0.04)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        </div>
+        <input class="flex-1 bg-transparent text-sm text-on-surface-variant outline-none placeholder-slate-600" placeholder="Add a note…"/>
+      </div>
+
+    </div>
+
+    <!-- 5. Collapsible: Tags -->
+    <details class="bg-surface-container rounded-xl overflow-hidden">
+      <summary class="flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors">
+        <div class="flex items-center gap-2.5">
+          <div class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style="background: rgba(255,255,255,0.04)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1" fill="#6b7280"/></svg>
+          </div>
+          <p class="text-sm text-slate-500">Tags</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] text-slate-600 uppercase tracking-widest">None selected</span>
+          <svg class="text-slate-600" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </summary>
+      <div class="px-4 pb-3 pt-1 border-t border-white/5">
+        <div class="flex flex-wrap gap-1.5 mt-2">
+          <button class="px-2.5 py-1 rounded-full text-xs font-medium border-2 border-transparent opacity-40" style="background: rgba(99,102,241,0.13); color: #6366f1">work</button>
+          <button class="px-2.5 py-1 rounded-full text-xs font-medium border-2 border-current" style="background: rgba(34,197,94,0.13); color: #22c55e">recurring</button>
+          <button class="px-2.5 py-1 rounded-full text-xs font-medium border-2 border-transparent opacity-40" style="background: rgba(239,68,68,0.13); color: #ef4444">urgent</button>
+        </div>
+      </div>
+    </details>
+
+    <!-- 6. Collapsible: Split -->
+    <details class="bg-surface-container rounded-xl overflow-hidden">
+      <summary class="flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors">
+        <div class="flex items-center gap-2.5">
+          <div class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style="background: rgba(255,255,255,0.04)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+          </div>
+          <p class="text-sm text-slate-500">Split transaction</p>
+        </div>
+        <svg class="text-slate-600" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </summary>
+      <div class="px-4 pb-3 pt-2 border-t border-white/5 text-xs text-slate-500">
+        Expand to split this transaction across multiple categories.
+      </div>
+    </details>
+
+    <!-- 7. Action buttons -->
+    <div class="flex gap-3 pt-1">
+      <button class="flex-1 py-3 rounded-xl border border-white/10 text-on-surface-variant text-sm font-headline font-bold hover:bg-white/5 transition-colors">
+        Cancel
+      </button>
+      <button class="flex-2 flex-1 py-3 rounded-xl text-sm font-headline font-bold transition-all active:scale-95" style="background: #38bdf8; color: #004965;">
+        Add Transaction
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toggle demo -->
+<script>
+  document.querySelectorAll('.type-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      // Update amount color
+      const amtInput = document.querySelector('.amount-input');
+      if (btn.classList.contains('type-income'))   amtInput.style.color = '#4edea3';
+      if (btn.classList.contains('type-expense'))  amtInput.style.color = '#ffb4ab';
+      if (btn.classList.contains('type-transfer')) amtInput.style.color = '#8ed5ff';
+    });
+  });
+</script>
+
+</body>
+</html>
