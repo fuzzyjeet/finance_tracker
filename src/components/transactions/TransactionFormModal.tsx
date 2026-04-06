@@ -16,6 +16,9 @@ const TAG_COLORS = [
   '#ec4899', '#f59e0b', '#14b8a6', '#8b5cf6', '#84cc16',
 ];
 
+const CATEGORY_COLORS = TAG_COLORS;
+const CATEGORY_ICONS = ['🛒', '🍔', '🚗', '🏠', '💊', '🎮', '✈️', '📚', '💼', '💰', '🎁', '⚡', '📱', '🏋️', '🎨'];
+
 interface TxnForm {
   date: string;
   billing_date: string;
@@ -61,6 +64,12 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState(TAG_COLORS[0]);
   const [showTagInput, setShowTagInput] = useState(false);
+
+  // New category inline creation
+  const [showCategoryInput, setShowCategoryInput] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatIcon, setNewCatIcon] = useState(CATEGORY_ICONS[0]);
+  const [newCatColor, setNewCatColor] = useState(CATEGORY_COLORS[0]);
 
   // Split state
   const [splitMode, setSplitMode] = useState(false);
@@ -159,6 +168,16 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
     setShowTagInput(false);
   };
 
+  const handleCreateCategory = async () => {
+    if (!newCatName.trim()) return;
+    const catType = form.type === 'income' ? 'income' : form.type === 'expense' ? 'expense' : 'both';
+    const cat = await categoriesApi.create({ name: newCatName.trim(), icon: newCatIcon, color: newCatColor, type: catType });
+    setCategories(prev => [...prev, cat]);
+    setForm(f => ({ ...f, category_id: cat.id }));
+    setNewCatName('');
+    setShowCategoryInput(false);
+  };
+
   const toggleSplitMode = () => {
     if (!splitMode) {
       setSplits([
@@ -225,7 +244,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
 
         {/* Row 3: Account + Category/ToAccount */}
         <div className="grid grid-cols-2 gap-3">
-          <Select label="Account" value={form.account_id}
+          <Select label={form.type === 'transfer' ? 'From Account' : 'Account'} value={form.account_id}
             onChange={e => setForm(f => ({ ...f, account_id: e.target.value }))}
             options={accounts.map(a => ({ value: a.id, label: `${a.name} (${a.currency})` }))}
             placeholder="Select account" />
@@ -235,10 +254,23 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               options={accounts.filter(a => a.id !== form.account_id).map(a => ({ value: a.id, label: a.name }))}
               placeholder="Select account" />
           ) : !splitMode ? (
-            <Select label="Category" value={form.category_id}
-              onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}
-              options={filteredCategories().map(c => ({ value: c.id, label: `${c.icon} ${c.name}` }))}
-              placeholder="Select category" />
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-on-surface-variant uppercase tracking-widest">Category</label>
+                <button type="button" onClick={() => setShowCategoryInput(v => !v)}
+                  className="flex items-center gap-1 text-xs text-primary hover:text-primary">
+                  <Plus size={12} /> New
+                </button>
+              </div>
+              <select value={form.category_id}
+                onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}
+                className="block w-full rounded-lg border border-white/10 px-3 py-2 text-sm text-on-surface bg-surface-container-highest focus:outline-none focus:ring-1 focus:ring-primary/50 hover:border-white/20 transition-colors">
+                <option value="">Select category</option>
+                {filteredCategories().map(c => (
+                  <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                ))}
+              </select>
+            </div>
           ) : (
             <div className="flex flex-col justify-end">
               <div className="h-[38px] flex items-center px-3 bg-primary/5 border border-primary/20 rounded-lg text-xs text-primary font-medium">
@@ -247,6 +279,44 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
             </div>
           )}
         </div>
+
+        {/* Inline new category form */}
+        {showCategoryInput && form.type !== 'transfer' && !splitMode && (
+          <div className="p-3 bg-surface-container-highest rounded-lg border border-white/10 space-y-2">
+            <div className="flex items-center gap-2">
+              <input value={newCatName} onChange={e => setNewCatName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleCreateCategory()}
+                placeholder="Category name" autoFocus
+                className="flex-1 text-sm border border-white/10 rounded px-2 py-1.5 bg-surface-container text-on-surface placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-primary/50" />
+              <button type="button" onClick={handleCreateCategory} disabled={!newCatName.trim()}
+                className="text-xs bg-primary-container text-on-primary-container px-3 py-1.5 rounded font-bold disabled:opacity-40 whitespace-nowrap">
+                Add
+              </button>
+              <button type="button" onClick={() => setShowCategoryInput(false)}>
+                <X size={14} className="text-slate-500" />
+              </button>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex flex-wrap gap-1">
+                {CATEGORY_ICONS.map(icon => (
+                  <button key={icon} type="button" onClick={() => setNewCatIcon(icon)}
+                    className={`w-7 h-7 rounded text-sm flex items-center justify-center transition-all ${
+                      newCatIcon === icon ? 'bg-primary/20 ring-1 ring-primary/50' : 'hover:bg-white/10'
+                    }`}>
+                    {icon}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-1 shrink-0">
+                {CATEGORY_COLORS.map(c => (
+                  <button key={c} type="button" onClick={() => setNewCatColor(c)}
+                    className={`w-5 h-5 rounded-full border-2 transition-all ${newCatColor === c ? 'border-white' : 'border-transparent'}`}
+                    style={{ backgroundColor: c }} />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Billing date for credit cards */}
         {selectedAccount?.type === 'credit_card' && (
