@@ -202,12 +202,12 @@ def update_transaction(transaction_id: str, data: TransactionUpdate, db: Session
                 split = TransactionSplit(
                     id=str(uuid.uuid4()),
                     transaction_id=txn.id,
-                    amount=s.amount,
-                    category_id=s.category_id,
-                    notes=s.notes,
+                    amount=s["amount"],
+                    category_id=s.get("category_id"),
+                    notes=s.get("notes"),
                 )
-                if s.project_ids:
-                    split.projects = db.query(Project).filter(Project.id.in_(s.project_ids)).all()
+                if s.get("project_ids"):
+                    split.projects = db.query(Project).filter(Project.id.in_(s["project_ids"])).all()
                 db.add(split)
 
     db.commit()
