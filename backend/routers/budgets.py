@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 import uuid
 from database import get_db
-from models import Budget, Transaction
+from models import Budget, Transaction, TransactionSplit
 from schemas import BudgetCreate, BudgetUpdate, BudgetRead
 
 router = APIRouter()
@@ -12,18 +12,30 @@ router = APIRouter()
 def compute_spent(db: Session, category_id: str, month: str) -> float:
     start = f"{month}-01"
     year, mon = int(month.split("-")[0]), int(month.split("-")[1])
-    if mon == 12:
-        end = f"{year + 1}-01-01"
-    else:
-        end = f"{year}-{mon + 1:02d}-01"
+    end = f"{year + 1}-01-01" if mon == 12 else f"{year}-{mon + 1:02d}-01"
 
-    transactions = db.query(Transaction).filter(
+    # Direct (non-split) transactions
+    direct = db.query(Transaction).filter(
         Transaction.category_id == category_id,
         Transaction.type == "expense",
         Transaction.date >= start,
         Transaction.date < end,
     ).all()
-    return sum(t.amount for t in transactions)
+
+    # Split line items
+    split_amounts = (
+        db.query(TransactionSplit)
+        .join(Transaction, TransactionSplit.transaction_id == Transaction.id)
+        .filter(
+            TransactionSplit.category_id == category_id,
+            Transaction.type == "expense",
+            Transaction.date >= start,
+            Transaction.date < end,
+        )
+        .all()
+    )
+
+    return sum(t.amount for t in direct) + sum(s.amount for s in split_amounts)
 
 
 def build_budget_read(budget: Budget, db: Session) -> BudgetRead:

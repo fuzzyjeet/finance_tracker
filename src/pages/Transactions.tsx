@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownLeft, ArrowLeftRight } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownLeft, ArrowLeftRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { Header } from '../components/layout/Header';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
@@ -35,6 +35,10 @@ export const Transactions: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [expandedSplits, setExpandedSplits] = useState<Set<string>>(new Set());
+
+  const toggleSplits = (id: string) =>
+    setExpandedSplits(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
 
   const loadRefs = async () => {
     const [accts, cats] = await Promise.all([accountsApi.list(), categoriesApi.list()]);
@@ -185,8 +189,12 @@ export const Transactions: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {transactions.map(txn => (
-                  <tr key={txn.id} className="hover:bg-gray-50 transition-colors">
+                {transactions.map(txn => {
+                  const hasSplits = txn.splits && txn.splits.length > 0;
+                  const isExpanded = expandedSplits.has(txn.id);
+                  return (
+                  <React.Fragment key={txn.id}>
+                  <tr className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
                       <div>{txn.date}</div>
                       {txn.billing_date && (
@@ -198,7 +206,15 @@ export const Transactions: React.FC = () => {
                       {txn.notes && <div className="text-xs text-gray-400 truncate max-w-[200px]">{txn.notes}</div>}
                     </td>
                     <td className="px-4 py-3">
-                      {txn.category ? (
+                      {hasSplits ? (
+                        <button
+                          onClick={() => toggleSplits(txn.id)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium hover:bg-purple-200 transition-colors"
+                        >
+                          {isExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                          {txn.splits!.length} splits
+                        </button>
+                      ) : txn.category ? (
                         <span className="inline-flex items-center gap-1.5 text-sm">
                           <span>{txn.category.icon}</span>
                           <span className="text-gray-700">{txn.category.name}</span>
@@ -249,7 +265,35 @@ export const Transactions: React.FC = () => {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  {/* Expanded splits row */}
+                  {hasSplits && isExpanded && (
+                    <tr className="bg-purple-50 border-b border-purple-100">
+                      <td />
+                      <td colSpan={4} className="px-4 py-2">
+                        <div className="space-y-1">
+                          {txn.splits!.map((split, si) => (
+                            <div key={si} className="flex items-center gap-3 text-xs text-gray-700">
+                              <span className="text-gray-400">↳</span>
+                              {split.category ? (
+                                <span className="flex items-center gap-1">
+                                  <span>{split.category.icon}</span>
+                                  <span className="font-medium">{split.category.name}</span>
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 italic">No category</span>
+                              )}
+                              {split.notes && <span className="text-gray-400">· {split.notes}</span>}
+                              <span className="ml-auto font-semibold text-red-600">{formatCurrency(split.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                      <td />
+                    </tr>
+                  )}
+                  </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>

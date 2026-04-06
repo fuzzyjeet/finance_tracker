@@ -36,7 +36,28 @@ async def startup():
             conn.execute(text("ALTER TABLE accounts ADD COLUMN currency VARCHAR NOT NULL DEFAULT 'EUR'"))
             conn.commit()
     seed_data()
+    _ensure_default_categories()
     start_scheduler()
+
+
+def _ensure_default_categories():
+    """Add categories that may be missing from older installs."""
+    from database import SessionLocal
+    from models import Category
+    import uuid
+    db = SessionLocal()
+    try:
+        missing = [
+            {"name": "Lent to Friends", "icon": "🤝", "color": "#a78bfa", "type": "expense"},
+            {"name": "Household",        "icon": "🏡", "color": "#2dd4bf", "type": "expense"},
+        ]
+        for cat in missing:
+            exists = db.query(Category).filter(Category.name == cat["name"]).first()
+            if not exists:
+                db.add(Category(id=str(uuid.uuid4()), **cat))
+        db.commit()
+    finally:
+        db.close()
 
 
 @app.get("/api/health")

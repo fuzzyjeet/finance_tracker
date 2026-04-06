@@ -13,6 +13,12 @@ export interface TransactionFilters {
   offset?: number;
 }
 
+export interface SplitPayload {
+  amount: number;
+  category_id?: string;
+  notes?: string;
+}
+
 export interface TransactionPayload {
   date: string;
   billing_date?: string;
@@ -24,6 +30,7 @@ export interface TransactionPayload {
   payee: string;
   notes?: string;
   tag_ids?: string[];
+  splits?: SplitPayload[];
 }
 
 export const transactionsApi = {

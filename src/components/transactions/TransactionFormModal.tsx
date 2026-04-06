@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Split } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
-import { transactionsApi, TransactionPayload } from '../../api/transactions';
+import { transactionsApi, TransactionPayload, SplitPayload } from '../../api/transactions';
 import { accountsApi } from '../../api/accounts';
 import { categoriesApi } from '../../api/categories';
 import { tagsApi } from '../../api/tags';
@@ -58,18 +58,19 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
   const [newTagColor, setNewTagColor] = useState(TAG_COLORS[0]);
   const [showTagInput, setShowTagInput] = useState(false);
 
+  // Split state
+  const [splitMode, setSplitMode] = useState(false);
+  const [splits, setSplits] = useState<SplitPayload[]>([{ amount: 0, category_id: '', notes: '' }]);
+
   useEffect(() => {
     if (!isOpen) return;
     Promise.all([accountsApi.list(), categoriesApi.list(), tagsApi.list()]).then(
-      ([accts, cats, tgs]) => {
-        setAccounts(accts);
-        setCategories(cats);
-        setTags(tgs);
-      }
+      ([accts, cats, tgs]) => { setAccounts(accts); setCategories(cats); setTags(tgs); }
     );
   }, [isOpen]);
 
   useEffect(() => {
+    if (!isOpen) return;
     if (editing) {
       setForm({
         date: editing.date,
@@ -83,25 +84,51 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
         notes: editing.notes ?? '',
         tag_ids: editing.tags?.map(t => t.id) ?? [],
       });
+      if (editing.splits && editing.splits.length > 0) {
+        setSplitMode(true);
+        setSplits(editing.splits.map(s => ({
+          amount: s.amount,
+          category_id: s.category_id ?? '',
+          notes: s.notes ?? '',
+        })));
+      } else {
+        setSplitMode(false);
+        setSplits([{ amount: 0, category_id: '', notes: '' }]);
+      }
     } else {
       setForm(emptyForm());
+      setSplitMode(false);
+      setSplits([{ amount: 0, category_id: '', notes: '' }]);
     }
   }, [editing, isOpen]);
 
+  const totalAmount = parseFloat(form.amount) || 0;
+  const allocatedAmount = splits.reduce((s, r) => s + (parseFloat(String(r.amount)) || 0), 0);
+  const remaining = totalAmount - allocatedAmount;
+  const splitBalanced = Math.abs(remaining) < 0.005;
+
   const handleSave = async () => {
+    if (splitMode && !splitBalanced) return;
     setSaving(true);
     try {
       const payload: TransactionPayload = {
         date: form.date,
         billing_date: form.billing_date || undefined,
-        amount: parseFloat(form.amount),
+        amount: totalAmount,
         type: form.type,
-        category_id: form.category_id || undefined,
+        category_id: splitMode ? undefined : (form.category_id || undefined),
         account_id: form.account_id,
         to_account_id: form.to_account_id || undefined,
         payee: form.payee,
         notes: form.notes || undefined,
         tag_ids: form.tag_ids,
+        splits: splitMode
+          ? splits.map(s => ({
+              amount: parseFloat(String(s.amount)) || 0,
+              category_id: s.category_id || undefined,
+              notes: s.notes || undefined,
+            }))
+          : undefined,
       };
       if (editing) {
         await transactionsApi.update(editing.id, payload);
@@ -124,159 +151,218 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
     setShowTagInput(false);
   };
 
-  const filteredCategories = categories.filter(c => {
-    if (form.type === 'income') return c.type === 'income' || c.type === 'both';
-    if (form.type === 'expense') return c.type === 'expense' || c.type === 'both';
-    return false;
-  });
+  const toggleSplitMode = () => {
+    if (!splitMode) {
+      // Enter split mode: pre-fill first split with current amount & category
+      setSplits([
+        { amount: totalAmount, category_id: form.category_id, notes: '' },
+        { amount: 0, category_id: '', notes: '' },
+      ]);
+    }
+    setSplitMode(v => !v);
+  };
+
+  const updateSplit = (i: number, field: keyof SplitPayload, value: string | number) => {
+    setSplits(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s));
+  };
+
+  const addSplit = () => setSplits(prev => [...prev, { amount: remaining > 0 ? remaining : 0, category_id: '', notes: '' }]);
+  const removeSplit = (i: number) => setSplits(prev => prev.filter((_, idx) => idx !== i));
+
+  const filteredCategories = (type?: string) => {
+    const t = type ?? form.type;
+    return categories.filter(c => {
+      if (t === 'income') return c.type === 'income' || c.type === 'both';
+      if (t === 'expense') return c.type === 'expense' || c.type === 'both';
+      return false;
+    });
+  };
 
   const selectedAccount = accounts.find(a => a.id === form.account_id);
+  const canSave = !!form.amount && !!form.account_id && !!form.payee &&
+    (!splitMode || splitBalanced);
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={editing ? 'Edit Transaction' : 'Add Transaction'}
-      size="lg"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} title={editing ? 'Edit Transaction' : 'Add Transaction'} size="lg">
       <div className="space-y-4">
+        {/* Row 1: Date + Type */}
         <div className="grid grid-cols-2 gap-3">
-          <Input
-            label="Date"
-            type="date"
-            value={form.date}
-            onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-          />
-          <Select
-            label="Type"
-            value={form.type}
+          <Input label="Date" type="date" value={form.date}
+            onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
+          <Select label="Type" value={form.type}
             onChange={e => setForm(f => ({ ...f, type: e.target.value, category_id: '', to_account_id: '' }))}
             options={[
               { value: 'income', label: 'Income' },
               { value: 'expense', label: 'Expense' },
               { value: 'transfer', label: 'Transfer' },
-            ]}
-          />
+            ]} />
         </div>
 
+        {/* Row 2: Amount + Payee */}
         <div className="grid grid-cols-2 gap-3">
-          <Input
-            label="Amount"
-            type="number"
-            min={0}
-            step="0.01"
-            value={form.amount}
-            onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
-            placeholder="0.00"
-          />
-          <Input
-            label="Payee"
-            value={form.payee}
-            onChange={e => setForm(f => ({ ...f, payee: e.target.value }))}
-            placeholder="e.g. REWE"
-          />
+          <Input label="Amount" type="number" min={0} step="0.01" value={form.amount}
+            onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="0.00" />
+          <Input label="Payee" value={form.payee}
+            onChange={e => setForm(f => ({ ...f, payee: e.target.value }))} placeholder="e.g. REWE" />
         </div>
 
+        {/* Row 3: Account + Category/ToAccount */}
         <div className="grid grid-cols-2 gap-3">
-          <Select
-            label="Account"
-            value={form.account_id}
+          <Select label="Account" value={form.account_id}
             onChange={e => setForm(f => ({ ...f, account_id: e.target.value }))}
             options={accounts.map(a => ({ value: a.id, label: `${a.name} (${a.currency})` }))}
-            placeholder="Select account"
-          />
+            placeholder="Select account" />
           {form.type === 'transfer' ? (
-            <Select
-              label="To Account"
-              value={form.to_account_id}
+            <Select label="To Account" value={form.to_account_id}
               onChange={e => setForm(f => ({ ...f, to_account_id: e.target.value }))}
               options={accounts.filter(a => a.id !== form.account_id).map(a => ({ value: a.id, label: a.name }))}
-              placeholder="Select account"
-            />
-          ) : (
-            <Select
-              label="Category"
-              value={form.category_id}
+              placeholder="Select account" />
+          ) : !splitMode ? (
+            <Select label="Category" value={form.category_id}
               onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}
-              options={filteredCategories.map(c => ({ value: c.id, label: `${c.icon} ${c.name}` }))}
-              placeholder="Select category"
-            />
+              options={filteredCategories().map(c => ({ value: c.id, label: `${c.icon} ${c.name}` }))}
+              placeholder="Select category" />
+          ) : (
+            <div className="flex flex-col justify-end">
+              <div className="h-[38px] flex items-center px-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700 font-medium">
+                Categories set per split below
+              </div>
+            </div>
           )}
         </div>
 
+        {/* Billing date for credit cards */}
         {selectedAccount?.type === 'credit_card' && (
-          <Input
-            label="Billing Date (optional)"
-            type="date"
-            value={form.billing_date}
+          <Input label="Billing Date (optional)" type="date" value={form.billing_date}
             onChange={e => setForm(f => ({ ...f, billing_date: e.target.value }))}
-            hint="Billing date if different from transaction date"
-          />
+            hint="Billing date if different from transaction date" />
         )}
 
-        <Input
-          label="Notes (optional)"
-          value={form.notes}
-          onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-          placeholder="Add a note..."
-        />
+        <Input label="Notes (optional)" value={form.notes}
+          onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Add a note..." />
+
+        {/* ── Split Section ────────────────────────────────────────── */}
+        {form.type !== 'transfer' && (
+          <div className={`rounded-xl border transition-colors ${splitMode ? 'border-blue-200 bg-blue-50/40' : 'border-transparent'}`}>
+            {/* Toggle */}
+            <button
+              type="button"
+              onClick={toggleSplitMode}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors w-full ${
+                splitMode
+                  ? 'text-blue-700 hover:text-blue-800'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <Split size={14} />
+              {splitMode ? 'Split mode on — click to disable' : 'Split transaction across categories'}
+            </button>
+
+            {splitMode && (
+              <div className="px-3 pb-3 space-y-2">
+                {splits.map((split, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <div className="w-28 shrink-0">
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={split.amount || ''}
+                        onChange={e => updateSplit(i, 'amount', parseFloat(e.target.value) || 0)}
+                        placeholder="0.00"
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <select
+                        value={split.category_id}
+                        onChange={e => updateSplit(i, 'category_id', e.target.value)}
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      >
+                        <option value="">No category</option>
+                        {filteredCategories().map(c => (
+                          <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        value={split.notes ?? ''}
+                        onChange={e => updateSplit(i, 'notes', e.target.value)}
+                        placeholder="Note (optional)"
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    {splits.length > 2 && (
+                      <button type="button" onClick={() => removeSplit(i)}
+                        className="mt-1 p-1 text-gray-400 hover:text-red-500 transition-colors">
+                        <X size={15} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                {/* Running total */}
+                <div className="flex items-center justify-between pt-1">
+                  <button type="button" onClick={addSplit}
+                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium">
+                    <Plus size={12} /> Add split
+                  </button>
+                  <div className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                    splitBalanced
+                      ? 'bg-green-100 text-green-700'
+                      : remaining > 0
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-red-100 text-red-700'
+                  }`}>
+                    {splitBalanced
+                      ? `✓ ${allocatedAmount.toFixed(2)} balanced`
+                      : remaining > 0
+                      ? `${allocatedAmount.toFixed(2)} / ${totalAmount.toFixed(2)} — ${remaining.toFixed(2)} unallocated`
+                      : `Over by ${Math.abs(remaining).toFixed(2)}`}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Tags */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <label className="text-sm font-medium text-gray-700">Tags</label>
-            <button
-              type="button"
-              onClick={() => setShowTagInput(v => !v)}
-              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
-            >
+            <button type="button" onClick={() => setShowTagInput(v => !v)}
+              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700">
               <Plus size={12} /> New tag
             </button>
           </div>
-
           {showTagInput && (
             <div className="flex items-center gap-2 mb-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
-              <input
-                value={newTagName}
-                onChange={e => setNewTagName(e.target.value)}
+              <input value={newTagName} onChange={e => setNewTagName(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleCreateTag()}
-                placeholder="Tag name"
-                className="flex-1 text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                autoFocus
-              />
+                placeholder="Tag name" autoFocus
+                className="flex-1 text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500" />
               <div className="flex gap-1">
                 {TAG_COLORS.map(c => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setNewTagColor(c)}
-                    className={`w-5 h-5 rounded-full border-2 ${newTagColor === c ? 'border-gray-700 scale-110' : 'border-transparent'}`}
-                    style={{ backgroundColor: c }}
-                  />
+                  <button key={c} type="button" onClick={() => setNewTagColor(c)}
+                    className={`w-5 h-5 rounded-full border-2 ${newTagColor === c ? 'border-gray-700' : 'border-transparent'}`}
+                    style={{ backgroundColor: c }} />
                 ))}
               </div>
-              <button
-                type="button"
-                onClick={handleCreateTag}
-                disabled={!newTagName.trim()}
-                className="text-xs bg-blue-600 text-white px-2 py-1 rounded disabled:opacity-40"
-              >
-                Add
-              </button>
+              <button type="button" onClick={handleCreateTag} disabled={!newTagName.trim()}
+                className="text-xs bg-blue-600 text-white px-2 py-1 rounded disabled:opacity-40">Add</button>
               <button type="button" onClick={() => setShowTagInput(false)}>
                 <X size={14} className="text-gray-400" />
               </button>
             </div>
           )}
-
           <div className="flex flex-wrap gap-1.5 min-h-[32px]">
             {tags.length === 0 && !showTagInput && (
               <span className="text-xs text-gray-400 self-center">No tags yet — create one above</span>
             )}
             {tags.map(tag => (
-              <button
-                key={tag.id}
-                type="button"
+              <button key={tag.id} type="button"
                 onClick={() => setForm(f => ({
                   ...f,
                   tag_ids: f.tag_ids.includes(tag.id)
@@ -286,8 +372,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                 className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all border-2 ${
                   form.tag_ids.includes(tag.id) ? 'border-current' : 'border-transparent opacity-50'
                 }`}
-                style={{ backgroundColor: `${tag.color}22`, color: tag.color }}
-              >
+                style={{ backgroundColor: `${tag.color}22`, color: tag.color }}>
                 {tag.name}
               </button>
             ))}
@@ -296,11 +381,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
 
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button
-            onClick={handleSave}
-            loading={saving}
-            disabled={!form.amount || !form.account_id || !form.payee}
-          >
+          <Button onClick={handleSave} loading={saving} disabled={!canSave}>
             {editing ? 'Save Changes' : 'Add Transaction'}
           </Button>
         </div>

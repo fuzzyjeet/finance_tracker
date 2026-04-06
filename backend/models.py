@@ -83,6 +83,21 @@ class Transaction(Base):
     category = relationship("Category", back_populates="transactions")
     tags = relationship("Tag", secondary=transaction_tags, back_populates="transactions")
     recurring = relationship("RecurringTransaction", back_populates="transactions")
+    splits = relationship("TransactionSplit", back_populates="transaction", cascade="all, delete-orphan")
+
+
+class TransactionSplit(Base):
+    __tablename__ = "transaction_splits"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    transaction_id = Column(String, ForeignKey("transactions.id", ondelete="CASCADE"), nullable=False)
+    amount = Column(Float, nullable=False)
+    category_id = Column(String, ForeignKey("categories.id", ondelete="SET NULL"), nullable=True)
+    notes = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    transaction = relationship("Transaction", back_populates="splits")
+    category = relationship("Category")
 
 
 class RecurringTransaction(Base):

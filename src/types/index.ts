@@ -44,6 +44,14 @@ export interface Tag {
   color: string;
 }
 
+export interface TransactionSplit {
+  id: string;
+  amount: number;
+  category_id?: string;
+  notes?: string;
+  category?: Category;
+}
+
 export interface Transaction {
   id: string;
   date: string;
@@ -60,6 +68,7 @@ export interface Transaction {
   // nested
   category?: Category;
   tags?: Tag[];
+  splits?: TransactionSplit[];
   account_name?: string;
   to_account_name?: string;
 }

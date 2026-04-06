@@ -3,8 +3,8 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 import uuid
 from database import get_db
-from models import Transaction, Tag, Account
-from schemas import TransactionCreate, TransactionUpdate, TransactionRead, TransactionSummary
+from models import Transaction, TransactionSplit, Tag, Account
+from schemas import TransactionCreate, TransactionUpdate, TransactionRead, TransactionSummary, TransactionSplitRead
 from routers.accounts import recalculate_balance
 
 router = APIRouter()
@@ -26,9 +26,28 @@ def build_transaction_read(txn: Transaction) -> dict:
         "created_at": txn.created_at,
         "category": txn.category,
         "tags": txn.tags,
+        "splits": txn.splits,
         "account_name": txn.account.name if txn.account else None,
         "to_account_name": txn.to_account.name if txn.to_account else None,
     }
+
+
+def apply_splits(db: Session, txn: Transaction, splits_data):
+    """Replace all splits on a transaction with new ones."""
+    # Delete existing splits
+    db.query(TransactionSplit).filter(TransactionSplit.transaction_id == txn.id).delete()
+    if splits_data:
+        for s in splits_data:
+            split = TransactionSplit(
+                id=str(uuid.uuid4()),
+                transaction_id=txn.id,
+                amount=s.amount,
+                category_id=s.category_id,
+                notes=s.notes,
+            )
+            db.add(split)
+        # When split, category_id on the transaction itself is null
+        txn.category_id = None
 
 
 @router.get("/summary", response_model=TransactionSummary)
@@ -38,12 +57,8 @@ def get_summary(
     db: Session = Depends(get_db),
 ):
     start = f"{month}-01"
-    # compute end of month
     year, mon = int(month.split("-")[0]), int(month.split("-")[1])
-    if mon == 12:
-        end = f"{year + 1}-01-01"
-    else:
-        end = f"{year}-{mon + 1:02d}-01"
+    end = f"{year + 1}-01-01" if mon == 12 else f"{year}-{mon + 1:02d}-01"
 
     q = db.query(Transaction).filter(
         Transaction.date >= start,
@@ -78,7 +93,11 @@ def list_transactions(
             (Transaction.account_id == account_id) | (Transaction.to_account_id == account_id)
         )
     if category_id:
-        q = q.filter(Transaction.category_id == category_id)
+        # Match direct category OR any split with that category
+        q = q.filter(
+            (Transaction.category_id == category_id) |
+            (Transaction.splits.any(TransactionSplit.category_id == category_id))
+        )
     if type:
         q = q.filter(Transaction.type == type)
     if date_from:
@@ -98,13 +117,15 @@ def list_transactions(
 @router.post("", response_model=TransactionRead)
 def create_transaction(data: TransactionCreate, db: Session = Depends(get_db)):
     tag_ids = data.tag_ids or []
+    has_splits = bool(data.splits)
     txn = Transaction(
         id=str(uuid.uuid4()),
         date=data.date,
         billing_date=data.billing_date,
         amount=data.amount,
         type=data.type,
-        category_id=data.category_id,
+        # category_id is null when using splits
+        category_id=None if has_splits else data.category_id,
         account_id=data.account_id,
         to_account_id=data.to_account_id,
         payee=data.payee,
@@ -114,6 +135,18 @@ def create_transaction(data: TransactionCreate, db: Session = Depends(get_db)):
         tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()
         txn.tags = tags
     db.add(txn)
+    db.flush()  # get txn.id before adding splits
+
+    if has_splits:
+        for s in data.splits:
+            db.add(TransactionSplit(
+                id=str(uuid.uuid4()),
+                transaction_id=txn.id,
+                amount=s.amount,
+                category_id=s.category_id,
+                notes=s.notes,
+            ))
+
     db.commit()
     db.refresh(txn)
 
@@ -142,8 +175,9 @@ def update_transaction(transaction_id: str, data: TransactionUpdate, db: Session
     old_account_id = txn.account_id
     old_to_account_id = txn.to_account_id
 
-    update_data = data.model_dump(exclude_none=True)
+    update_data = data.model_dump(exclude_unset=True)
     tag_ids = update_data.pop("tag_ids", None)
+    splits_data = update_data.pop("splits", None)  # None = not provided, [] = clear
 
     for field, value in update_data.items():
         setattr(txn, field, value)
@@ -151,6 +185,20 @@ def update_transaction(transaction_id: str, data: TransactionUpdate, db: Session
     if tag_ids is not None:
         tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()
         txn.tags = tags
+
+    # Handle splits: if provided (even empty list), replace all splits
+    if splits_data is not None:
+        db.query(TransactionSplit).filter(TransactionSplit.transaction_id == txn.id).delete()
+        if splits_data:
+            txn.category_id = None  # splits override direct category
+            for s in splits_data:
+                db.add(TransactionSplit(
+                    id=str(uuid.uuid4()),
+                    transaction_id=txn.id,
+                    amount=s.amount,
+                    category_id=s.category_id,
+                    notes=s.notes,
+                ))
 
     db.commit()
     db.refresh(txn)

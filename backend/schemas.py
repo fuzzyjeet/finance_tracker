@@ -78,6 +78,23 @@ class AccountRead(AccountBase):
     created_at: datetime
 
 
+# ── Transaction Split ─────────────────────────────────────────────────────────
+
+class TransactionSplitCreate(BaseModel):
+    amount: float
+    category_id: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class TransactionSplitRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    amount: float
+    category_id: Optional[str] = None
+    notes: Optional[str] = None
+    category: Optional[CategoryRead] = None
+
+
 # ── Transaction ───────────────────────────────────────────────────────────────
 
 class TransactionBase(BaseModel):
@@ -91,6 +108,7 @@ class TransactionBase(BaseModel):
     payee: str = ""
     notes: Optional[str] = None
     tag_ids: Optional[List[str]] = []
+    splits: Optional[List[TransactionSplitCreate]] = None  # None = no splits
 
 
 class TransactionCreate(TransactionBase):
@@ -108,6 +126,7 @@ class TransactionUpdate(BaseModel):
     payee: Optional[str] = None
     notes: Optional[str] = None
     tag_ids: Optional[List[str]] = None
+    splits: Optional[List[TransactionSplitCreate]] = None  # None = don't touch, [] = clear
 
 
 class TransactionRead(BaseModel):
@@ -126,6 +145,7 @@ class TransactionRead(BaseModel):
     created_at: datetime
     category: Optional[CategoryRead] = None
     tags: List[TagRead] = []
+    splits: List[TransactionSplitRead] = []
     account_name: Optional[str] = None
     to_account_name: Optional[str] = None
 
