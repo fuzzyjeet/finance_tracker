@@ -1,7 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from database import engine
 import models
+import os
 from routers import accounts, transactions, categories, budgets, recurring, tags, projects
 from services.scheduler import start_scheduler
 from seed import seed_data
@@ -64,6 +67,16 @@ def _ensure_default_categories():
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
+
+
+# Serve React frontend (production build)
+_static_dir = os.path.join(os.path.dirname(__file__), "../dist")
+if os.path.isdir(_static_dir):
+    app.mount("/assets", StaticFiles(directory=os.path.join(_static_dir, "assets")), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def serve_spa(full_path: str):
+        return FileResponse(os.path.join(_static_dir, "index.html"))
 
 
 if __name__ == "__main__":
