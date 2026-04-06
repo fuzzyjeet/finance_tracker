@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2 } from 'lucide-react';
 import { format, addMonths, subMonths } from 'date-fns';
 import { Header } from '../components/layout/Header';
@@ -13,7 +14,7 @@ import { projectsApi } from '../api/projects';
 import { Budget, Category, Project } from '../types';
 
 const formatCurrency = (v: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v);
+  new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v);
 
 interface BudgetForm {
   category_id: string;
@@ -23,11 +24,14 @@ interface BudgetForm {
 const emptyForm: BudgetForm = { category_id: '', amount: '' };
 
 export const Budgets: React.FC = () => {
+  const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [excludedProjectIds, setExcludedProjectIds] = useState<string[]>([]);
+  // IDs of projects whose transactions ARE included in budget spending
+  // undefined means not yet loaded; once projects load, defaults to all selected
+  const [includedProjectIds, setIncludedProjectIds] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Budget | null>(null);
@@ -37,23 +41,27 @@ export const Budgets: React.FC = () => {
 
   const currentMonth = format(currentDate, 'yyyy-MM');
 
-  const load = async () => {
+  // Load projects once on mount; default all to included
+  useEffect(() => {
+    projectsApi.list().then(projs => {
+      setProjects(projs);
+      setIncludedProjectIds(projs.map(p => p.id));
+    });
+  }, []);
+
+  // Reload budgets whenever month or included-project selection changes
+  useEffect(() => {
+    if (includedProjectIds === null) return; // not yet initialised
+    const excludedIds = projects.map(p => p.id).filter(id => !includedProjectIds.includes(id));
     setLoading(true);
-    try {
-      const [buds, cats, projs] = await Promise.all([
-        budgetsApi.list(currentMonth, excludedProjectIds),
-        categoriesApi.list(),
-        projectsApi.list(),
-      ]);
+    Promise.all([
+      budgetsApi.list(currentMonth, excludedIds),
+      categoriesApi.list(),
+    ]).then(([buds, cats]) => {
       setBudgets(buds);
       setCategories(cats.filter(c => c.type === 'expense' || c.type === 'both'));
-      setProjects(projs);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { load(); }, [currentMonth, excludedProjectIds.join(',')]);
+    }).finally(() => setLoading(false));
+  }, [currentMonth, includedProjectIds?.join(',')]);
 
   const openCreate = () => {
     setEditing(null);
@@ -81,7 +89,8 @@ export const Budgets: React.FC = () => {
         await budgetsApi.create(payload);
       }
       setModalOpen(false);
-      await load();
+      // Trigger re-load by toggling a dummy dep — simplest approach is to re-fire the effect
+      setIncludedProjectIds(prev => prev ? [...prev] : prev);
     } finally {
       setSaving(false);
     }
@@ -90,7 +99,7 @@ export const Budgets: React.FC = () => {
   const handleDelete = async (id: string) => {
     await budgetsApi.delete(id);
     setDeleteConfirm(null);
-    await load();
+    setIncludedProjectIds(prev => prev ? [...prev] : prev);
   };
 
   const totalBudgeted = budgets.reduce((s, b) => s + b.amount, 0);
@@ -128,21 +137,25 @@ export const Budgets: React.FC = () => {
         </button>
       </div>
 
-      {/* Project filter */}
-      {projects.length > 0 && (
+      {/* Project filter — include mode (all selected by default) */}
+      {projects.length > 0 && includedProjectIds !== null && (
         <div className="flex flex-wrap items-center gap-2 mb-4">
-          <span className="text-[10px] text-slate-500 font-medium uppercase tracking-widest">Exclude projects:</span>
+          <span className="text-[10px] text-slate-500 font-medium uppercase tracking-widest">Include projects:</span>
           {projects.map(p => {
-            const excluded = excludedProjectIds.includes(p.id);
+            const included = includedProjectIds.includes(p.id);
             return (
               <button
                 key={p.id}
                 type="button"
-                onClick={() => setExcludedProjectIds(prev =>
-                  excluded ? prev.filter(id => id !== p.id) : [...prev, p.id]
+                onClick={() => setIncludedProjectIds(prev =>
+                  prev
+                    ? included
+                      ? prev.filter(id => id !== p.id)
+                      : [...prev, p.id]
+                    : [p.id]
                 )}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border-2 transition-all ${
-                  excluded ? 'border-current' : 'border-transparent opacity-40'
+                  included ? 'border-current' : 'border-transparent opacity-40'
                 }`}
                 style={{ backgroundColor: `${p.color}22`, color: p.color }}
               >
@@ -150,12 +163,12 @@ export const Budgets: React.FC = () => {
               </button>
             );
           })}
-          {excludedProjectIds.length > 0 && (
+          {includedProjectIds.length < projects.length && (
             <button
-              onClick={() => setExcludedProjectIds([])}
+              onClick={() => setIncludedProjectIds(projects.map(p => p.id))}
               className="text-xs text-slate-500 hover:text-on-surface-variant underline"
             >
-              Clear
+              Select all
             </button>
           )}
         </div>
@@ -205,7 +218,11 @@ export const Budgets: React.FC = () => {
             const textColor = over ? 'text-error' : warning ? 'text-yellow-400' : 'text-secondary';
 
             return (
-              <Card key={budget.id} className="relative group">
+              <Card
+                key={budget.id}
+                className="relative group cursor-pointer hover:border-white/10 transition-colors"
+                onClick={() => navigate(`/transactions?category_id=${budget.category_id}`)}
+              >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2.5">
                     <div
@@ -226,13 +243,13 @@ export const Budgets: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={() => openEdit(budget)}
+                      onClick={e => { e.stopPropagation(); openEdit(budget); }}
                       className="p-1.5 text-slate-500 hover:text-on-surface hover:bg-white/10 rounded-lg transition-colors"
                     >
                       <Pencil size={14} />
                     </button>
                     <button
-                      onClick={() => setDeleteConfirm(budget.id)}
+                      onClick={e => { e.stopPropagation(); setDeleteConfirm(budget.id); }}
                       className="p-1.5 text-slate-500 hover:text-error hover:bg-error/10 rounded-lg transition-colors"
                     >
                       <Trash2 size={14} />

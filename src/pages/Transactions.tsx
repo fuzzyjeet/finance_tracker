@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownLeft, ArrowLeftRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { Header } from '../components/layout/Header';
 import { Button } from '../components/ui/Button';
@@ -23,9 +24,13 @@ export const Transactions: React.FC = () => {
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
 
+  // Read initial filter values from URL search params (set by tile navigation)
+  const location = useLocation();
+  const _initParams = new URLSearchParams(location.search);
+
   // Filters
-  const [filterAccount, setFilterAccount] = useState('');
-  const [filterCategory, setFilterCategory] = useState('');
+  const [filterAccount, setFilterAccount] = useState(_initParams.get('account_id') ?? '');
+  const [filterCategory, setFilterCategory] = useState(_initParams.get('category_id') ?? '');
   const [filterType, setFilterType] = useState('');
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { format, subMonths, startOfMonth } from 'date-fns';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend,
+  PieChart, Pie, Cell, Legend, LabelList,
 } from 'recharts';
 import { Plus, ArrowUpRight, ArrowDownLeft, ArrowLeftRight } from 'lucide-react';
 import { Header } from '../components/layout/Header';
@@ -22,7 +23,36 @@ const TransactionTypeIcon = ({ type }: { type: string }) => {
   return <ArrowLeftRight size={14} className="text-primary" />;
 };
 
+const CustomBarTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  const income = payload.find((p: any) => p.dataKey === 'income')?.value ?? 0;
+  const expenses = payload.find((p: any) => p.dataKey === 'expenses')?.value ?? 0;
+  const net = income - expenses;
+  return (
+    <div className="glass-panel border border-white/5 rounded-lg p-3 text-xs min-w-[160px]">
+      <p className="font-headline font-bold text-white mb-2 uppercase tracking-widest">{label}</p>
+      <div className="space-y-1">
+        <div className="flex justify-between gap-4">
+          <span className="text-secondary">Income</span>
+          <span className="font-bold text-secondary">+{fmt(income)}</span>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span className="text-error">Expenses</span>
+          <span className="font-bold text-error">-{fmt(expenses)}</span>
+        </div>
+        <div className="flex justify-between gap-4 pt-1 border-t border-white/5">
+          <span className="text-on-surface-variant">Net</span>
+          <span className={`font-bold ${net >= 0 ? 'text-secondary' : 'text-error'}`}>
+            {net >= 0 ? '+' : ''}{fmt(net)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -100,7 +130,11 @@ export const Dashboard: React.FC = () => {
             const barColor = over ? 'bg-error' : warn ? 'bg-yellow-400' : 'bg-secondary';
             const textColor = over ? 'text-error' : warn ? 'text-yellow-400' : 'text-secondary';
             return (
-              <Card key={budget.id}>
+              <Card
+                key={budget.id}
+                className="cursor-pointer hover:border-white/10 transition-colors"
+                onClick={() => navigate(`/transactions?category_id=${budget.category_id}`)}
+              >
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-xl">{budget.category?.icon ?? '📦'}</span>
                   <span className="text-xs font-medium text-on-surface-variant uppercase tracking-widest truncate">{budget.category?.name}</span>
@@ -138,10 +172,14 @@ export const Dashboard: React.FC = () => {
           <h2 className="font-headline text-sm font-bold text-white uppercase tracking-widest mb-4">Account Balances</h2>
           <div className="space-y-3">
             {accounts.map(account => (
-              <div key={account.id} className="flex items-center justify-between">
+              <button
+                key={account.id}
+                className="flex items-center justify-between w-full hover:bg-white/5 -mx-2 px-2 py-1 rounded-lg transition-colors"
+                onClick={() => navigate(`/transactions?account_id=${account.id}`)}
+              >
                 <div className="flex items-center gap-2.5">
                   <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: account.color }} />
-                  <div>
+                  <div className="text-left">
                     <p className="text-sm font-medium text-on-surface">{account.name}</p>
                     <p className="text-xs text-slate-500 capitalize">{account.type.replace('_', ' ')} · {account.currency}</p>
                   </div>
@@ -149,7 +187,7 @@ export const Dashboard: React.FC = () => {
                 <span className={`text-sm font-semibold font-headline ${account.balance < 0 ? 'text-error' : 'text-white'}`}>
                   {getCurrencySymbol(account.currency)}{fmt(account.balance)}
                 </span>
-              </div>
+              </button>
             ))}
           </div>
         </Card>
@@ -194,18 +232,21 @@ export const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card glass>
           <h2 className="font-headline text-sm font-bold text-white uppercase tracking-widest mb-4">Income vs Expenses (Last 6 Months)</h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={monthlyData} barGap={4}>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={monthlyData} barGap={4} margin={{ top: 20, right: 0, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#6b7280', textTransform: 'uppercase' }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#6b7280' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} axisLine={false} tickLine={false}
                 tickFormatter={v => `${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`} />
-              <Tooltip
-                formatter={(value: number) => fmt(value)}
-                contentStyle={{ borderRadius: 8, border: '1px solid rgba(255,255,255,0.05)', fontSize: 12, backgroundColor: '#171f33', color: '#dae2fd' }}
-              />
-              <Bar dataKey="income" name="Income" fill="#4edea3" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="expenses" name="Expenses" fill="#ffb4ab" radius={[4, 4, 0, 0]} />
+              <Tooltip content={<CustomBarTooltip />} />
+              <Bar dataKey="income" name="Income" fill="#4edea3" radius={[4, 4, 0, 0]}>
+                <LabelList dataKey="income" position="top" style={{ fontSize: 9, fill: '#4edea3', fontWeight: 700 }}
+                  formatter={(v: number) => v > 0 ? `${(v / 1000).toFixed(1)}k` : ''} />
+              </Bar>
+              <Bar dataKey="expenses" name="Expenses" fill="#ffb4ab" radius={[4, 4, 0, 0]}>
+                <LabelList dataKey="expenses" position="top" style={{ fontSize: 9, fill: '#ffb4ab', fontWeight: 700 }}
+                  formatter={(v: number) => v > 0 ? `${(v / 1000).toFixed(1)}k` : ''} />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </Card>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Pencil, Trash2, CreditCard, PiggyBank, Landmark, Wallet, TrendingUp } from 'lucide-react';
 import { Header } from '../components/layout/Header';
 import { Card } from '../components/ui/Card';
@@ -41,6 +42,7 @@ interface AccountFormData {
   color: string;
   billing_cycle_day: string;
   currency: string;
+  starting_balance: string;
 }
 
 const emptyForm: AccountFormData = {
@@ -49,9 +51,11 @@ const emptyForm: AccountFormData = {
   color: '#3b82f6',
   billing_cycle_day: '',
   currency: 'EUR',
+  starting_balance: '',
 };
 
 export const Accounts: React.FC = () => {
+  const navigate = useNavigate();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -85,6 +89,7 @@ export const Accounts: React.FC = () => {
       color: account.color,
       billing_cycle_day: account.billing_cycle_day?.toString() ?? '',
       currency: account.currency ?? 'EUR',
+      starting_balance: '',
     });
     setModalOpen(true);
   };
@@ -92,7 +97,7 @@ export const Accounts: React.FC = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const payload = {
+      const payload: any = {
         name: form.name,
         type: form.type as Account['type'],
         color: form.color,
@@ -102,6 +107,9 @@ export const Accounts: React.FC = () => {
       if (editing) {
         await accountsApi.update(editing.id, payload);
       } else {
+        if (form.starting_balance) {
+          payload.starting_balance = parseFloat(form.starting_balance);
+        }
         await accountsApi.create(payload);
       }
       setModalOpen(false);
@@ -135,7 +143,11 @@ export const Accounts: React.FC = () => {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {accounts.map(account => (
-          <Card key={account.id} className="relative group">
+          <Card
+            key={account.id}
+            className="relative group cursor-pointer hover:border-white/10 transition-colors"
+            onClick={() => navigate(`/transactions?account_id=${account.id}`)}
+          >
             <div className="flex items-start justify-between mb-4">
               <div
                 className="w-12 h-12 rounded-xl flex items-center justify-center"
@@ -145,13 +157,13 @@ export const Accounts: React.FC = () => {
               </div>
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
-                  onClick={() => openEdit(account)}
+                  onClick={e => { e.stopPropagation(); openEdit(account); }}
                   className="p-1.5 text-slate-500 hover:text-on-surface hover:bg-white/10 rounded-lg transition-colors"
                 >
                   <Pencil size={15} />
                 </button>
                 <button
-                  onClick={() => setDeleteConfirm(account.id)}
+                  onClick={e => { e.stopPropagation(); setDeleteConfirm(account.id); }}
                   className="p-1.5 text-slate-500 hover:text-error hover:bg-error/10 rounded-lg transition-colors"
                 >
                   <Trash2 size={15} />
@@ -234,6 +246,17 @@ export const Accounts: React.FC = () => {
               onChange={e => setForm(f => ({ ...f, billing_cycle_day: e.target.value }))}
               placeholder="Day of month (1-31)"
               hint="The day the billing cycle closes each month"
+            />
+          )}
+          {!editing && (
+            <Input
+              label="Starting Balance (optional)"
+              type="number"
+              step="0.01"
+              value={form.starting_balance}
+              onChange={e => setForm(f => ({ ...f, starting_balance: e.target.value }))}
+              placeholder="0.00"
+              hint="Initial balance when this account was opened"
             />
           )}
           <div className="flex justify-end gap-2 pt-2">
