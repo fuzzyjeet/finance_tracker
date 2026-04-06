@@ -25,17 +25,18 @@ export const Select: React.FC<SelectProps> = ({
   return (
     <div className="flex flex-col gap-1">
       {label && (
-        <label htmlFor={selectId} className="text-sm font-medium text-gray-700">
+        <label htmlFor={selectId} className="text-xs font-medium text-on-surface-variant uppercase tracking-widest">
           {label}
         </label>
       )}
       <select
         id={selectId}
         className={`
-          block w-full rounded-lg border px-3 py-2 text-sm text-gray-900
-          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-          transition-colors bg-white
-          ${error ? 'border-red-400 bg-red-50' : 'border-gray-300 hover:border-gray-400'}
+          block w-full rounded-lg border px-3 py-2 text-sm text-on-surface
+          bg-surface-container-highest
+          focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50
+          transition-colors
+          ${error ? 'border-error/50' : 'border-white/10 hover:border-white/20'}
           ${className}
         `}
         {...props}
@@ -51,7 +52,7 @@ export const Select: React.FC<SelectProps> = ({
           </option>
         ))}
       </select>
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className="text-xs text-error">{error}</p>}
     </div>
   );
 };

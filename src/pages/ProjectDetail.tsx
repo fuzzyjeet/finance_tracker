@@ -17,10 +17,10 @@ const STATUS_LABELS: Record<ProjectStatus, string> = {
 };
 
 const STATUS_COLORS: Record<ProjectStatus, string> = {
-  planned: 'bg-gray-100 text-gray-600',
-  active: 'bg-green-100 text-green-700',
-  completed: 'bg-blue-100 text-blue-700',
-  on_hold: 'bg-yellow-100 text-yellow-700',
+  planned: 'bg-surface-container-highest text-on-surface-variant',
+  active: 'bg-secondary/10 text-secondary',
+  completed: 'bg-primary/10 text-primary',
+  on_hold: 'bg-yellow-500/10 text-yellow-400',
 };
 
 const fmt = (v: number) =>
@@ -62,7 +62,7 @@ export const ProjectDetail: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
       </div>
     );
   }
@@ -70,7 +70,7 @@ export const ProjectDetail: React.FC = () => {
   if (!data) {
     return (
       <div className="text-center py-16">
-        <p className="text-gray-400">Project not found.</p>
+        <p className="text-slate-500">Project not found.</p>
         <Button className="mt-4" onClick={() => navigate('/projects')}>Back to Projects</Button>
       </div>
     );
@@ -86,7 +86,7 @@ export const ProjectDetail: React.FC = () => {
       <Header
         title={
           <span className="flex items-center gap-2">
-            <button onClick={() => navigate('/projects')} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <button onClick={() => navigate('/projects')} className="text-slate-500 hover:text-on-surface transition-colors">
               <ArrowLeft size={18} />
             </button>
             <span style={{ color: project.color }}>{project.icon}</span>
@@ -96,7 +96,7 @@ export const ProjectDetail: React.FC = () => {
         subtitle={project.description ?? undefined}
         actions={
           <div className="flex items-center gap-2">
-            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_COLORS[project.status as ProjectStatus]}`}>
+            <span className={`text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-tight ${STATUS_COLORS[project.status as ProjectStatus]}`}>
               {STATUS_LABELS[project.status as ProjectStatus]}
             </span>
             <Select
@@ -116,24 +116,24 @@ export const ProjectDetail: React.FC = () => {
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <Card>
-          <p className="text-xs text-gray-500 mb-1">Total Spent</p>
-          <p className="text-2xl font-bold text-gray-900">{fmt(total_spent)}</p>
+          <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Total Spent</p>
+          <p className="font-headline text-2xl font-bold text-white">{fmt(total_spent)}</p>
         </Card>
         {budget != null && (
           <>
             <Card>
-              <p className="text-xs text-gray-500 mb-1">Budget</p>
-              <p className="text-2xl font-bold text-gray-900">{fmt(budget)}</p>
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Budget</p>
+              <p className="font-headline text-2xl font-bold text-white">{fmt(budget)}</p>
             </Card>
             <Card>
-              <p className="text-xs text-gray-500 mb-1">Remaining</p>
-              <p className={`text-2xl font-bold ${remaining! < 0 ? 'text-red-600' : 'text-green-600'}`}>
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Remaining</p>
+              <p className={`font-headline text-2xl font-bold ${remaining! < 0 ? 'text-error' : 'text-secondary'}`}>
                 {fmt(remaining!)}
               </p>
               {pct != null && (
-                <div className="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div className="mt-2 h-1 bg-surface-container-highest rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full ${pct > 100 ? 'bg-red-500' : pct > 75 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                    className={`h-full rounded-full ${pct > 100 ? 'bg-error' : pct > 75 ? 'bg-yellow-400' : 'bg-secondary'}`}
                     style={{ width: `${Math.min(100, pct)}%` }}
                   />
                 </div>
@@ -143,8 +143,8 @@ export const ProjectDetail: React.FC = () => {
         )}
         {budget == null && (
           <Card>
-            <p className="text-xs text-gray-500 mb-1">Date Range</p>
-            <p className="text-sm font-medium text-gray-700">
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Date Range</p>
+            <p className="text-sm font-medium text-on-surface-variant">
               {project.start_date
                 ? `${project.start_date}${project.end_date ? ` → ${project.end_date}` : ''}`
                 : 'No dates set'}
@@ -157,7 +157,7 @@ export const ProjectDetail: React.FC = () => {
         {/* Category breakdown */}
         {by_category.length > 0 && (
           <Card>
-            <h3 className="text-sm font-semibold text-gray-700 mb-4">Spending by Category</h3>
+            <h3 className="font-headline text-sm font-bold text-white uppercase tracking-widest mb-4">Spending by Category</h3>
             <div className="flex items-center gap-4">
               <div className="w-48 h-48 shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
@@ -172,10 +172,13 @@ export const ProjectDetail: React.FC = () => {
                       nameKey="name"
                     >
                       {by_category.map((entry, i) => (
-                        <Cell key={i} fill={entry.color !== '#9ca3af' ? entry.color : '#9ca3af'} />
+                        <Cell key={i} fill={entry.color !== '#9ca3af' ? entry.color : '#2d3449'} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(v: number) => fmt(v)} />
+                    <Tooltip
+                      formatter={(v: number) => fmt(v)}
+                      contentStyle={{ borderRadius: 8, border: '1px solid rgba(255,255,255,0.05)', fontSize: 12, backgroundColor: '#171f33', color: '#dae2fd' }}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -187,9 +190,9 @@ export const ProjectDetail: React.FC = () => {
                         className="w-2.5 h-2.5 rounded-full shrink-0"
                         style={{ backgroundColor: cat.color }}
                       />
-                      <span className="text-gray-700">{cat.icon} {cat.name}</span>
+                      <span className="text-on-surface-variant">{cat.icon} {cat.name}</span>
                     </div>
-                    <span className="font-medium text-gray-900">{fmt(cat.amount)}</span>
+                    <span className="font-medium text-white">{fmt(cat.amount)}</span>
                   </div>
                 ))}
               </div>
@@ -199,37 +202,37 @@ export const ProjectDetail: React.FC = () => {
 
         {/* Meta info */}
         <Card>
-          <h3 className="text-sm font-semibold text-gray-700 mb-4">Project Info</h3>
+          <h3 className="font-headline text-sm font-bold text-white uppercase tracking-widest mb-4">Project Info</h3>
           <dl className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <dt className="text-gray-500">Status</dt>
+              <dt className="text-slate-500">Status</dt>
               <dd>
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[project.status as ProjectStatus]}`}>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full uppercase tracking-tight ${STATUS_COLORS[project.status as ProjectStatus]}`}>
                   {STATUS_LABELS[project.status as ProjectStatus]}
                 </span>
               </dd>
             </div>
             {project.start_date && (
               <div className="flex justify-between">
-                <dt className="text-gray-500">Start date</dt>
-                <dd className="font-medium text-gray-900">{project.start_date}</dd>
+                <dt className="text-slate-500">Start date</dt>
+                <dd className="font-medium text-white">{project.start_date}</dd>
               </div>
             )}
             {project.end_date && (
               <div className="flex justify-between">
-                <dt className="text-gray-500">End date</dt>
-                <dd className="font-medium text-gray-900">{project.end_date}</dd>
+                <dt className="text-slate-500">End date</dt>
+                <dd className="font-medium text-white">{project.end_date}</dd>
               </div>
             )}
             {project.budget != null && (
               <div className="flex justify-between">
-                <dt className="text-gray-500">Budget</dt>
-                <dd className="font-medium text-gray-900">{fmt(project.budget)}</dd>
+                <dt className="text-slate-500">Budget</dt>
+                <dd className="font-medium text-white">{fmt(project.budget)}</dd>
               </div>
             )}
             <div className="flex justify-between">
-              <dt className="text-gray-500">Transactions</dt>
-              <dd className="font-medium text-gray-900">{transactions.length}</dd>
+              <dt className="text-slate-500">Transactions</dt>
+              <dd className="font-medium text-white">{transactions.length}</dd>
             </div>
           </dl>
         </Card>
@@ -237,13 +240,13 @@ export const ProjectDetail: React.FC = () => {
 
       {/* Transactions list */}
       <Card>
-        <h3 className="text-sm font-semibold text-gray-700 mb-4">Transactions</h3>
+        <h3 className="font-headline text-sm font-bold text-white uppercase tracking-widest mb-4">Transactions</h3>
         {transactions.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-8">
+          <p className="text-sm text-slate-500 text-center py-8">
             No transactions linked to this project yet
           </p>
         ) : (
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-white/5">
             {transactions.map(txn => {
               const hasSplits = txn.splits.length > 0;
               const projectSplits = txn.splits.filter(s => s.in_project);
@@ -252,29 +255,29 @@ export const ProjectDetail: React.FC = () => {
               return (
                 <React.Fragment key={txn.id}>
                   <div
-                    className={`flex items-center gap-3 py-3 ${hasSplits ? 'cursor-pointer hover:bg-gray-50' : ''} -mx-1 px-1 rounded-lg transition-colors`}
+                    className={`flex items-center gap-3 py-3 ${hasSplits ? 'cursor-pointer hover:bg-white/5' : ''} -mx-1 px-1 rounded-lg transition-colors`}
                     onClick={() => hasSplits && toggleExpand(txn.id)}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-gray-900 truncate">{txn.payee}</p>
+                        <p className="text-sm font-medium text-on-surface truncate">{txn.payee}</p>
                         {hasSplits && (
-                          <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-medium shrink-0">
+                          <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium shrink-0">
                             {projectSplits.length}/{txn.splits.length} splits
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-gray-400 mt-0.5">
+                      <p className="text-xs text-slate-500 mt-0.5">
                         {txn.date}
                         {txn.account_name && ` · ${txn.account_name}`}
                         {txn.category && ` · ${txn.category.icon} ${txn.category.name}`}
                       </p>
                     </div>
-                    <span className={`text-sm font-semibold shrink-0 ${txn.type === 'income' ? 'text-green-600' : 'text-gray-900'}`}>
+                    <span className={`text-sm font-headline font-bold shrink-0 ${txn.type === 'income' ? 'text-secondary' : 'text-on-surface'}`}>
                       {txn.type === 'income' ? '+' : '-'}{fmt(txn.amount)}
                     </span>
                     {hasSplits && (
-                      <span className="text-gray-400 shrink-0">
+                      <span className="text-slate-500 shrink-0">
                         {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                       </span>
                     )}
@@ -286,23 +289,23 @@ export const ProjectDetail: React.FC = () => {
                         <div
                           key={split.id}
                           className={`flex items-center gap-3 py-1.5 px-2 rounded-lg text-sm ${
-                            split.in_project ? 'bg-purple-50 border border-purple-100' : 'opacity-50'
+                            split.in_project ? 'bg-primary/5 border border-primary/10' : 'opacity-40'
                           }`}
                         >
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
                               {split.category ? (
-                                <span className="text-xs text-gray-600">{split.category.icon} {split.category.name}</span>
+                                <span className="text-xs text-on-surface-variant">{split.category.icon} {split.category.name}</span>
                               ) : (
-                                <span className="text-xs text-gray-400">No category</span>
+                                <span className="text-xs text-slate-500">No category</span>
                               )}
                               {split.in_project && (
-                                <span className="text-xs text-purple-600 font-medium">· in project</span>
+                                <span className="text-xs text-primary font-medium">· in project</span>
                               )}
                             </div>
-                            {split.notes && <p className="text-xs text-gray-400">{split.notes}</p>}
+                            {split.notes && <p className="text-xs text-slate-500">{split.notes}</p>}
                           </div>
-                          <span className="font-medium text-gray-900 shrink-0">{fmt(split.amount)}</span>
+                          <span className="font-medium text-on-surface shrink-0">{fmt(split.amount)}</span>
                         </div>
                       ))}
                     </div>

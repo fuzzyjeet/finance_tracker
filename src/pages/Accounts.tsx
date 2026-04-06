@@ -120,7 +120,7 @@ export const Accounts: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
       </div>
     );
   }
@@ -129,7 +129,7 @@ export const Accounts: React.FC = () => {
     <div>
       <Header
         title="Accounts"
-        subtitle={`Total balance across non-credit accounts`}
+        subtitle="Total balance across non-credit accounts"
         actions={<Button onClick={openCreate}><Plus size={16} /> Add Account</Button>}
       />
 
@@ -146,33 +146,33 @@ export const Accounts: React.FC = () => {
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   onClick={() => openEdit(account)}
-                  className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="p-1.5 text-slate-500 hover:text-on-surface hover:bg-white/10 rounded-lg transition-colors"
                 >
                   <Pencil size={15} />
                 </button>
                 <button
                   onClick={() => setDeleteConfirm(account.id)}
-                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  className="p-1.5 text-slate-500 hover:text-error hover:bg-error/10 rounded-lg transition-colors"
                 >
                   <Trash2 size={15} />
                 </button>
               </div>
             </div>
 
-            <p className="font-semibold text-gray-900">{account.name}</p>
+            <p className="font-headline font-semibold text-white">{account.name}</p>
             <div className="flex items-center gap-2 mt-1 mb-3">
               <Badge color={account.color}>
                 {account.type.replace('_', ' ')}
               </Badge>
-              <span className="text-xs text-gray-400 font-medium">{account.currency}</span>
+              <span className="text-xs text-slate-500 font-medium">{account.currency}</span>
               {account.type === 'credit_card' && account.billing_cycle_day && (
-                <span className="text-xs text-gray-400">· Closes day {account.billing_cycle_day}</span>
+                <span className="text-xs text-slate-500">· Closes day {account.billing_cycle_day}</span>
               )}
             </div>
 
             <p
-              className={`text-2xl font-bold ${
-                account.balance < 0 ? 'text-red-600' : 'text-gray-900'
+              className={`font-headline text-2xl font-bold ${
+                account.balance < 0 ? 'text-error' : 'text-white'
               }`}
             >
               {formatAmount(account.balance, account.currency)}
@@ -209,7 +209,7 @@ export const Accounts: React.FC = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
+            <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-widest mb-2">Color</label>
             <div className="flex flex-wrap gap-2">
               {ACCOUNT_COLORS.map(c => (
                 <button
@@ -217,7 +217,7 @@ export const Accounts: React.FC = () => {
                   type="button"
                   onClick={() => setForm(f => ({ ...f, color: c }))}
                   className={`w-7 h-7 rounded-full border-2 transition-transform hover:scale-110 ${
-                    form.color === c ? 'border-gray-800 scale-110' : 'border-transparent'
+                    form.color === c ? 'border-white scale-110' : 'border-transparent'
                   }`}
                   style={{ backgroundColor: c }}
                 />
@@ -252,7 +252,7 @@ export const Accounts: React.FC = () => {
         title="Delete Account"
         size="sm"
       >
-        <p className="text-sm text-gray-600 mb-4">
+        <p className="text-sm text-on-surface-variant mb-4">
           Are you sure you want to delete this account? This will also delete all associated transactions.
         </p>
         <div className="flex justify-end gap-2">

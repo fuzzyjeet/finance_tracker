@@ -10,13 +10,13 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ title, subtitle, actions }) => {
   const today = format(new Date(), 'EEEE, MMMM d, yyyy');
   return (
-    <div className="flex items-center justify-between mb-6">
+    <div className="flex items-center justify-between mb-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">{title}</h1>
+        <h1 className="font-headline text-2xl font-bold text-white flex items-center gap-2">{title}</h1>
         {subtitle ? (
-          <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>
+          <p className="text-xs text-slate-500 mt-1 uppercase tracking-widest">{subtitle}</p>
         ) : (
-          <p className="text-sm text-gray-500 mt-0.5">{today}</p>
+          <p className="text-xs text-slate-500 mt-1 uppercase tracking-widest">{today}</p>
         )}
       </div>
       {actions && <div className="flex items-center gap-2">{actions}</div>}

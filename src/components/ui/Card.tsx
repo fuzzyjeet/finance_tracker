@@ -5,12 +5,13 @@ interface CardProps {
   className?: string;
   padding?: boolean;
   onClick?: () => void;
+  glass?: boolean;
 }
 
-export const Card: React.FC<CardProps> = ({ children, className = '', padding = true, onClick }) => {
+export const Card: React.FC<CardProps> = ({ children, className = '', padding = true, onClick, glass = false }) => {
   return (
     <div
-      className={`bg-white rounded-xl shadow-sm border border-gray-200 ${padding ? 'p-5' : ''} ${className}`}
+      className={`${glass ? 'glass-panel' : 'bg-surface-container-low'} rounded-xl border border-white/5 ${padding ? 'p-6' : ''} ${className}`}
       onClick={onClick}
     >
       {children}

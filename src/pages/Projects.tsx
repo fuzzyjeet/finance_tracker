@@ -18,10 +18,10 @@ const STATUS_LABELS: Record<ProjectStatus, string> = {
 };
 
 const STATUS_COLORS: Record<ProjectStatus, string> = {
-  planned: 'bg-gray-100 text-gray-600',
-  active: 'bg-green-100 text-green-700',
-  completed: 'bg-blue-100 text-blue-700',
-  on_hold: 'bg-yellow-100 text-yellow-700',
+  planned: 'bg-surface-container-highest text-on-surface-variant',
+  active: 'bg-secondary/10 text-secondary',
+  completed: 'bg-primary/10 text-primary',
+  on_hold: 'bg-yellow-500/10 text-yellow-400',
 };
 
 const PROJECT_ICONS = ['📁', '✈️', '🏠', '🎉', '🚗', '💻', '🏋️', '🎓', '🌿', '🛒', '🏥', '🎨', '🔧', '📱', '🌍'];
@@ -133,12 +133,12 @@ export const Projects: React.FC = () => {
 
       {loading ? (
         <div className="flex items-center justify-center h-40">
-          <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
         </div>
       ) : projects.length === 0 ? (
         <div className="text-center py-16">
-          <FolderOpen size={40} className="mx-auto text-gray-300 mb-3" />
-          <p className="text-gray-400 text-sm mb-3">No projects yet</p>
+          <FolderOpen size={40} className="mx-auto text-slate-500 mb-3" />
+          <p className="text-slate-500 text-sm mb-3">No projects yet</p>
           <Button onClick={openCreate}><Plus size={16} /> New Project</Button>
         </div>
       ) : (
@@ -146,7 +146,7 @@ export const Projects: React.FC = () => {
           {projects.map(project => (
             <Card
               key={project.id}
-              className="relative group cursor-pointer hover:shadow-md transition-shadow"
+              className="relative group cursor-pointer hover:border-white/10 transition-colors"
               onClick={() => navigate(`/projects/${project.id}`)}
             >
               <div className="flex items-start justify-between mb-3">
@@ -158,8 +158,8 @@ export const Projects: React.FC = () => {
                     {project.icon}
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900 text-sm">{project.name}</h3>
-                    <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full mt-0.5 ${STATUS_COLORS[project.status]}`}>
+                    <h3 className="font-headline font-semibold text-white text-sm">{project.name}</h3>
+                    <span className={`inline-block text-xs font-bold px-2 py-0.5 rounded-full mt-0.5 uppercase tracking-tight ${STATUS_COLORS[project.status]}`}>
                       {STATUS_LABELS[project.status]}
                     </span>
                   </div>
@@ -167,13 +167,13 @@ export const Projects: React.FC = () => {
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={e => openEdit(project, e)}
-                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                    className="p-1.5 text-slate-500 hover:text-on-surface hover:bg-white/10 rounded-lg transition-colors"
                   >
                     <Pencil size={14} />
                   </button>
                   <button
                     onClick={e => { e.stopPropagation(); setDeleteConfirm(project.id); }}
-                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    className="p-1.5 text-slate-500 hover:text-error hover:bg-error/10 rounded-lg transition-colors"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -181,17 +181,17 @@ export const Projects: React.FC = () => {
               </div>
 
               {project.description && (
-                <p className="text-xs text-gray-500 mb-3 line-clamp-2">{project.description}</p>
+                <p className="text-xs text-slate-500 mb-3 line-clamp-2">{project.description}</p>
               )}
 
-              <div className="flex items-center justify-between text-xs text-gray-400">
+              <div className="flex items-center justify-between text-xs text-slate-500">
                 <span>
                   {project.start_date
                     ? `${project.start_date}${project.end_date ? ` → ${project.end_date}` : ''}`
                     : 'No dates set'}
                 </span>
                 {project.budget != null && (
-                  <span className="font-medium text-gray-600">
+                  <span className="font-medium text-on-surface-variant">
                     Budget: €{project.budget.toLocaleString()}
                   </span>
                 )}
@@ -212,7 +212,7 @@ export const Projects: React.FC = () => {
           {/* Icon + Color picker row */}
           <div className="flex items-start gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Icon</label>
+              <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-widest mb-2">Icon</label>
               <div className="flex flex-wrap gap-1.5 max-w-[180px]">
                 {PROJECT_ICONS.map(icon => (
                   <button
@@ -220,7 +220,7 @@ export const Projects: React.FC = () => {
                     type="button"
                     onClick={() => setForm(f => ({ ...f, icon }))}
                     className={`w-8 h-8 rounded-lg text-base flex items-center justify-center transition-all ${
-                      form.icon === icon ? 'bg-blue-100 ring-2 ring-blue-400' : 'hover:bg-gray-100'
+                      form.icon === icon ? 'bg-primary/20 ring-1 ring-primary/50' : 'hover:bg-white/10'
                     }`}
                   >
                     {icon}
@@ -229,7 +229,7 @@ export const Projects: React.FC = () => {
               </div>
             </div>
             <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
+              <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-widest mb-2">Color</label>
               <div className="flex flex-wrap gap-1.5">
                 {PROJECT_COLORS.map(color => (
                   <button
@@ -237,14 +237,14 @@ export const Projects: React.FC = () => {
                     type="button"
                     onClick={() => setForm(f => ({ ...f, color }))}
                     className={`w-7 h-7 rounded-full border-2 transition-all ${
-                      form.color === color ? 'border-gray-700 scale-110' : 'border-transparent'
+                      form.color === color ? 'border-white scale-110' : 'border-transparent'
                     }`}
                     style={{ backgroundColor: color }}
                   />
                 ))}
               </div>
               {/* Preview */}
-              <div className="mt-3 flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+              <div className="mt-3 flex items-center gap-2 p-2 bg-surface-container-highest rounded-lg">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center text-lg" style={{ backgroundColor: `${form.color}22` }}>
                   {form.icon}
                 </div>
@@ -261,13 +261,13 @@ export const Projects: React.FC = () => {
           />
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description (optional)</label>
+            <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-widest mb-1">Description (optional)</label>
             <textarea
               value={form.description}
               onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
               placeholder="What is this project about?"
               rows={2}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full px-3 py-2 text-sm border border-white/10 rounded-lg bg-surface-container-highest text-on-surface placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"
             />
           </div>
 
@@ -319,7 +319,7 @@ export const Projects: React.FC = () => {
 
       {/* Delete confirm */}
       <Modal isOpen={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} title="Delete Project" size="sm">
-        <p className="text-sm text-gray-600 mb-4">
+        <p className="text-sm text-on-surface-variant mb-4">
           Are you sure you want to delete this project? Transactions will not be deleted.
         </p>
         <div className="flex justify-end gap-2">

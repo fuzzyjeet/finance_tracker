@@ -10,6 +10,24 @@ body {
   font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: #0b1326;
+  color: #dae2fd;
+}
+
+/* Glass panel utility */
+.glass-panel {
+  background: rgba(34, 42, 61, 0.6);
+  backdrop-filter: blur(20px);
+}
+
+/* Data pulse animation */
+.data-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .4; }
 }
 
 /* Custom scrollbar */
@@ -19,14 +37,20 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: #0b1326;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #2d3449;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #3e484f;
+}
+
+/* Dark select options */
+select option {
+  background-color: #171f33;
+  color: #dae2fd;
 }
