@@ -8,7 +8,8 @@ import { transactionsApi, TransactionPayload, SplitPayload } from '../../api/tra
 import { accountsApi } from '../../api/accounts';
 import { categoriesApi } from '../../api/categories';
 import { tagsApi } from '../../api/tags';
-import { Account, Category, Tag, Transaction } from '../../types';
+import { projectsApi } from '../../api/projects';
+import { Account, Category, Tag, Transaction, Project } from '../../types';
 
 const TAG_COLORS = [
   '#6366f1', '#22c55e', '#f97316', '#ef4444', '#3b82f6',
@@ -26,6 +27,7 @@ interface TxnForm {
   payee: string;
   notes: string;
   tag_ids: string[];
+  project_ids: string[];
 }
 
 const emptyForm = (): TxnForm => ({
@@ -39,6 +41,7 @@ const emptyForm = (): TxnForm => ({
   payee: '',
   notes: '',
   tag_ids: [],
+  project_ids: [],
 });
 
 interface Props {
@@ -52,6 +55,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [form, setForm] = useState<TxnForm>(emptyForm());
   const [saving, setSaving] = useState(false);
   const [newTagName, setNewTagName] = useState('');
@@ -60,12 +64,12 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
 
   // Split state
   const [splitMode, setSplitMode] = useState(false);
-  const [splits, setSplits] = useState<SplitPayload[]>([{ amount: 0, category_id: '', notes: '' }]);
+  const [splits, setSplits] = useState<SplitPayload[]>([{ amount: 0, category_id: '', notes: '', project_ids: [] }]);
 
   useEffect(() => {
     if (!isOpen) return;
-    Promise.all([accountsApi.list(), categoriesApi.list(), tagsApi.list()]).then(
-      ([accts, cats, tgs]) => { setAccounts(accts); setCategories(cats); setTags(tgs); }
+    Promise.all([accountsApi.list(), categoriesApi.list(), tagsApi.list(), projectsApi.list()]).then(
+      ([accts, cats, tgs, projs]) => { setAccounts(accts); setCategories(cats); setTags(tgs); setProjects(projs); }
     );
   }, [isOpen]);
 
@@ -83,6 +87,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
         payee: editing.payee,
         notes: editing.notes ?? '',
         tag_ids: editing.tags?.map(t => t.id) ?? [],
+        project_ids: editing.projects?.map(p => p.id) ?? [],
       });
       if (editing.splits && editing.splits.length > 0) {
         setSplitMode(true);
@@ -90,15 +95,16 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
           amount: s.amount,
           category_id: s.category_id ?? '',
           notes: s.notes ?? '',
+          project_ids: s.projects?.map(p => p.id) ?? [],
         })));
       } else {
         setSplitMode(false);
-        setSplits([{ amount: 0, category_id: '', notes: '' }]);
+        setSplits([{ amount: 0, category_id: '', notes: '', project_ids: [] }]);
       }
     } else {
       setForm(emptyForm());
       setSplitMode(false);
-      setSplits([{ amount: 0, category_id: '', notes: '' }]);
+      setSplits([{ amount: 0, category_id: '', notes: '', project_ids: [] }]);
     }
   }, [editing, isOpen]);
 
@@ -122,11 +128,13 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
         payee: form.payee,
         notes: form.notes || undefined,
         tag_ids: form.tag_ids,
+        project_ids: splitMode ? [] : form.project_ids,
         splits: splitMode
           ? splits.map(s => ({
               amount: parseFloat(String(s.amount)) || 0,
               category_id: s.category_id || undefined,
               notes: s.notes || undefined,
+              project_ids: s.project_ids ?? [],
             }))
           : undefined,
       };
@@ -155,18 +163,26 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
     if (!splitMode) {
       // Enter split mode: pre-fill first split with current amount & category
       setSplits([
-        { amount: totalAmount, category_id: form.category_id, notes: '' },
-        { amount: 0, category_id: '', notes: '' },
+        { amount: totalAmount, category_id: form.category_id, notes: '', project_ids: [] },
+        { amount: 0, category_id: '', notes: '', project_ids: [] },
       ]);
     }
     setSplitMode(v => !v);
   };
 
-  const updateSplit = (i: number, field: keyof SplitPayload, value: string | number) => {
+  const updateSplit = (i: number, field: keyof SplitPayload, value: string | number | string[]) => {
     setSplits(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s));
   };
 
-  const addSplit = () => setSplits(prev => [...prev, { amount: remaining > 0 ? remaining : 0, category_id: '', notes: '' }]);
+  const toggleSplitProject = (splitIdx: number, projectId: string) => {
+    setSplits(prev => prev.map((s, idx) => {
+      if (idx !== splitIdx) return s;
+      const ids = s.project_ids ?? [];
+      return { ...s, project_ids: ids.includes(projectId) ? ids.filter(id => id !== projectId) : [...ids, projectId] };
+    }));
+  };
+
+  const addSplit = () => setSplits(prev => [...prev, { amount: remaining > 0 ? remaining : 0, category_id: '', notes: '', project_ids: [] }]);
   const removeSplit = (i: number) => setSplits(prev => prev.filter((_, idx) => idx !== i));
 
   const filteredCategories = (type?: string) => {
@@ -259,46 +275,65 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
             </button>
 
             {splitMode && (
-              <div className="px-3 pb-3 space-y-2">
+              <div className="px-3 pb-3 space-y-3">
                 {splits.map((split, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <div className="w-28 shrink-0">
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={split.amount || ''}
-                        onChange={e => updateSplit(i, 'amount', parseFloat(e.target.value) || 0)}
-                        placeholder="0.00"
-                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
+                  <div key={i} className="space-y-1.5 pb-2 border-b border-blue-100 last:border-0">
+                    <div className="flex items-start gap-2">
+                      <div className="w-28 shrink-0">
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={split.amount || ''}
+                          onChange={e => updateSplit(i, 'amount', parseFloat(e.target.value) || 0)}
+                          placeholder="0.00"
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <select
+                          value={split.category_id}
+                          onChange={e => updateSplit(i, 'category_id', e.target.value)}
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        >
+                          <option value="">No category</option>
+                          {filteredCategories().map(c => (
+                            <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          value={split.notes ?? ''}
+                          onChange={e => updateSplit(i, 'notes', e.target.value)}
+                          placeholder="Note (optional)"
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      {splits.length > 2 && (
+                        <button type="button" onClick={() => removeSplit(i)}
+                          className="mt-1 p-1 text-gray-400 hover:text-red-500 transition-colors">
+                          <X size={15} />
+                        </button>
+                      )}
                     </div>
-                    <div className="flex-1">
-                      <select
-                        value={split.category_id}
-                        onChange={e => updateSplit(i, 'category_id', e.target.value)}
-                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                      >
-                        <option value="">No category</option>
-                        {filteredCategories().map(c => (
-                          <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex-1">
-                      <input
-                        type="text"
-                        value={split.notes ?? ''}
-                        onChange={e => updateSplit(i, 'notes', e.target.value)}
-                        placeholder="Note (optional)"
-                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    {splits.length > 2 && (
-                      <button type="button" onClick={() => removeSplit(i)}
-                        className="mt-1 p-1 text-gray-400 hover:text-red-500 transition-colors">
-                        <X size={15} />
-                      </button>
+                    {projects.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pl-1">
+                        {projects.map(p => {
+                          const active = (split.project_ids ?? []).includes(p.id);
+                          return (
+                            <button key={p.id} type="button"
+                              onClick={() => toggleSplitProject(i, p.id)}
+                              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border transition-all ${
+                                active ? 'border-current' : 'border-transparent opacity-40'
+                              }`}
+                              style={{ backgroundColor: `${p.color}22`, color: p.color }}>
+                              {p.icon} {p.name}
+                            </button>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
                 ))}
@@ -378,6 +413,33 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
             ))}
           </div>
         </div>
+
+        {/* Projects (non-split) */}
+        {form.type !== 'transfer' && !splitMode && projects.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Projects</label>
+            <div className="flex flex-wrap gap-1.5">
+              {projects.map(p => {
+                const active = form.project_ids.includes(p.id);
+                return (
+                  <button key={p.id} type="button"
+                    onClick={() => setForm(f => ({
+                      ...f,
+                      project_ids: active
+                        ? f.project_ids.filter(id => id !== p.id)
+                        : [...f.project_ids, p.id],
+                    }))}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border-2 transition-all ${
+                      active ? 'border-current' : 'border-transparent opacity-50'
+                    }`}
+                    style={{ backgroundColor: `${p.color}22`, color: p.color }}>
+                    {p.icon} {p.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>

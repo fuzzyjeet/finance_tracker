@@ -6,7 +6,8 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from database import Base
 
-# Association table for transaction tags
+# ── Junction tables ───────────────────────────────────────────────────────────
+
 transaction_tags = Table(
     "transaction_tags",
     Base.metadata,
@@ -14,7 +15,6 @@ transaction_tags = Table(
     Column("tag_id", String, ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
 )
 
-# Association table for recurring transaction tags
 recurring_tags = Table(
     "recurring_tags",
     Base.metadata,
@@ -22,6 +22,21 @@ recurring_tags = Table(
     Column("tag_id", String, ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
 )
 
+transaction_projects = Table(
+    "transaction_projects",
+    Base.metadata,
+    Column("transaction_id", String, ForeignKey("transactions.id", ondelete="CASCADE"), primary_key=True),
+    Column("project_id", String, ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True),
+)
+
+split_projects = Table(
+    "split_projects",
+    Base.metadata,
+    Column("split_id", String, ForeignKey("transaction_splits.id", ondelete="CASCADE"), primary_key=True),
+    Column("project_id", String, ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True),
+)
+
+# ── Models ────────────────────────────────────────────────────────────────────
 
 class Account(Base):
     __tablename__ = "accounts"
@@ -62,12 +77,33 @@ class Tag(Base):
     transactions = relationship("Transaction", secondary=transaction_tags, back_populates="tags")
 
 
+class Project(Base):
+    __tablename__ = "projects"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    icon = Column(String, nullable=False, default="📁")
+    color = Column(String, nullable=False, default="#6366f1")
+    status = Column(
+        SAEnum("planned", "active", "completed", "on_hold", name="project_status"),
+        nullable=False, default="planned"
+    )
+    start_date = Column(String, nullable=True)   # YYYY-MM-DD
+    end_date = Column(String, nullable=True)     # YYYY-MM-DD
+    budget = Column(Float, nullable=True)        # optional planned budget
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    transactions = relationship("Transaction", secondary=transaction_projects, back_populates="projects")
+    splits = relationship("TransactionSplit", secondary=split_projects, back_populates="projects")
+
+
 class Transaction(Base):
     __tablename__ = "transactions"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    date = Column(String, nullable=False)  # YYYY-MM-DD
-    billing_date = Column(String, nullable=True)  # YYYY-MM-DD
+    date = Column(String, nullable=False)
+    billing_date = Column(String, nullable=True)
     amount = Column(Float, nullable=False)
     type = Column(SAEnum("income", "expense", "transfer", name="transaction_type"), nullable=False)
     category_id = Column(String, ForeignKey("categories.id", ondelete="SET NULL"), nullable=True)
@@ -84,6 +120,7 @@ class Transaction(Base):
     tags = relationship("Tag", secondary=transaction_tags, back_populates="transactions")
     recurring = relationship("RecurringTransaction", back_populates="transactions")
     splits = relationship("TransactionSplit", back_populates="transaction", cascade="all, delete-orphan")
+    projects = relationship("Project", secondary=transaction_projects, back_populates="transactions")
 
 
 class TransactionSplit(Base):
@@ -98,6 +135,7 @@ class TransactionSplit(Base):
 
     transaction = relationship("Transaction", back_populates="splits")
     category = relationship("Category")
+    projects = relationship("Project", secondary=split_projects, back_populates="splits")
 
 
 class RecurringTransaction(Base):
@@ -114,8 +152,7 @@ class RecurringTransaction(Base):
     notes = Column(String, nullable=True)
     frequency = Column(
         SAEnum("daily", "weekly", "monthly", "yearly", "custom", name="recurrence_frequency"),
-        nullable=False,
-        default="monthly"
+        nullable=False, default="monthly"
     )
     custom_interval_days = Column(Integer, nullable=True)
     start_date = Column(String, nullable=False)

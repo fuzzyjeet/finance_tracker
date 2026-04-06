@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 import uuid
 from database import get_db
-from models import Transaction, TransactionSplit, Tag, Account
+from models import Transaction, TransactionSplit, Tag, Account, Project
 from schemas import TransactionCreate, TransactionUpdate, TransactionRead, TransactionSummary, TransactionSplitRead
 from routers.accounts import recalculate_balance
 
@@ -27,6 +27,7 @@ def build_transaction_read(txn: Transaction) -> dict:
         "category": txn.category,
         "tags": txn.tags,
         "splits": txn.splits,
+        "projects": txn.projects,
         "account_name": txn.account.name if txn.account else None,
         "to_account_name": txn.to_account.name if txn.to_account else None,
     }
@@ -117,6 +118,7 @@ def list_transactions(
 @router.post("", response_model=TransactionRead)
 def create_transaction(data: TransactionCreate, db: Session = Depends(get_db)):
     tag_ids = data.tag_ids or []
+    project_ids = data.project_ids or []
     has_splits = bool(data.splits)
     txn = Transaction(
         id=str(uuid.uuid4()),
@@ -124,7 +126,6 @@ def create_transaction(data: TransactionCreate, db: Session = Depends(get_db)):
         billing_date=data.billing_date,
         amount=data.amount,
         type=data.type,
-        # category_id is null when using splits
         category_id=None if has_splits else data.category_id,
         account_id=data.account_id,
         to_account_id=data.to_account_id,
@@ -132,20 +133,24 @@ def create_transaction(data: TransactionCreate, db: Session = Depends(get_db)):
         notes=data.notes,
     )
     if tag_ids:
-        tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()
-        txn.tags = tags
+        txn.tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()
+    if project_ids and not has_splits:
+        txn.projects = db.query(Project).filter(Project.id.in_(project_ids)).all()
     db.add(txn)
-    db.flush()  # get txn.id before adding splits
+    db.flush()
 
     if has_splits:
         for s in data.splits:
-            db.add(TransactionSplit(
+            split = TransactionSplit(
                 id=str(uuid.uuid4()),
                 transaction_id=txn.id,
                 amount=s.amount,
                 category_id=s.category_id,
                 notes=s.notes,
-            ))
+            )
+            if s.project_ids:
+                split.projects = db.query(Project).filter(Project.id.in_(s.project_ids)).all()
+            db.add(split)
 
     db.commit()
     db.refresh(txn)
@@ -177,28 +182,33 @@ def update_transaction(transaction_id: str, data: TransactionUpdate, db: Session
 
     update_data = data.model_dump(exclude_unset=True)
     tag_ids = update_data.pop("tag_ids", None)
-    splits_data = update_data.pop("splits", None)  # None = not provided, [] = clear
+    project_ids = update_data.pop("project_ids", None)
+    splits_data = update_data.pop("splits", None)
 
     for field, value in update_data.items():
         setattr(txn, field, value)
 
     if tag_ids is not None:
-        tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()
-        txn.tags = tags
+        txn.tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()
 
-    # Handle splits: if provided (even empty list), replace all splits
+    if project_ids is not None:
+        txn.projects = db.query(Project).filter(Project.id.in_(project_ids)).all()
+
     if splits_data is not None:
         db.query(TransactionSplit).filter(TransactionSplit.transaction_id == txn.id).delete()
         if splits_data:
-            txn.category_id = None  # splits override direct category
+            txn.category_id = None
             for s in splits_data:
-                db.add(TransactionSplit(
+                split = TransactionSplit(
                     id=str(uuid.uuid4()),
                     transaction_id=txn.id,
                     amount=s.amount,
                     category_id=s.category_id,
                     notes=s.notes,
-                ))
+                )
+                if s.project_ids:
+                    split.projects = db.query(Project).filter(Project.id.in_(s.project_ids)).all()
+                db.add(split)
 
     db.commit()
     db.refresh(txn)

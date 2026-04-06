@@ -6,6 +6,8 @@ import { Accounts } from './pages/Accounts';
 import { Transactions } from './pages/Transactions';
 import { Budgets } from './pages/Budgets';
 import { Recurring } from './pages/Recurring';
+import { Projects } from './pages/Projects';
+import { ProjectDetail } from './pages/ProjectDetail';
 
 const App: React.FC = () => {
   return (
@@ -17,6 +19,8 @@ const App: React.FC = () => {
           <Route path="/transactions" element={<Transactions />} />
           <Route path="/budgets" element={<Budgets />} />
           <Route path="/recurring" element={<Recurring />} />
+          <Route path="/projects" element={<Projects />} />
+          <Route path="/projects/:id" element={<ProjectDetail />} />
         </Route>
       </Routes>
     </BrowserRouter>

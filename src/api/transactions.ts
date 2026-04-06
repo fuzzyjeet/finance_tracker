@@ -17,6 +17,7 @@ export interface SplitPayload {
   amount: number;
   category_id?: string;
   notes?: string;
+  project_ids?: string[];
 }
 
 export interface TransactionPayload {
@@ -30,6 +31,7 @@ export interface TransactionPayload {
   payee: string;
   notes?: string;
   tag_ids?: string[];
+  project_ids?: string[];
   splits?: SplitPayload[];
 }
 

@@ -44,12 +44,35 @@ export interface Tag {
   color: string;
 }
 
+export type ProjectStatus = 'planned' | 'active' | 'completed' | 'on_hold';
+
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  icon: string;
+  color: string;
+  status: ProjectStatus;
+  start_date?: string;
+  end_date?: string;
+  budget?: number;
+  created_at: string;
+}
+
 export interface TransactionSplit {
   id: string;
   amount: number;
   category_id?: string;
   notes?: string;
   category?: Category;
+  projects?: ProjectSummary[];
 }
 
 export interface Transaction {
@@ -69,6 +92,7 @@ export interface Transaction {
   category?: Category;
   tags?: Tag[];
   splits?: TransactionSplit[];
+  projects?: ProjectSummary[];
   account_name?: string;
   to_account_name?: string;
 }

@@ -9,7 +9,8 @@ import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { budgetsApi, BudgetPayload } from '../api/budgets';
 import { categoriesApi } from '../api/categories';
-import { Budget, Category } from '../types';
+import { projectsApi } from '../api/projects';
+import { Budget, Category, Project } from '../types';
 
 const formatCurrency = (v: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v);
@@ -25,6 +26,8 @@ export const Budgets: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [excludedProjectIds, setExcludedProjectIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Budget | null>(null);
@@ -37,18 +40,20 @@ export const Budgets: React.FC = () => {
   const load = async () => {
     setLoading(true);
     try {
-      const [buds, cats] = await Promise.all([
-        budgetsApi.list(currentMonth),
+      const [buds, cats, projs] = await Promise.all([
+        budgetsApi.list(currentMonth, excludedProjectIds),
         categoriesApi.list(),
+        projectsApi.list(),
       ]);
       setBudgets(buds);
       setCategories(cats.filter(c => c.type === 'expense' || c.type === 'both'));
+      setProjects(projs);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, [currentMonth]);
+  useEffect(() => { load(); }, [currentMonth, excludedProjectIds.join(',')]);
 
   const openCreate = () => {
     setEditing(null);
@@ -123,6 +128,39 @@ export const Budgets: React.FC = () => {
           <ChevronRight size={16} />
         </button>
       </div>
+
+      {/* Project filter */}
+      {projects.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <span className="text-xs text-gray-500 font-medium">Exclude projects:</span>
+          {projects.map(p => {
+            const excluded = excludedProjectIds.includes(p.id);
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setExcludedProjectIds(prev =>
+                  excluded ? prev.filter(id => id !== p.id) : [...prev, p.id]
+                )}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border-2 transition-all ${
+                  excluded ? 'border-current' : 'border-transparent opacity-40'
+                }`}
+                style={{ backgroundColor: `${p.color}22`, color: p.color }}
+              >
+                {p.icon} {p.name}
+              </button>
+            );
+          })}
+          {excludedProjectIds.length > 0 && (
+            <button
+              onClick={() => setExcludedProjectIds([])}
+              className="text-xs text-gray-400 hover:text-gray-600 underline"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Summary bar */}
       {budgets.length > 0 && (

@@ -4,12 +4,14 @@ interface CardProps {
   children: React.ReactNode;
   className?: string;
   padding?: boolean;
+  onClick?: () => void;
 }
 
-export const Card: React.FC<CardProps> = ({ children, className = '', padding = true }) => {
+export const Card: React.FC<CardProps> = ({ children, className = '', padding = true, onClick }) => {
   return (
     <div
       className={`bg-white rounded-xl shadow-sm border border-gray-200 ${padding ? 'p-5' : ''} ${className}`}
+      onClick={onClick}
     >
       {children}
     </div>

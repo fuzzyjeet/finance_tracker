@@ -78,12 +78,56 @@ class AccountRead(AccountBase):
     created_at: datetime
 
 
+# ── Project ───────────────────────────────────────────────────────────────────
+
+class ProjectBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    icon: str = "📁"
+    color: str = "#6366f1"
+    status: str = "planned"  # planned | active | completed | on_hold
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    budget: Optional[float] = None
+
+
+class ProjectCreate(ProjectBase):
+    pass
+
+
+class ProjectUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    icon: Optional[str] = None
+    color: Optional[str] = None
+    status: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    budget: Optional[float] = None
+
+
+class ProjectRead(ProjectBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    created_at: datetime
+
+
+class ProjectSummary(BaseModel):
+    """Lightweight project ref embedded in transaction responses."""
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    name: str
+    icon: str
+    color: str
+
+
 # ── Transaction Split ─────────────────────────────────────────────────────────
 
 class TransactionSplitCreate(BaseModel):
     amount: float
     category_id: Optional[str] = None
     notes: Optional[str] = None
+    project_ids: Optional[List[str]] = []
 
 
 class TransactionSplitRead(BaseModel):
@@ -93,6 +137,7 @@ class TransactionSplitRead(BaseModel):
     category_id: Optional[str] = None
     notes: Optional[str] = None
     category: Optional[CategoryRead] = None
+    projects: List[ProjectSummary] = []
 
 
 # ── Transaction ───────────────────────────────────────────────────────────────
@@ -108,6 +153,7 @@ class TransactionBase(BaseModel):
     payee: str = ""
     notes: Optional[str] = None
     tag_ids: Optional[List[str]] = []
+    project_ids: Optional[List[str]] = []
     splits: Optional[List[TransactionSplitCreate]] = None  # None = no splits
 
 
@@ -126,6 +172,7 @@ class TransactionUpdate(BaseModel):
     payee: Optional[str] = None
     notes: Optional[str] = None
     tag_ids: Optional[List[str]] = None
+    project_ids: Optional[List[str]] = None
     splits: Optional[List[TransactionSplitCreate]] = None  # None = don't touch, [] = clear
 
 
@@ -146,6 +193,7 @@ class TransactionRead(BaseModel):
     category: Optional[CategoryRead] = None
     tags: List[TagRead] = []
     splits: List[TransactionSplitRead] = []
+    projects: List[ProjectSummary] = []
     account_name: Optional[str] = None
     to_account_name: Optional[str] = None
 

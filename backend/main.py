@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine
 import models
-from routers import accounts, transactions, categories, budgets, recurring, tags
+from routers import accounts, transactions, categories, budgets, recurring, tags, projects
 from services.scheduler import start_scheduler
 from seed import seed_data
 
@@ -23,6 +23,7 @@ app.include_router(categories.router, prefix="/api/categories", tags=["categorie
 app.include_router(budgets.router, prefix="/api/budgets", tags=["budgets"])
 app.include_router(recurring.router, prefix="/api/recurring", tags=["recurring"])
 app.include_router(tags.router, prefix="/api/tags", tags=["tags"])
+app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 
 
 @app.on_event("startup")

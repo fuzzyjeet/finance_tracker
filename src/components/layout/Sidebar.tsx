@@ -7,6 +7,7 @@ import {
   PieChart,
   RefreshCw,
   TrendingUp,
+  FolderOpen,
 } from 'lucide-react';
 
 const navItems = [
@@ -15,6 +16,7 @@ const navItems = [
   { to: '/transactions', icon: ArrowLeftRight, label: 'Transactions' },
   { to: '/budgets', icon: PieChart, label: 'Budgets' },
   { to: '/recurring', icon: RefreshCw, label: 'Recurring' },
+  { to: '/projects', icon: FolderOpen, label: 'Projects' },
 ];
 
 export const Sidebar: React.FC = () => {

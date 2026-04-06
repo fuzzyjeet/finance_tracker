@@ -3,27 +3,33 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 import uuid
 from database import get_db
-from models import Budget, Transaction, TransactionSplit
+from models import Budget, Transaction, TransactionSplit, Project
 from schemas import BudgetCreate, BudgetUpdate, BudgetRead
 
 router = APIRouter()
 
 
-def compute_spent(db: Session, category_id: str, month: str) -> float:
+def compute_spent(db: Session, category_id: str, month: str, exclude_project_ids: list = None) -> float:
     start = f"{month}-01"
     year, mon = int(month.split("-")[0]), int(month.split("-")[1])
     end = f"{year + 1}-01-01" if mon == 12 else f"{year}-{mon + 1:02d}-01"
+    excl = exclude_project_ids or []
 
     # Direct (non-split) transactions
-    direct = db.query(Transaction).filter(
+    q_direct = db.query(Transaction).filter(
         Transaction.category_id == category_id,
         Transaction.type == "expense",
         Transaction.date >= start,
         Transaction.date < end,
-    ).all()
+    )
+    if excl:
+        q_direct = q_direct.filter(
+            ~Transaction.projects.any(Project.id.in_(excl))
+        )
+    direct = q_direct.all()
 
     # Split line items
-    split_amounts = (
+    q_splits = (
         db.query(TransactionSplit)
         .join(Transaction, TransactionSplit.transaction_id == Transaction.id)
         .filter(
@@ -32,14 +38,18 @@ def compute_spent(db: Session, category_id: str, month: str) -> float:
             Transaction.date >= start,
             Transaction.date < end,
         )
-        .all()
     )
+    if excl:
+        q_splits = q_splits.filter(
+            ~TransactionSplit.projects.any(Project.id.in_(excl))
+        )
+    split_amounts = q_splits.all()
 
     return sum(t.amount for t in direct) + sum(s.amount for s in split_amounts)
 
 
-def build_budget_read(budget: Budget, db: Session) -> BudgetRead:
-    spent = compute_spent(db, budget.category_id, budget.month)
+def build_budget_read(budget: Budget, db: Session, exclude_project_ids: list = None) -> BudgetRead:
+    spent = compute_spent(db, budget.category_id, budget.month, exclude_project_ids)
     result = BudgetRead.model_validate(budget)
     result.spent = spent
     return result
@@ -48,13 +58,15 @@ def build_budget_read(budget: Budget, db: Session) -> BudgetRead:
 @router.get("", response_model=List[BudgetRead])
 def list_budgets(
     month: Optional[str] = Query(None, description="YYYY-MM"),
+    exclude_project_ids: Optional[str] = Query(None, description="Comma-separated project IDs to exclude"),
     db: Session = Depends(get_db),
 ):
+    excl = [x for x in (exclude_project_ids or "").split(",") if x]
     q = db.query(Budget)
     if month:
         q = q.filter(Budget.month == month)
     budgets = q.order_by(Budget.created_at).all()
-    return [build_budget_read(b, db) for b in budgets]
+    return [build_budget_read(b, db, excl) for b in budgets]
 
 
 @router.post("", response_model=BudgetRead)
