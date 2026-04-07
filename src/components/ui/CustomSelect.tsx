@@ -223,6 +223,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
           pos={pos}
           onSelect={onChange}
           onClose={() => setOpen(false)}
+          triggerRef={triggerRef}
         />
       )}
     </div>
