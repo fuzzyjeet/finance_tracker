@@ -165,16 +165,17 @@ export const Dashboard: React.FC = () => {
   const [loading, setLoading]               = useState(true);
   const [addTxnOpen, setAddTxnOpen]         = useState(false);
 
-  // Chart period state
-  const [chartDate, setChartDate]         = useState(new Date());
-  const [rangeMode, setRangeMode]         = useState<RangeMode>('month');
-  const [customFrom, setCustomFrom]       = useState('');
-  const [customTo, setCustomTo]           = useState('');
-  const [chartsLoading, setChartsLoading] = useState(false);
+  // Bar chart state (fixed: always last 6 months from today)
+  const [monthlyData, setMonthlyData]   = useState<{ month: string; income: number; expenses: number }[]>([]);
+  const [barLoading, setBarLoading]     = useState(false);
 
-  // Chart data
-  const [monthlyData, setMonthlyData]         = useState<{ month: string; income: number; expenses: number }[]>([]);
+  // Donut chart period state (independent)
+  const [pieDate, setPieDate]           = useState(new Date());
+  const [pieRangeMode, setPieRangeMode] = useState<RangeMode>('month');
+  const [pieCustomFrom, setPieCustomFrom] = useState('');
+  const [pieCustomTo, setPieCustomTo]   = useState('');
   const [categorySpending, setCategorySpending] = useState<CatSpend[]>([]);
+  const [pieLoading, setPieLoading]     = useState(false);
 
   const currentMonth = format(new Date(), 'yyyy-MM');
 
@@ -198,30 +199,36 @@ export const Dashboard: React.FC = () => {
     init();
   }, []);
 
-  // ── Load chart data when period changes ───────────────
-  const loadCharts = useCallback(async () => {
-    setChartsLoading(true);
+  // ── Load bar chart (last 6 months from today, independent) ──
+  const loadBarChart = useCallback(async () => {
+    setBarLoading(true);
     try {
-      // Bar chart: 6 months ending at chartDate (or ending at customTo)
       const months: { month: string; income: number; expenses: number }[] = [];
-      const anchorDate = rangeMode === 'custom' && customTo
-        ? new Date(customTo)
-        : chartDate;
-
       for (let i = 5; i >= 0; i--) {
-        const d = subMonths(anchorDate, i);
+        const d = subMonths(new Date(), i);
         const s = await transactionsApi.summary(format(d, 'yyyy-MM'));
         months.push({ month: format(d, 'MMM yy'), income: s.total_income, expenses: s.total_expenses });
       }
       setMonthlyData(months);
+    } catch (err) {
+      console.error('Bar chart load error', err);
+    } finally {
+      setBarLoading(false);
+    }
+  }, []);
 
-      // Donut: category spending for selected period
-      const from = rangeMode === 'custom' && customFrom
-        ? customFrom
-        : format(startOfMonth(chartDate), 'yyyy-MM-dd');
-      const to = rangeMode === 'custom' && customTo
-        ? customTo
-        : format(endOfMonth(chartDate), 'yyyy-MM-dd');
+  useEffect(() => { loadBarChart(); }, [loadBarChart]);
+
+  // ── Load donut chart when pie period changes ───────────
+  const loadPieChart = useCallback(async () => {
+    setPieLoading(true);
+    try {
+      const from = pieRangeMode === 'custom' && pieCustomFrom
+        ? pieCustomFrom
+        : format(startOfMonth(pieDate), 'yyyy-MM-dd');
+      const to = pieRangeMode === 'custom' && pieCustomTo
+        ? pieCustomTo
+        : format(endOfMonth(pieDate), 'yyyy-MM-dd');
 
       const allTxns = await transactionsApi.list({ type: 'expense', date_from: from, date_to: to, limit: 500 });
       const catMap: Record<string, CatSpend> = {};
@@ -232,37 +239,47 @@ export const Dashboard: React.FC = () => {
           }
           catMap[t.category.id].amount += t.amount;
         }
+        // also tally split categories
+        if (t.splits?.length) {
+          for (const sp of t.splits) {
+            if (sp.category) {
+              if (!catMap[sp.category.id]) {
+                catMap[sp.category.id] = { id: sp.category.id, name: sp.category.name, icon: sp.category.icon, color: sp.category.color, amount: 0 };
+              }
+              catMap[sp.category.id].amount += sp.amount;
+            }
+          }
+        }
       }
       setCategorySpending(Object.values(catMap).sort((a, b) => b.amount - a.amount).slice(0, 6));
     } catch (err) {
-      console.error('Chart load error', err);
+      console.error('Pie chart load error', err);
     } finally {
-      setChartsLoading(false);
+      setPieLoading(false);
     }
-  }, [chartDate, rangeMode, customFrom, customTo]);
+  }, [pieDate, pieRangeMode, pieCustomFrom, pieCustomTo]);
 
-  useEffect(() => { loadCharts(); }, [loadCharts]);
+  useEffect(() => { loadPieChart(); }, [loadPieChart]);
 
-  // ── Period navigation ──────────────────────────────────
-  const prevMonth = () => setChartDate(d => subMonths(d, 1));
-  const nextMonth = () => {
-    if (!isSameMonth(chartDate, new Date())) setChartDate(d => addMonths(d, 1));
+  // ── Donut period navigation ────────────────────────────
+  const prevPieMonth = () => setPieDate(d => subMonths(d, 1));
+  const nextPieMonth = () => {
+    if (!isSameMonth(pieDate, new Date())) setPieDate(d => addMonths(d, 1));
   };
-  const toggleMode = () => {
-    setRangeMode(m => {
+  const togglePieMode = () => {
+    setPieRangeMode(m => {
       if (m === 'month') {
-        // Pre-fill custom range with selected month
-        setCustomFrom(format(startOfMonth(chartDate), 'yyyy-MM-dd'));
-        setCustomTo(format(endOfMonth(chartDate), 'yyyy-MM-dd'));
+        setPieCustomFrom(format(startOfMonth(pieDate), 'yyyy-MM-dd'));
+        setPieCustomTo(format(endOfMonth(pieDate), 'yyyy-MM-dd'));
         return 'custom';
       }
       return 'month';
     });
   };
 
-  const periodLabel = rangeMode === 'custom'
-    ? (customFrom && customTo ? `${customFrom} – ${customTo}` : 'Custom range')
-    : format(chartDate, 'MMMM yyyy');
+  const piePeriodLabel = pieRangeMode === 'custom'
+    ? (pieCustomFrom && pieCustomTo ? `${pieCustomFrom} – ${pieCustomTo}` : 'Custom range')
+    : format(pieDate, 'MMMM yyyy');
 
   if (loading) {
     return (
@@ -401,22 +418,14 @@ export const Dashboard: React.FC = () => {
         <Card glass>
           <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
             <h2 className="font-headline text-sm font-bold text-white uppercase tracking-widest">Income vs Expenses</h2>
-            <PeriodControl
-              chartDate={chartDate}
-              onPrev={prevMonth}
-              onNext={nextMonth}
-              rangeMode={rangeMode}
-              customFrom={customFrom}
-              customTo={customTo}
-              onCustomFrom={setCustomFrom}
-              onCustomTo={setCustomTo}
-              onToggleMode={toggleMode}
-            />
+            <span className="text-[10px]" style={{ color: '#4b5563' }}>Last 6 months</span>
           </div>
-          {chartsLoading ? (
+          {barLoading ? (
             <div className="h-[240px] flex items-center justify-center">
               <div className="animate-spin w-6 h-6 border-4 border-primary border-t-transparent rounded-full" />
             </div>
+          ) : monthlyData.length === 0 ? (
+            <div className="h-[240px] flex items-center justify-center text-sm text-slate-500">No data yet</div>
           ) : (
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={monthlyData} barGap={4} margin={{ top: 20, right: 0, left: 0, bottom: 0 }}>
@@ -437,10 +446,21 @@ export const Dashboard: React.FC = () => {
           <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
             <div>
               <h2 className="font-headline text-sm font-bold text-white uppercase tracking-widest">Spending by Category</h2>
-              <p className="text-[10px] mt-0.5" style={{ color: '#4b5563' }}>{periodLabel}</p>
+              <p className="text-[10px] mt-0.5" style={{ color: '#4b5563' }}>{piePeriodLabel}</p>
             </div>
+            <PeriodControl
+              chartDate={pieDate}
+              onPrev={prevPieMonth}
+              onNext={nextPieMonth}
+              rangeMode={pieRangeMode}
+              customFrom={pieCustomFrom}
+              customTo={pieCustomTo}
+              onCustomFrom={setPieCustomFrom}
+              onCustomTo={setPieCustomTo}
+              onToggleMode={togglePieMode}
+            />
           </div>
-          {chartsLoading ? (
+          {pieLoading ? (
             <div className="h-[220px] flex items-center justify-center">
               <div className="animate-spin w-6 h-6 border-4 border-primary border-t-transparent rounded-full" />
             </div>
@@ -497,7 +517,7 @@ export const Dashboard: React.FC = () => {
       <TransactionFormModal
         isOpen={addTxnOpen}
         onClose={() => setAddTxnOpen(false)}
-        onSaved={() => { loadCharts(); }}
+        onSaved={() => { loadBarChart(); loadPieChart(); }}
       />
     </div>
   );
