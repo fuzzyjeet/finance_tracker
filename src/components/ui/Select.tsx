@@ -1,58 +1,59 @@
 import React from 'react';
+import { CustomSelect, CustomSelectOption } from './CustomSelect';
 
 interface SelectOption {
   value: string;
   label: string;
 }
 
-interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+interface SelectProps {
   label?: string;
   error?: string;
   options: SelectOption[];
   placeholder?: string;
+  value?: string;
+  onChange?: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  disabled?: boolean;
+  className?: string;
+  id?: string;
 }
 
+/**
+ * Drop-in wrapper around CustomSelect that preserves the existing
+ * onChange(e: ChangeEvent<HTMLSelectElement>) API used throughout the app.
+ */
 export const Select: React.FC<SelectProps> = ({
   label,
   error,
   options,
   placeholder,
-  className = '',
-  id,
-  ...props
+  value = '',
+  onChange,
+  disabled,
+  className,
 }) => {
-  const selectId = id || label?.toLowerCase().replace(/\s+/g, '-');
+  const csOptions: CustomSelectOption[] = [
+    ...(placeholder ? [{ value: '', label: placeholder }] : []),
+    ...options,
+  ];
+
+  const handleChange = (v: string) => {
+    if (!onChange) return;
+    // Synthesise a ChangeEvent so callers don't need updating
+    const synth = { target: { value: v } } as React.ChangeEvent<HTMLSelectElement>;
+    onChange(synth);
+  };
+
   return (
-    <div className="flex flex-col gap-1">
-      {label && (
-        <label htmlFor={selectId} className="text-xs font-medium text-on-surface-variant uppercase tracking-widest">
-          {label}
-        </label>
-      )}
-      <select
-        id={selectId}
-        className={`
-          block w-full rounded-lg border px-3 py-2 text-sm text-on-surface
-          bg-surface-container-highest
-          focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50
-          transition-colors
-          ${error ? 'border-error/50' : 'border-white/10 hover:border-white/20'}
-          ${className}
-        `}
-        {...props}
-      >
-        {placeholder && (
-          <option value="" disabled>
-            {placeholder}
-          </option>
-        )}
-        {options.map(opt => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-      {error && <p className="text-xs text-error">{error}</p>}
-    </div>
+    <CustomSelect
+      label={label}
+      error={error}
+      options={csOptions}
+      value={value}
+      onChange={handleChange}
+      placeholder={placeholder ? undefined : 'Select…'}
+      disabled={disabled}
+      className={className}
+    />
   );
 };

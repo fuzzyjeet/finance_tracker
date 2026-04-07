@@ -9,6 +9,7 @@ import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Badge } from '../components/ui/Badge';
 import { TransactionFormModal } from '../components/transactions/TransactionFormModal';
+import { CustomSelect } from '../components/ui/CustomSelect';
 import { transactionsApi } from '../api/transactions';
 import { accountsApi } from '../api/accounts';
 import { categoriesApi } from '../api/categories';
@@ -244,26 +245,26 @@ export const Transactions: React.FC = () => {
           </div>
 
           {/* Account */}
-          <select
+          <CustomSelect
             value={filterAccount}
-            onChange={e => setFilterAccount(e.target.value)}
-            className={`${inputCls} min-w-[130px]`}
-            style={{ colorScheme: 'dark' }}
-          >
-            <option value="">All Accounts</option>
-            {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
+            onChange={setFilterAccount}
+            options={[
+              { value: '', label: 'All Accounts' },
+              ...accounts.map(a => ({ value: a.id, label: a.name })),
+            ]}
+            className="min-w-[130px]"
+          />
 
           {/* Category */}
-          <select
+          <CustomSelect
             value={filterCategory}
-            onChange={e => setFilterCategory(e.target.value)}
-            className={`${inputCls} min-w-[140px]`}
-            style={{ colorScheme: 'dark' }}
-          >
-            <option value="">All Categories</option>
-            {categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
-          </select>
+            onChange={setFilterCategory}
+            options={[
+              { value: '', label: 'All Categories' },
+              ...categories.map(c => ({ value: c.id, label: `${c.icon} ${c.name}` })),
+            ]}
+            className="min-w-[140px]"
+          />
 
           {/* Date range */}
           <div

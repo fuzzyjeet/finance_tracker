@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Plus, X, ArrowDown, ArrowUp, ArrowLeftRight, Tag as TagIcon, Split } from 'lucide-react';
+import { CustomSelect } from '../ui/CustomSelect';
 import { transactionsApi, TransactionPayload, SplitPayload } from '../../api/transactions';
 import { accountsApi } from '../../api/accounts';
 import { categoriesApi } from '../../api/categories';
@@ -410,16 +411,15 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               value={selectedAccount ? `${selectedAccount.name} (${selectedAccount.currency})` : ''}
               placeholder="Select account"
               select={
-                <select
-                  className="w-full h-full cursor-pointer"
+                <CustomSelect
+                  invisible
                   value={form.account_id}
-                  onChange={e => setForm(f => ({ ...f, account_id: e.target.value }))}
-                >
-                  <option value="">Select account</option>
-                  {accounts.map(a => (
-                    <option key={a.id} value={a.id}>{a.name} ({a.currency})</option>
-                  ))}
-                </select>
+                  onChange={v => setForm(f => ({ ...f, account_id: v }))}
+                  options={[
+                    { value: '', label: 'Select account' },
+                    ...accounts.map(a => ({ value: a.id, label: `${a.name} (${a.currency})` })),
+                  ]}
+                />
               }
             />
 
@@ -432,16 +432,15 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                 placeholder="Select destination"
                 noBorder
                 select={
-                  <select
-                    className="w-full h-full cursor-pointer"
+                  <CustomSelect
+                    invisible
                     value={form.to_account_id}
-                    onChange={e => setForm(f => ({ ...f, to_account_id: e.target.value }))}
-                  >
-                    <option value="">Select account</option>
-                    {accounts.filter(a => a.id !== form.account_id).map(a => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
-                    ))}
-                  </select>
+                    onChange={v => setForm(f => ({ ...f, to_account_id: v }))}
+                    options={[
+                      { value: '', label: 'Select account' },
+                      ...accounts.filter(a => a.id !== form.account_id).map(a => ({ value: a.id, label: a.name })),
+                    ]}
+                  />
                 }
               />
             ) : splitOpen ? (
@@ -470,16 +469,15 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                   </button>
                 }
                 select={
-                  <select
-                    className="w-full h-full cursor-pointer"
+                  <CustomSelect
+                    invisible
                     value={form.category_id}
-                    onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}
-                  >
-                    <option value="">No category</option>
-                    {filteredCategories().map(c => (
-                      <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
-                    ))}
-                  </select>
+                    onChange={v => setForm(f => ({ ...f, category_id: v }))}
+                    options={[
+                      { value: '', label: 'No category' },
+                      ...filteredCategories().map(c => ({ value: c.id, label: `${c.icon} ${c.name}` })),
+                    ]}
+                  />
                 }
               />
             )}
@@ -762,17 +760,16 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                           className="w-24 shrink-0 px-2 py-1.5 text-sm rounded-lg outline-none"
                           style={{ background: SURFACE_HI, border: '1px solid rgba(255,255,255,0.08)', color: '#dae2fd' }}
                         />
-                        <select
+                        <CustomSelect
                           value={split.category_id}
-                          onChange={e => updateSplit(i, 'category_id', e.target.value)}
-                          className="flex-1 px-2 py-1.5 text-sm rounded-lg outline-none"
-                          style={{ background: SURFACE_HI, border: '1px solid rgba(255,255,255,0.08)', color: '#dae2fd', colorScheme: 'dark' }}
-                        >
-                          <option value="">No category</option>
-                          {filteredCategories().map(c => (
-                            <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
-                          ))}
-                        </select>
+                          onChange={v => updateSplit(i, 'category_id', v)}
+                          options={[
+                            { value: '', label: 'No category' },
+                            ...filteredCategories().map(c => ({ value: c.id, label: `${c.icon} ${c.name}` })),
+                          ]}
+                          placeholder="No category"
+                          className="flex-1 py-1.5 text-sm"
+                        />
                         <input
                           type="text"
                           value={split.notes ?? ''}
