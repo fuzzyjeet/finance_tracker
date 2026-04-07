@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronDown, Plus, X, ArrowDown, ArrowUp, ArrowLeftRight, Tag as TagIcon, Split } from 'lucide-react';
+import { AlertCircle, ChevronDown, Plus, X, ArrowDown, ArrowUp, ArrowLeftRight, Tag as TagIcon, Split } from 'lucide-react';
 import { CustomSelect } from '../ui/CustomSelect';
 import { transactionsApi, TransactionPayload, SplitPayload } from '../../api/transactions';
 import { accountsApi } from '../../api/accounts';
@@ -45,28 +45,35 @@ interface FieldRowProps {
   extra?: React.ReactNode;
   select?: React.ReactNode;
   noBorder?: boolean;
+  error?: boolean;
 }
 
-const FieldRow: React.FC<FieldRowProps> = ({ icon, label, value, placeholder, extra, select, noBorder }) => (
+const FieldRow: React.FC<FieldRowProps> = ({ icon, label, value, placeholder, extra, select, noBorder, error }) => (
   <div
     className="relative flex items-center justify-between px-4 py-3 group cursor-pointer transition-colors hover:bg-white/[0.03]"
-    style={{ borderBottom: noBorder ? 'none' : `1px solid ${BORDER}` }}
+    style={{
+      borderBottom: noBorder ? 'none' : `1px solid ${BORDER}`,
+      background: error ? 'rgba(255,100,100,0.05)' : undefined,
+    }}
   >
     <div className="flex items-center gap-3 min-w-0">
-      <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-sm"
-        style={{ background: 'rgba(255,255,255,0.04)' }}>
-        {icon}
+      <div
+        className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-sm transition-colors"
+        style={{ background: error ? 'rgba(255,100,100,0.12)' : 'rgba(255,255,255,0.04)' }}
+      >
+        {error ? <AlertCircle size={14} style={{ color: '#ffb4ab' }} /> : icon}
       </div>
       <div className="min-w-0">
-        <p className="text-[10px] uppercase tracking-widest leading-none mb-0.5" style={{ color: '#6b7280' }}>{label}</p>
-        <p className="text-sm font-medium truncate" style={{ color: value ? '#dae2fd' : '#4b5563' }}>
-          {value || placeholder}
+        <p className="text-[10px] uppercase tracking-widest leading-none mb-0.5"
+          style={{ color: error ? '#ffb4ab' : '#6b7280' }}>{label}</p>
+        <p className="text-sm font-medium truncate" style={{ color: value ? '#dae2fd' : error ? '#ff8a80' : '#4b5563' }}>
+          {value || (error ? 'Required' : placeholder)}
         </p>
       </div>
     </div>
     <div className="flex items-center gap-2 shrink-0 ml-2">
       {extra}
-      <ChevronDown size={15} style={{ color: '#4b5563' }} />
+      <ChevronDown size={15} style={{ color: error ? '#ffb4ab' : '#4b5563' }} />
     </div>
     {select && (
       <div className="absolute inset-0 opacity-0 overflow-hidden">
@@ -135,6 +142,9 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
   const [tagsOpen, setTagsOpen]   = useState(false);
   const [splitOpen, setSplitOpen] = useState(false);
 
+  // Validation
+  const [showErrors, setShowErrors] = useState(false);
+
   // Split state
   const [splits, setSplits] = useState<SplitPayload[]>([
     { amount: 0, category_id: '', notes: '', project_ids: [] },
@@ -184,6 +194,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
       setSplitOpen(false);
       setSplits([{ amount: 0, category_id: '', notes: '', project_ids: [] }]);
     }
+    setShowErrors(false);
   }, [editing, isOpen]);
 
   // Lock body scroll
@@ -220,6 +231,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
 
   // ── Actions ───────────────────────────────────────────────
   const handleSave = async () => {
+    if (!canSave) { setShowErrors(true); return; }
     if (splitOpen && !splitBalanced) return;
     setSaving(true);
     try {
@@ -359,36 +371,69 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
           </div>
 
           {/* ── 2. Hero amount ──────────────────────────────── */}
-          <div className="rounded-xl px-6 py-4 text-center" style={{ background: SURFACE }}>
-            <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: '#6b7280' }}>Amount</p>
-            <div className="flex items-center justify-center gap-2">
-              <span className="text-3xl font-bold" style={{ color: '#374151' }}>€</span>
-              <input
-                ref={amountRef}
-                type="number"
-                min={0}
-                step="0.01"
-                value={form.amount}
-                onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
-                placeholder="0.00"
-                className="bg-transparent border-none outline-none text-4xl font-bold text-center w-40"
-                style={{ color: typeColor.text, caretColor: typeColor.text }}
-              />
-            </div>
-          </div>
+          {(() => {
+            const amtError = showErrors && !form.amount;
+            return (
+              <div
+                className="rounded-xl px-6 py-4 text-center relative transition-all"
+                style={{
+                  background: SURFACE,
+                  border: amtError ? '1px solid rgba(255,100,100,0.45)' : '1px solid transparent',
+                  boxShadow: amtError ? '0 0 0 3px rgba(255,100,100,0.08)' : 'none',
+                }}
+              >
+                {amtError && (
+                  <div className="absolute top-2 right-2 flex items-center gap-1">
+                    <AlertCircle size={13} style={{ color: '#ffb4ab' }} />
+                    <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: '#ffb4ab' }}>Required</span>
+                  </div>
+                )}
+                <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: amtError ? '#ffb4ab' : '#6b7280' }}>Amount</p>
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-3xl font-bold" style={{ color: '#374151' }}>€</span>
+                  <input
+                    ref={amountRef}
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={form.amount}
+                    onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+                    placeholder="0.00"
+                    className="bg-transparent border-none outline-none text-4xl font-bold text-center w-40"
+                    style={{ color: typeColor.text, caretColor: typeColor.text }}
+                  />
+                </div>
+              </div>
+            );
+          })()}
 
           {/* ── 3. Payee + Date ─────────────────────────────── */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl px-3 py-2.5" style={{ background: SURFACE }}>
-              <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: '#6b7280' }}>Payee</p>
-              <input
-                className="w-full bg-transparent text-sm outline-none"
-                style={{ color: '#dae2fd' }}
-                placeholder="e.g. REWE"
-                value={form.payee}
-                onChange={e => setForm(f => ({ ...f, payee: e.target.value }))}
-              />
-            </div>
+            {(() => {
+              const payeeError = showErrors && !form.payee;
+              return (
+                <div
+                  className="rounded-xl px-3 py-2.5 relative transition-all"
+                  style={{
+                    background: SURFACE,
+                    border: payeeError ? '1px solid rgba(255,100,100,0.45)' : '1px solid transparent',
+                    boxShadow: payeeError ? '0 0 0 3px rgba(255,100,100,0.08)' : 'none',
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-[10px] uppercase tracking-widest" style={{ color: payeeError ? '#ffb4ab' : '#6b7280' }}>Payee</p>
+                    {payeeError && <AlertCircle size={12} style={{ color: '#ffb4ab' }} />}
+                  </div>
+                  <input
+                    className="w-full bg-transparent text-sm outline-none"
+                    style={{ color: '#dae2fd' }}
+                    placeholder={payeeError ? 'Required' : 'e.g. REWE'}
+                    value={form.payee}
+                    onChange={e => setForm(f => ({ ...f, payee: e.target.value }))}
+                  />
+                </div>
+              );
+            })()}
             <div className="rounded-xl px-3 py-2.5" style={{ background: SURFACE }}>
               <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: '#6b7280' }}>Date</p>
               <input
@@ -410,6 +455,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               label="Account"
               value={selectedAccount ? `${selectedAccount.name} (${selectedAccount.currency})` : ''}
               placeholder="Select account"
+              error={showErrors && !form.account_id}
               select={
                 <CustomSelect
                   invisible
@@ -862,9 +908,13 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
             <button
               type="button"
               onClick={handleSave}
-              disabled={!canSave || saving}
-              className="flex-1 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-40"
-              style={{ background: '#38bdf8', color: '#004965' }}
+              disabled={saving}
+              className="flex-1 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50"
+              style={{
+                background: '#38bdf8',
+                color: '#004965',
+                opacity: (!canSave && !showErrors) ? 0.4 : 1,
+              }}
             >
               {saving ? 'Saving…' : editing ? 'Save Changes' : 'Add Transaction'}
             </button>
