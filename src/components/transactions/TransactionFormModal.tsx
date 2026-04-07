@@ -761,7 +761,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                           style={{ background: SURFACE_HI, border: '1px solid rgba(255,255,255,0.08)', color: '#dae2fd' }}
                         />
                         <CustomSelect
-                          value={split.category_id}
+                          value={split.category_id ?? ''}
                           onChange={v => updateSplit(i, 'category_id', v)}
                           options={[
                             { value: '', label: 'No category' },
