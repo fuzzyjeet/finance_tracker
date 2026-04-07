@@ -44,12 +44,10 @@ function SplitCategoriesCell({
   const splits = txn.splits ?? [];
   const count = splits.length;
 
+  // All categories visible — no expand needed
   if (count <= INLINE_LIMIT) {
     return (
-      <button
-        onClick={onToggle}
-        className="flex flex-wrap items-center gap-1 hover:opacity-80 transition-opacity group text-left"
-      >
+      <div className="flex flex-wrap items-center gap-1">
         {splits.map((s, i) => (
           <span
             key={i}
@@ -66,15 +64,7 @@ function SplitCategoriesCell({
             )}
           </span>
         ))}
-        <ChevronDown
-          size={11}
-          className="transition-transform"
-          style={{
-            color: '#6b7280',
-            transform: isExpanded ? 'rotate(180deg)' : 'none',
-          }}
-        />
-      </button>
+      </div>
     );
   }
 
@@ -354,7 +344,7 @@ export const Transactions: React.FC = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}>
-                  {['Date', 'Payee', 'Category', 'Account', 'Tags', 'Amount', ''].map((h, i) => (
+                  {['#', 'Payee', 'Category', 'Account', 'Tags', 'Amount', ''].map((h, i) => (
                     <th
                       key={i}
                       className={`px-4 py-3 text-[10px] font-medium uppercase tracking-widest ${i === 5 ? 'text-right' : 'text-left'}`}
@@ -408,7 +398,7 @@ export const Transactions: React.FC = () => {
                       </tr>
 
                       {/* ── Transactions for this date ── */}
-                      {group.txns.map(txn => {
+                      {group.txns.map((txn, txnIdx) => {
                         const hasSplits = txn.splits && txn.splits.length > 0;
                         const isExpanded = expandedSplits.has(txn.id);
                         return (
@@ -419,11 +409,16 @@ export const Transactions: React.FC = () => {
                               onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
                               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >
-                              {/* Date */}
-                              <td className="px-4 py-3 whitespace-nowrap" style={{ color: '#6b7280' }}>
-                                <div className="text-xs">{txn.date}</div>
+                              {/* Day index */}
+                              <td className="px-4 py-3 whitespace-nowrap text-center w-10">
+                                <span
+                                  className="text-xs font-semibold tabular-nums"
+                                  style={{ color: '#374151' }}
+                                >
+                                  {txnIdx + 1}
+                                </span>
                                 {txn.billing_date && (
-                                  <div className="text-[10px]" style={{ color: '#4b5563' }}>Bill: {txn.billing_date}</div>
+                                  <div className="text-[10px] mt-0.5" style={{ color: '#4b5563' }}>📅</div>
                                 )}
                               </td>
 

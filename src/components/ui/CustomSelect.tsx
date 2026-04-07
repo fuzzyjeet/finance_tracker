@@ -24,18 +24,22 @@ function DropdownList({
   pos,
   onSelect,
   onClose,
+  triggerRef,
 }: {
   options: CustomSelectOption[];
   value: string;
   pos: DropdownPos;
   onSelect: (v: string) => void;
   onClose: () => void;
+  triggerRef: React.RefObject<HTMLButtonElement>;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Close on outside click / Escape
+  // Close on outside click / Escape — but NOT when clicking the trigger
+  // (the trigger handles its own toggle so we avoid a double-fire race)
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
+      if (triggerRef.current?.contains(e.target as Node)) return;
       if (listRef.current && !listRef.current.contains(e.target as Node)) onClose();
     };
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -45,7 +49,7 @@ function DropdownList({
       document.removeEventListener('mousedown', onDown);
       document.removeEventListener('keydown', onKey);
     };
-  }, [onClose]);
+  }, [onClose, triggerRef]);
 
   // Scroll selected item into view
   useLayoutEffect(() => {
@@ -140,6 +144,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
 
   const openDropdown = () => {
     if (disabled || !triggerRef.current) return;
+    if (open) { setOpen(false); return; }
     const rect = triggerRef.current.getBoundingClientRect();
     const estimatedH = Math.min(options.length * ITEM_H, DROPDOWN_MAX_H);
     const spaceBelow = window.innerHeight - rect.bottom;
@@ -166,6 +171,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
             pos={pos}
             onSelect={onChange}
             onClose={() => setOpen(false)}
+            triggerRef={triggerRef}
           />
         )}
       </>
