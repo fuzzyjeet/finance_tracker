@@ -2,6 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Theme variables ──────────────────────────────────────── */
+:root, :root.dark {
+  --color-surface:                  #0b1326;
+  --color-surface-dim:              #0b1326;
+  --color-surface-container:        #171f33;
+  --color-surface-container-low:    #131b2e;
+  --color-surface-container-high:   #222a3d;
+  --color-surface-container-highest:#2d3449;
+  --color-on-surface:               #dae2fd;
+  --color-on-surface-variant:       #bdc8d1;
+
+  --sidebar-bg:      #0b1326;
+  --sidebar-border:  rgba(255,255,255,0.05);
+  --sidebar-text:    #4b5563;
+  --sidebar-hover:   rgba(255,255,255,0.05);
+  --card-border:     rgba(255,255,255,0.05);
+  --scrollbar-track: #0b1326;
+  --scrollbar-thumb: #2d3449;
+  --text-muted:      #4b5563;
+  --text-body:       #dae2fd;
+}
+
+:root.light {
+  --color-surface:                  #f8fafc;
+  --color-surface-dim:              #f0f4f8;
+  --color-surface-container:        #ffffff;
+  --color-surface-container-low:    #f8fafc;
+  --color-surface-container-high:   #e8f0fe;
+  --color-surface-container-highest:#dde6f5;
+  --color-on-surface:               #1e293b;
+  --color-on-surface-variant:       #475569;
+
+  --sidebar-bg:      #1e2a45;
+  --sidebar-border:  rgba(255,255,255,0.08);
+  --sidebar-text:    #94a3b8;
+  --sidebar-hover:   rgba(255,255,255,0.08);
+  --card-border:     rgba(30,42,69,0.12);
+  --scrollbar-track: #f0f4f8;
+  --scrollbar-thumb: #cbd5e1;
+  --text-muted:      #64748b;
+  --text-body:       #1e293b;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -10,14 +53,32 @@ body {
   font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #0b1326;
-  color: #dae2fd;
+  background-color: var(--color-surface-dim);
+  color: var(--text-body);
+  transition: background-color 0.2s, color 0.2s;
 }
 
 /* Glass panel utility */
 .glass-panel {
   background: rgba(34, 42, 61, 0.6);
   backdrop-filter: blur(20px);
+}
+
+:root.light .glass-panel {
+  background: rgba(248, 250, 252, 0.85);
+  backdrop-filter: blur(20px);
+  border-color: rgba(30, 42, 69, 0.12) !important;
+}
+
+/* Sidebar theming */
+.sidebar-themed {
+  background-color: var(--sidebar-bg);
+  border-color: var(--sidebar-border);
+}
+
+/* Card border in light mode */
+:root.light .border-white\/5 {
+  border-color: var(--card-border) !important;
 }
 
 /* Data pulse animation */
@@ -37,11 +98,11 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0b1326;
+  background: var(--scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2d3449;
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 

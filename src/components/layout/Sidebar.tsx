@@ -8,6 +8,7 @@ import {
   RefreshCw,
   TrendingUp,
   FolderOpen,
+  Settings,
 } from 'lucide-react';
 
 const navItems = [
@@ -21,7 +22,7 @@ const navItems = [
 
 export const Sidebar: React.FC = () => {
   return (
-    <aside className="hidden md:flex flex-col h-full py-8 bg-[#0b1326] w-64 border-r border-white/5 shrink-0 transition-all duration-300 ease-in-out">
+    <aside className="sidebar-themed hidden md:flex flex-col h-full py-8 w-64 border-r shrink-0 transition-all duration-300 ease-in-out" style={{ borderColor: 'var(--sidebar-border)' }}>
       {/* Logo */}
       <div className="px-6 mb-12">
         <div className="flex items-center gap-3">
@@ -30,7 +31,7 @@ export const Sidebar: React.FC = () => {
           </div>
           <div>
             <h1 className="font-headline text-lg font-black text-white tracking-normal">JeetMoney</h1>
-            <p className="text-[10px] text-slate-500 tracking-[0.2em]">Institutional Grade</p>
+            <p className="text-[10px] tracking-[0.2em]" style={{ color: 'var(--sidebar-text)' }}>Institutional Grade</p>
           </div>
         </div>
       </div>
@@ -46,9 +47,10 @@ export const Sidebar: React.FC = () => {
               `flex items-center gap-3 py-3 px-6 text-xs font-medium uppercase tracking-widest transition-all duration-300 ease-in-out ${
                 isActive
                   ? 'text-primary bg-primary/10 border-r-2 border-primary'
-                  : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'
+                  : 'hover:text-slate-200 hover:bg-white/5'
               }`
             }
+            style={({ isActive }) => ({ color: isActive ? undefined : 'var(--sidebar-text)' })}
           >
             <Icon size={16} />
             {label}
@@ -56,9 +58,25 @@ export const Sidebar: React.FC = () => {
         ))}
       </nav>
 
-      {/* Footer */}
-      <div className="mt-auto px-6 pt-6 border-t border-white/5">
-        <p className="text-[10px] text-slate-500 tracking-widest uppercase">Finance Tracker v1.0</p>
+      {/* Settings + Footer */}
+      <div className="mt-auto" style={{ borderTop: '1px solid var(--sidebar-border)' }}>
+        <NavLink
+          to="/settings"
+          className={({ isActive }) =>
+            `flex items-center gap-3 py-3 px-6 text-xs font-medium uppercase tracking-widest transition-all duration-300 ease-in-out ${
+              isActive
+                ? 'text-primary bg-primary/10 border-r-2 border-primary'
+                : 'hover:text-slate-200 hover:bg-white/5'
+            }`
+          }
+          style={({ isActive }) => ({ color: isActive ? undefined : 'var(--sidebar-text)' })}
+        >
+          <Settings size={16} />
+          Settings
+        </NavLink>
+        <div className="px-6 pb-2 pt-1">
+          <p className="text-[10px] tracking-widest uppercase" style={{ color: 'var(--sidebar-text)' }}>Finance Tracker v1.0</p>
+        </div>
       </div>
     </aside>
   );

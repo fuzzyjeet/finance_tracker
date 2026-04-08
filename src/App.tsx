@@ -8,22 +8,27 @@ import { Budgets } from './pages/Budgets';
 import { Recurring } from './pages/Recurring';
 import { Projects } from './pages/Projects';
 import { ProjectDetail } from './pages/ProjectDetail';
+import { Settings } from './pages/Settings';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 const App: React.FC = () => {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/accounts" element={<Accounts />} />
-          <Route path="/transactions" element={<Transactions />} />
-          <Route path="/budgets" element={<Budgets />} />
-          <Route path="/recurring" element={<Recurring />} />
-          <Route path="/projects" element={<Projects />} />
-          <Route path="/projects/:id" element={<ProjectDetail />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/accounts" element={<Accounts />} />
+            <Route path="/transactions" element={<Transactions />} />
+            <Route path="/budgets" element={<Budgets />} />
+            <Route path="/recurring" element={<Recurring />} />
+            <Route path="/projects" element={<Projects />} />
+            <Route path="/projects/:id" element={<ProjectDetail />} />
+            <Route path="/settings" element={<Settings />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 };
 

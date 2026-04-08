@@ -152,6 +152,49 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
 
   const amountRef = useRef<HTMLInputElement>(null);
 
+  // ── Payee autocomplete ─────────────────────────────────
+  const [payeeSuggestions, setPayeeSuggestions] = useState<string[]>([]);
+  const [showPayeeSug, setShowPayeeSug]         = useState(false);
+  const [payeeHighlight, setPayeeHighlight]     = useState(-1);
+  const payeeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    transactionsApi.list({ limit: 300 }).then(txns => {
+      const fromTxns = [...new Set(txns.map(t => t.payee).filter(Boolean))];
+      const custom: string[] = JSON.parse(localStorage.getItem('custom_payees') || '[]');
+      setPayeeSuggestions([...new Set([...custom, ...fromTxns])].sort());
+    }).catch(() => {});
+  }, [isOpen]);
+
+  const filteredPayees = payeeSuggestions.filter(p =>
+    form.payee.length > 0 &&
+    p.toLowerCase().includes(form.payee.toLowerCase()) &&
+    p.toLowerCase() !== form.payee.toLowerCase()
+  ).slice(0, 8);
+
+  const selectPayee = (name: string) => {
+    setForm(f => ({ ...f, payee: name }));
+    setShowPayeeSug(false);
+    setPayeeHighlight(-1);
+  };
+
+  const onPayeeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showPayeeSug || filteredPayees.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setPayeeHighlight(h => Math.min(h + 1, filteredPayees.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setPayeeHighlight(h => Math.max(h - 1, -1));
+    } else if (e.key === 'Enter' && payeeHighlight >= 0) {
+      e.preventDefault();
+      selectPayee(filteredPayees[payeeHighlight]);
+    } else if (e.key === 'Escape') {
+      setShowPayeeSug(false);
+    }
+  };
+
   useEffect(() => {
     if (!isOpen) return;
     Promise.all([accountsApi.list(), categoriesApi.list(), tagsApi.list(), projectsApi.list()]).then(
@@ -412,25 +455,57 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
             {(() => {
               const payeeError = showErrors && !form.payee;
               return (
-                <div
-                  className="rounded-xl px-3 py-2.5 relative transition-all"
-                  style={{
-                    background: SURFACE,
-                    border: payeeError ? '1px solid rgba(255,100,100,0.45)' : '1px solid transparent',
-                    boxShadow: payeeError ? '0 0 0 3px rgba(255,100,100,0.08)' : 'none',
-                  }}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-[10px] uppercase tracking-widest" style={{ color: payeeError ? '#ffb4ab' : '#6b7280' }}>Payee</p>
-                    {payeeError && <AlertCircle size={12} style={{ color: '#ffb4ab' }} />}
+                <div ref={payeeRef} className="relative">
+                  <div
+                    className="rounded-xl px-3 py-2.5 transition-all"
+                    style={{
+                      background: SURFACE,
+                      border: payeeError ? '1px solid rgba(255,100,100,0.45)' : '1px solid transparent',
+                      boxShadow: payeeError ? '0 0 0 3px rgba(255,100,100,0.08)' : 'none',
+                    }}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-[10px] uppercase tracking-widest" style={{ color: payeeError ? '#ffb4ab' : '#6b7280' }}>Payee</p>
+                      {payeeError && <AlertCircle size={12} style={{ color: '#ffb4ab' }} />}
+                    </div>
+                    <input
+                      className="w-full bg-transparent text-sm outline-none"
+                      style={{ color: '#dae2fd' }}
+                      placeholder={payeeError ? 'Required' : 'e.g. REWE'}
+                      value={form.payee}
+                      onChange={e => {
+                        setForm(f => ({ ...f, payee: e.target.value }));
+                        setShowPayeeSug(true);
+                        setPayeeHighlight(-1);
+                      }}
+                      onFocus={() => setShowPayeeSug(true)}
+                      onBlur={() => setTimeout(() => setShowPayeeSug(false), 120)}
+                      onKeyDown={onPayeeKeyDown}
+                    />
                   </div>
-                  <input
-                    className="w-full bg-transparent text-sm outline-none"
-                    style={{ color: '#dae2fd' }}
-                    placeholder={payeeError ? 'Required' : 'e.g. REWE'}
-                    value={form.payee}
-                    onChange={e => setForm(f => ({ ...f, payee: e.target.value }))}
-                  />
+                  {/* Suggestions dropdown */}
+                  {showPayeeSug && filteredPayees.length > 0 && (
+                    <div
+                      className="absolute left-0 right-0 z-50 rounded-xl overflow-hidden mt-1"
+                      style={{ background: '#131c30', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}
+                    >
+                      {filteredPayees.map((name, i) => (
+                        <button
+                          key={name}
+                          type="button"
+                          onMouseDown={e => { e.preventDefault(); selectPayee(name); }}
+                          className="w-full text-left px-3 py-2 text-sm transition-colors"
+                          style={{
+                            color: '#dae2fd',
+                            background: i === payeeHighlight ? 'rgba(142,213,255,0.1)' : 'transparent',
+                            borderBottom: i < filteredPayees.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                          }}
+                        >
+                          {name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })()}
