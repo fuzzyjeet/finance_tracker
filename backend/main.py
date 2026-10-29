@@ -76,6 +76,10 @@ if os.path.isdir(_static_dir):
 
     @app.get("/{full_path:path}", include_in_schema=False)
     def serve_spa(full_path: str):
+        # Top-level files copied from public/ (icons, web app manifest)
+        file_path = os.path.join(_static_dir, full_path)
+        if full_path and "/" not in full_path and os.path.isfile(file_path):
+            return FileResponse(file_path)
         return FileResponse(os.path.join(_static_dir, "index.html"))
 
 

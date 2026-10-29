@@ -11,7 +11,7 @@ import {
   Settings,
 } from 'lucide-react';
 
-const navItems = [
+export const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/accounts', icon: CreditCard, label: 'Accounts' },
   { to: '/transactions', icon: ArrowLeftRight, label: 'Transactions' },

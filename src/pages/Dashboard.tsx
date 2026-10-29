@@ -514,7 +514,7 @@ export const Dashboard: React.FC = () => {
       {/* Floating Action Button */}
       <button
         onClick={() => setAddTxnOpen(true)}
-        className="fixed bottom-8 right-8 w-14 h-14 bg-primary-container text-on-primary-container rounded-full shadow-lg flex items-center justify-center transition-all hover:brightness-110 active:scale-95 z-40"
+        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 md:bottom-8 md:right-8 w-14 h-14 bg-primary-container text-on-primary-container rounded-full shadow-lg flex items-center justify-center transition-all hover:brightness-110 active:scale-95 z-40"
         title="Add Transaction"
       >
         <Plus size={24} />

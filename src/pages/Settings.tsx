@@ -22,7 +22,6 @@ const CAT_COLORS = [
   '#06b6d4','#f43f5e','#a855f7','#10b981','#fb923c',
 ];
 
-const DARK   = '#171f33';
 const DARK_HI = '#222a3d';
 const BORDER  = 'rgba(255,255,255,0.07)';
 const TEXT    = '#dae2fd';
@@ -154,9 +153,6 @@ export const Settings: React.FC = () => {
   );
   const filteredTxnPayees = txnPayees.filter(p =>
     p.name.toLowerCase().includes(payeeSearch.toLowerCase())
-  );
-  const filteredCustomPayees = customPayees.filter(p =>
-    p.toLowerCase().includes(payeeSearch.toLowerCase())
   );
 
   // ── Tab button ────────────────────────────────────────
