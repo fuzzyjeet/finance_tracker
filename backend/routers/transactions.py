@@ -22,6 +22,12 @@ def _link_read(link: RefundLink, counterpart: Transaction) -> dict:
     }
 
 
+def refund_surplus(txn: Transaction) -> float:
+    if txn.type != "refund":
+        return 0.0
+    return max(0.0, txn.amount - sum(l.amount for l in txn.refund_allocations))
+
+
 def build_transaction_read(txn: Transaction) -> dict:
     refunded_amount = sum(l.amount for l in txn.refunded_by)
     return {
@@ -46,6 +52,7 @@ def build_transaction_read(txn: Transaction) -> dict:
         "refund_for": [_link_read(l, l.original) for l in txn.refund_allocations],
         "refunds": [_link_read(l, l.refund) for l in txn.refunded_by],
         "refunded_amount": refunded_amount,
+        "refund_surplus": refund_surplus(txn),
         "is_fully_refunded": bool(txn.refunded_by) and refunded_amount >= txn.amount - 0.005,
     }
 
@@ -123,9 +130,12 @@ def get_summary(
         q = q.filter(Transaction.account_id == account_id)
 
     transactions = q.all()
-    total_income = sum(t.amount for t in transactions if t.type == "income")
+    # A refund's linked portion offsets expenses; any unallocated remainder is income.
+    refund_txns = [t for t in transactions if t.type == "refund"]
+    surplus = sum(refund_surplus(t) for t in refund_txns)
+    total_income = sum(t.amount for t in transactions if t.type == "income") + surplus
     total_expenses = sum(t.amount for t in transactions if t.type == "expense")
-    total_refunds = sum(t.amount for t in transactions if t.type == "refund")
+    total_refunds = sum(t.amount for t in refund_txns) - surplus
     return {
         "total_income": total_income,
         "total_expenses": total_expenses,

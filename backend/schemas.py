@@ -219,6 +219,7 @@ class TransactionRead(BaseModel):
     refund_for: List[RefundLinkRead] = []  # originals this refund covers
     refunds: List[RefundLinkRead] = []     # refunds this transaction received
     refunded_amount: float = 0.0
+    refund_surplus: float = 0.0  # unallocated part of a refund, booked as income
     is_fully_refunded: bool = False
 
 

@@ -110,6 +110,7 @@ export interface Transaction {
   refund_for?: RefundLink[];
   refunds?: RefundLink[];
   refunded_amount?: number;
+  refund_surplus?: number;
   is_fully_refunded?: boolean;
 }
 

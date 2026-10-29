@@ -364,9 +364,10 @@ export const Transactions: React.FC = () => {
               </thead>
               <tbody>
                 {dateGroups.map(group => {
-                  const income   = group.txns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+                  const surplus  = group.txns.reduce((s, t) => s + (t.refund_surplus ?? 0), 0);
+                  const income   = group.txns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0) + surplus;
                   const expenses = group.txns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-                  const refunds  = group.txns.filter(t => t.type === 'refund').reduce((s, t) => s + t.amount, 0);
+                  const refunds  = group.txns.filter(t => t.type === 'refund').reduce((s, t) => s + t.amount, 0) - surplus;
                   const net      = income - expenses + refunds;
 
                   return (
@@ -528,9 +529,16 @@ export const Transactions: React.FC = () => {
                                   {txn.type === 'income' ? '+' : txn.type === 'expense' ? '−' : txn.type === 'refund' ? '+' : ''}
                                   {formatCurrency(txn.amount)}
                                 </div>
-                                {txn.type === 'expense' && txn.refunded_amount && txn.refunded_amount > 0 && (
+                                {txn.type === 'refund' && (txn.refund_surplus ?? 0) > 0.005 && (
+                                  <div className="text-[10px] text-right" style={{ color: '#4edea3' }}>
+                                    {(txn.refund_for?.length ?? 0) > 0
+                                      ? `+${formatCurrency(txn.refund_surplus!)} as income`
+                                      : 'booked as income'}
+                                  </div>
+                                )}
+                                {txn.type === 'expense' && (txn.refunded_amount ?? 0) > 0 && (
                                   <div className="text-[10px] text-right" style={{ color: '#c4b5fd' }}>
-                                    −{formatCurrency(txn.refunded_amount)} refunded
+                                    −{formatCurrency(txn.refunded_amount ?? 0)} refunded
                                   </div>
                                 )}
                               </td>

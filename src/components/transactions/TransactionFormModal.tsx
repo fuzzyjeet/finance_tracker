@@ -317,7 +317,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
   const unallocated     = totalAmount - linkedTotal;
   const overAllocated   = isRefund && unallocated < -0.005;
   const badLinkAmount   = isRefund && linkAmounts.some(a => a <= 0);
-  const showSuggestion  = isRefund && links.length > 0 && Math.abs(linkedTotal - totalAmount) > 0.005 && linkedTotal > 0;
+  const showSuggestion  = isRefund && linkedTotal > 0 && totalAmount < linkedTotal - 0.005;
 
   const canSave = !!form.amount && !!form.account_id && !!form.payee &&
     (!splitOpen || splitBalanced) && !overAllocated && !badLinkAmount;
@@ -615,7 +615,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                   <div>
                     <p className="text-[10px] uppercase tracking-widest" style={{ color: '#c4b5fd' }}>Refund for</p>
                     <p className="text-xs" style={{ color: '#6b7280' }}>
-                      {links.length === 0 ? 'Optional — link the expenses this covers'
+                      {links.length === 0 ? 'Link the expenses this covers — unlinked amounts count as income'
                         : `${links.length} transaction${links.length > 1 ? 's' : ''}`}
                     </p>
                   </div>
@@ -686,23 +686,27 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                     className="flex items-center justify-between px-4 py-2"
                     style={{ borderTop: '1px solid rgba(196,181,253,0.1)' }}
                   >
-                    <span className="text-[11px]" style={{ color: '#6b7280' }}>Allocated</span>
+                    <span className="text-[11px]" style={{ color: '#6b7280' }}>
+                      Offsets {linkedTotal.toFixed(2)} of expenses
+                    </span>
                     <span
                       className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
                       style={{
                         background: overAllocated ? 'rgba(255,180,171,0.15)'
-                          : Math.abs(unallocated) < 0.005 ? 'rgba(78,222,163,0.15)' : 'rgba(245,158,11,0.15)',
+                          : !totalAmount ? 'rgba(255,255,255,0.05)'
+                          : Math.abs(unallocated) < 0.005 ? 'rgba(196,181,253,0.15)' : 'rgba(78,222,163,0.15)',
                         color: overAllocated ? '#ffb4ab'
-                          : Math.abs(unallocated) < 0.005 ? '#4edea3' : '#f59e0b',
+                          : !totalAmount ? '#6b7280'
+                          : Math.abs(unallocated) < 0.005 ? '#c4b5fd' : '#4edea3',
                       }}
                     >
                       {!totalAmount
-                        ? `${linkedTotal.toFixed(2)} — enter refund amount`
+                        ? 'Enter refund amount'
                         : overAllocated
                         ? `Over by ${Math.abs(unallocated).toFixed(2)}`
                         : Math.abs(unallocated) < 0.005
-                        ? `✓ ${linkedTotal.toFixed(2)} fully allocated`
-                        : `${linkedTotal.toFixed(2)} / ${totalAmount.toFixed(2)} — ${unallocated.toFixed(2)} unallocated`}
+                        ? '✓ Fully allocated'
+                        : `+${unallocated.toFixed(2)} booked as income`}
                     </span>
                   </div>
                 </>
