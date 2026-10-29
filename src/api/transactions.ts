@@ -1,5 +1,6 @@
 import api from './client';
 import { Transaction, TransactionSummary } from '../types';
+import { enqueueTransaction, isNetworkError, newId } from '../offline/sync';
 
 export interface TransactionFilters {
   account_id?: string;
@@ -39,8 +40,18 @@ export const transactionsApi = {
   list: (filters?: TransactionFilters) =>
     api.get<Transaction[]>('/transactions', { params: filters }).then(r => r.data),
   get: (id: string) => api.get<Transaction>(`/transactions/${id}`).then(r => r.data),
-  create: (data: TransactionPayload) =>
-    api.post<Transaction>('/transactions', data).then(r => r.data),
+  /** Resolves to null when offline: the transaction is queued and sent once the connection returns. */
+  create: async (data: TransactionPayload): Promise<Transaction | null> => {
+    // The id is chosen here so a resend after a lost response can't create a duplicate
+    const payload = { ...data, id: newId() };
+    try {
+      return (await api.post<Transaction>('/transactions', payload, { timeout: 15000 })).data;
+    } catch (err) {
+      if (!isNetworkError(err)) throw err;
+      enqueueTransaction(payload);
+      return null;
+    }
+  },
   update: (id: string, data: Partial<TransactionPayload>) =>
     api.put<Transaction>(`/transactions/${id}`, data).then(r => r.data),
   delete: (id: string) => api.delete(`/transactions/${id}`).then(r => r.data),

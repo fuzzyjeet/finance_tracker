@@ -197,11 +197,11 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
 
   useEffect(() => {
     if (!isOpen) return;
-    Promise.all([accountsApi.list(), categoriesApi.list(), tagsApi.list(), projectsApi.list()]).then(
-      ([accts, cats, tgs, projs]) => {
-        setAccounts(accts); setCategories(cats); setTags(tgs); setProjects(projs);
-      }
-    );
+    // Loaded separately so that offline, any list missing from the cache doesn't blank the others
+    accountsApi.list().then(setAccounts).catch(() => {});
+    categoriesApi.list().then(setCategories).catch(() => {});
+    tagsApi.list().then(setTags).catch(() => {});
+    projectsApi.list().then(setProjects).catch(() => {});
   }, [isOpen]);
 
   useEffect(() => {

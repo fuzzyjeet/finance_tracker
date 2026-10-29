@@ -12,6 +12,7 @@ import { TransactionFormModal } from '../components/transactions/TransactionForm
 import { accountsApi } from '../api/accounts';
 import { transactionsApi } from '../api/transactions';
 import { budgetsApi } from '../api/budgets';
+import { useOffline } from '../offline/sync';
 import { Account, Transaction, Budget, getCurrencySymbol } from '../types';
 
 const fmt = (value: number) =>
@@ -157,6 +158,7 @@ interface CatSpend { id: string; name: string; icon: string; color: string; amou
 // ── Main component ─────────────────────────────────────────
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { refreshKey } = useOffline(); // reload after an offline sync or on reconnecting
 
   // Static data (account balances, recent txns, budgets)
   const [accounts, setAccounts]             = useState<Account[]>([]);
@@ -197,7 +199,7 @@ export const Dashboard: React.FC = () => {
       }
     };
     init();
-  }, []);
+  }, [refreshKey]);
 
   // ── Load bar chart (last 6 months from today, independent) ──
   const loadBarChart = useCallback(async () => {
@@ -266,6 +268,7 @@ export const Dashboard: React.FC = () => {
   }, [pieDate, pieRangeMode, pieCustomFrom, pieCustomTo]);
 
   useEffect(() => { loadPieChart(); }, [loadPieChart]);
+  useEffect(() => { if (refreshKey > 0) { loadBarChart(); loadPieChart(); } }, [refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Donut period navigation ────────────────────────────
   const prevPieMonth = () => setPieDate(d => subMonths(d, 1));

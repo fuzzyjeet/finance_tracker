@@ -1,6 +1,7 @@
 from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 from datetime import datetime
+from uuid import UUID
 
 
 # ── Tag ──────────────────────────────────────────────────────────────────────
@@ -158,7 +159,8 @@ class TransactionBase(BaseModel):
 
 
 class TransactionCreate(TransactionBase):
-    pass
+    # Optional client-chosen id, so the app can safely resend transactions queued while offline
+    id: Optional[UUID] = None
 
 
 class TransactionUpdate(BaseModel):

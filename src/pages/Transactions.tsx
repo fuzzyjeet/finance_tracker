@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight,
-  ArrowUpRight, ArrowDownLeft, ArrowLeftRight, ChevronDown, X,
+  ArrowUpRight, ArrowDownLeft, ArrowLeftRight, ChevronDown, X, CloudOff, AlertTriangle,
 } from 'lucide-react';
 import { Header } from '../components/layout/Header';
 import { Button } from '../components/ui/Button';
@@ -14,6 +14,7 @@ import { transactionsApi } from '../api/transactions';
 import { accountsApi } from '../api/accounts';
 import { categoriesApi } from '../api/categories';
 import { Account, Category, Transaction } from '../types';
+import { discardQueued, useOffline } from '../offline/sync';
 
 const PAGE_SIZE = 20;
 
@@ -111,6 +112,8 @@ export const Transactions: React.FC = () => {
   const [offset, setOffset]             = useState(0);
   const [hasMore, setHasMore]           = useState(true);
 
+  const { queue, refreshKey } = useOffline();
+
   const location = useLocation();
   const _initParams = new URLSearchParams(location.search);
 
@@ -159,6 +162,8 @@ export const Transactions: React.FC = () => {
 
   useEffect(() => { loadRefs(); }, []);
   useEffect(() => { setOffset(0); load(0); }, [load]);
+  // Reload after offline transactions sync, or to replace saved data on reconnecting
+  useEffect(() => { if (refreshKey > 0) { load(offset); loadRefs(); } }, [refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const openCreate = () => { setEditing(null); setModalOpen(true); };
   const openEdit   = (txn: Transaction) => { setEditing(txn); setModalOpen(true); };
@@ -327,6 +332,58 @@ export const Transactions: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* ── Added offline, not yet on the server ──────────────── */}
+      {queue.length > 0 && (
+        <div
+          className="rounded-xl mb-4 overflow-hidden"
+          style={{ background: '#0f1829', border: '1px solid rgba(251,191,36,0.25)' }}
+        >
+          <div className="flex items-center gap-2 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-widest" style={{ color: '#fbbf24' }}>
+            <CloudOff size={13} /> Waiting to sync
+          </div>
+          {queue.map(({ payload, error }) => {
+            const account = accounts.find(a => a.id === payload.account_id);
+            const category = categories.find(c => c.id === payload.category_id);
+            return (
+              <div
+                key={payload.id}
+                className="flex items-center gap-3 px-4 py-3 text-sm"
+                style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium truncate" style={{ color: '#dae2fd' }}>{payload.payee}</div>
+                  <div className="text-xs truncate" style={{ color: '#6b7280' }}>
+                    {formatDateLabel(payload.date)}
+                    {category && <> · {category.icon} {category.name}</>}
+                    {account && <> · {account.name}</>}
+                  </div>
+                  {error && (
+                    <div className="flex items-center gap-1 text-xs mt-1" style={{ color: '#ffb4ab' }}>
+                      <AlertTriangle size={12} /> {error}
+                    </div>
+                  )}
+                </div>
+                <div
+                  className="font-bold whitespace-nowrap"
+                  style={{ color: payload.type === 'income' ? '#4edea3' : payload.type === 'expense' ? '#ffb4ab' : '#8ed5ff' }}
+                >
+                  {payload.type === 'income' ? '+' : payload.type === 'expense' ? '−' : ''}
+                  {formatCurrency(payload.amount)}
+                </div>
+                <button
+                  onClick={() => discardQueued(payload.id)}
+                  className="p-1 rounded transition-colors hover:bg-white/10"
+                  style={{ color: '#4b5563' }}
+                  title="Discard"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* ── Table ──────────────────────────────────────────── */}
       <div
