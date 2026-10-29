@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight,
-  ArrowUpRight, ArrowDownLeft, ArrowLeftRight, ChevronDown, X, CloudOff, AlertTriangle,
+  ArrowUpRight, ArrowDownLeft, ArrowLeftRight, ChevronDown, X, CloudOff, AlertTriangle, SlidersHorizontal,
 } from 'lucide-react';
 import { Header } from '../components/layout/Header';
 import { Button } from '../components/ui/Button';
@@ -124,6 +124,7 @@ export const Transactions: React.FC = () => {
   const [filterFrom, setFilterFrom]         = useState('');
   const [filterTo, setFilterTo]             = useState('');
   const [filterSearch, setFilterSearch]     = useState('');
+  const [filtersOpen, setFiltersOpen]       = useState(false); // phones only; desktop always shows them
 
   // Modal
   const [modalOpen, setModalOpen]           = useState(false);
@@ -187,6 +188,8 @@ export const Transactions: React.FC = () => {
 
   const activeFilterCount = [filterAccount, filterCategory, filterType, filterFrom, filterTo, filterSearch]
     .filter(Boolean).length;
+  // Search stays visible on phones, so the filter button only counts what it hides
+  const hiddenFilterCount = activeFilterCount - (filterSearch ? 1 : 0);
 
   // ── Group transactions by date ────────────────────────────
   type DateGroup = { date: string; txns: Transaction[] };
@@ -218,7 +221,11 @@ export const Transactions: React.FC = () => {
     <div>
       <Header
         title="Transactions"
-        actions={<Button onClick={openCreate}><Plus size={16} /> Add Transaction</Button>}
+        actions={
+          <Button onClick={openCreate} aria-label="Add Transaction" className="max-md:px-2.5">
+            <Plus size={16} /><span className="hidden md:inline">Add Transaction</span>
+          </Button>
+        }
       />
 
       {/* ── Filter bar ─────────────────────────────────────── */}
@@ -226,7 +233,7 @@ export const Transactions: React.FC = () => {
         className="rounded-xl mb-4 p-3"
         style={{ background: '#0f1829', border: '1px solid rgba(255,255,255,0.05)' }}
       >
-        {/* Row 1: search + account + category */}
+        {/* Row 1: search + account + category. On phones everything but search sits behind the filter button */}
         <div className="flex flex-wrap gap-2">
           {/* Search */}
           <div className="relative flex-1 min-w-[160px]">
@@ -239,66 +246,91 @@ export const Transactions: React.FC = () => {
             />
           </div>
 
-          {/* Account */}
-          <CustomSelect
-            value={filterAccount}
-            onChange={setFilterAccount}
-            options={[
-              { value: '', label: 'All Accounts' },
-              ...accounts.map(a => ({ value: a.id, label: a.name })),
-            ]}
-            className="min-w-[130px]"
-          />
-
-          {/* Category */}
-          <CustomSelect
-            value={filterCategory}
-            onChange={setFilterCategory}
-            options={[
-              { value: '', label: 'All Categories' },
-              ...categories.map(c => ({ value: c.id, label: `${c.icon} ${c.name}` })),
-            ]}
-            className="min-w-[140px]"
-          />
-
-          {/* Date range */}
-          <div
-            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5"
-            style={{ background: '#171f33', border: '1px solid rgba(255,255,255,0.08)' }}
+          <button
+            type="button"
+            onClick={() => setFiltersOpen(o => !o)}
+            className="md:hidden relative flex items-center justify-center w-10 rounded-lg transition-colors"
+            style={{
+              background: filtersOpen ? 'rgba(142,213,255,0.12)' : '#171f33',
+              border: `1px solid ${filtersOpen ? 'rgba(142,213,255,0.3)' : 'rgba(255,255,255,0.08)'}`,
+              color: filtersOpen || hiddenFilterCount > 0 ? '#8ed5ff' : '#6b7280',
+            }}
+            aria-label="Filters"
+            aria-expanded={filtersOpen}
           >
-            <input
-              type="date"
-              value={filterFrom}
-              onChange={e => setFilterFrom(e.target.value)}
-              className="bg-transparent text-sm outline-none w-[118px]"
-              style={{ color: filterFrom ? '#dae2fd' : '#4b5563', colorScheme: 'dark' }}
-              title="From"
-            />
-            <span style={{ color: '#374151' }}>–</span>
-            <input
-              type="date"
-              value={filterTo}
-              onChange={e => setFilterTo(e.target.value)}
-              className="bg-transparent text-sm outline-none w-[118px]"
-              style={{ color: filterTo ? '#dae2fd' : '#4b5563', colorScheme: 'dark' }}
-              title="To"
-            />
-          </div>
+            <SlidersHorizontal size={16} />
+            {hiddenFilterCount > 0 && (
+              <span
+                className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center"
+                style={{ background: '#38bdf8', color: '#004965' }}
+              >
+                {hiddenFilterCount}
+              </span>
+            )}
+          </button>
 
-          {/* Clear button */}
-          {activeFilterCount > 0 && (
-            <button
-              onClick={clearFilters}
-              className="flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
-              style={{ color: '#ffb4ab', background: 'rgba(255,180,171,0.08)', border: '1px solid rgba(255,180,171,0.2)' }}
+          <div className={`${filtersOpen ? 'flex' : 'hidden'} md:contents flex-wrap gap-2 w-full`}>
+            {/* Account */}
+            <CustomSelect
+              value={filterAccount}
+              onChange={setFilterAccount}
+              options={[
+                { value: '', label: 'All Accounts' },
+                ...accounts.map(a => ({ value: a.id, label: a.name })),
+              ]}
+              className="min-w-[130px] max-md:flex-1"
+            />
+
+            {/* Category */}
+            <CustomSelect
+              value={filterCategory}
+              onChange={setFilterCategory}
+              options={[
+                { value: '', label: 'All Categories' },
+                ...categories.map(c => ({ value: c.id, label: `${c.icon} ${c.name}` })),
+              ]}
+              className="min-w-[140px] max-md:flex-1"
+            />
+
+            {/* Date range */}
+            <div
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5"
+              style={{ background: '#171f33', border: '1px solid rgba(255,255,255,0.08)' }}
             >
-              <X size={12} /> Clear
-            </button>
-          )}
+              <input
+                type="date"
+                value={filterFrom}
+                onChange={e => setFilterFrom(e.target.value)}
+                className="bg-transparent text-sm outline-none w-[118px]"
+                style={{ color: filterFrom ? '#dae2fd' : '#4b5563', colorScheme: 'dark' }}
+                title="From"
+              />
+              <span style={{ color: '#374151' }}>–</span>
+              <input
+                type="date"
+                value={filterTo}
+                onChange={e => setFilterTo(e.target.value)}
+                className="bg-transparent text-sm outline-none w-[118px]"
+                style={{ color: filterTo ? '#dae2fd' : '#4b5563', colorScheme: 'dark' }}
+                title="To"
+              />
+            </div>
+
+            {/* Clear button */}
+            {activeFilterCount > 0 && (
+              <button
+                onClick={clearFilters}
+                className="flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+                style={{ color: '#ffb4ab', background: 'rgba(255,180,171,0.08)', border: '1px solid rgba(255,180,171,0.2)' }}
+              >
+                <X size={12} /> Clear
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Row 2: type toggle pills */}
-        <div className="flex items-center gap-1.5 mt-2.5">
+        <div className={`${filtersOpen ? 'flex' : 'hidden'} md:flex flex-wrap items-center gap-1.5 mt-2.5`}>
           <span className="text-[10px] uppercase tracking-widest mr-1" style={{ color: '#4b5563' }}>Type</span>
           {TYPE_OPTS.map(opt => {
             const active = filterType === opt.value;
