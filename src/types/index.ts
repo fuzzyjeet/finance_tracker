@@ -1,5 +1,5 @@
 export type AccountType = 'checking' | 'savings' | 'credit_card' | 'cash' | 'investment';
-export type TransactionType = 'income' | 'expense' | 'transfer';
+export type TransactionType = 'income' | 'expense' | 'transfer' | 'refund';
 export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom';
 export type CategoryType = 'income' | 'expense' | 'both';
 
@@ -75,6 +75,22 @@ export interface TransactionSplit {
   projects?: ProjectSummary[];
 }
 
+export interface RefundSummary {
+  id: string;
+  payee: string;
+  amount: number;
+  date: string;
+  account_id: string;
+  account_name?: string;
+}
+
+export interface RefundSourceSummary {
+  id: string;
+  payee: string;
+  amount: number;
+  date: string;
+}
+
 export interface Transaction {
   id: string;
   date: string;
@@ -95,6 +111,12 @@ export interface Transaction {
   projects?: ProjectSummary[];
   account_name?: string;
   to_account_name?: string;
+  // refund fields
+  refund_of_id?: string;
+  refund_of?: RefundSourceSummary;
+  refunds?: RefundSummary[];
+  refunded_amount?: number;
+  is_fully_refunded?: boolean;
 }
 
 export interface RecurringTransaction {
@@ -133,5 +155,6 @@ export interface Budget {
 export interface TransactionSummary {
   total_income: number;
   total_expenses: number;
+  total_refunds: number;
   net: number;
 }

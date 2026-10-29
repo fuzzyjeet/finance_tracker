@@ -105,13 +105,14 @@ class Transaction(Base):
     date = Column(String, nullable=False)
     billing_date = Column(String, nullable=True)
     amount = Column(Float, nullable=False)
-    type = Column(SAEnum("income", "expense", "transfer", name="transaction_type"), nullable=False)
+    type = Column(SAEnum("income", "expense", "transfer", "refund", name="transaction_type"), nullable=False)
     category_id = Column(String, ForeignKey("categories.id", ondelete="SET NULL"), nullable=True)
     account_id = Column(String, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False)
     to_account_id = Column(String, ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
     payee = Column(String, nullable=False, default="")
     notes = Column(String, nullable=True)
     recurring_id = Column(String, ForeignKey("recurring_transactions.id", ondelete="SET NULL"), nullable=True)
+    refund_of_id = Column(String, ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     account = relationship("Account", foreign_keys=[account_id], back_populates="transactions")
@@ -121,6 +122,7 @@ class Transaction(Base):
     recurring = relationship("RecurringTransaction", back_populates="transactions")
     splits = relationship("TransactionSplit", back_populates="transaction", cascade="all, delete-orphan")
     projects = relationship("Project", secondary=transaction_projects, back_populates="transactions")
+    refund_of = relationship("Transaction", foreign_keys=[refund_of_id], remote_side="Transaction.id", backref="refunds")
 
 
 class TransactionSplit(Base):

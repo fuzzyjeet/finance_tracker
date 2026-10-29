@@ -11,6 +11,8 @@ router = APIRouter()
 
 
 def build_transaction_read(txn: Transaction) -> dict:
+    refunds = getattr(txn, 'refunds', None) or []
+    refunded_amount = sum(r.amount for r in refunds)
     return {
         "id": txn.id,
         "date": txn.date,
@@ -30,6 +32,26 @@ def build_transaction_read(txn: Transaction) -> dict:
         "projects": txn.projects,
         "account_name": txn.account.name if txn.account else None,
         "to_account_name": txn.to_account.name if txn.to_account else None,
+        "refund_of_id": txn.refund_of_id,
+        "refund_of": {
+            "id": txn.refund_of.id,
+            "payee": txn.refund_of.payee,
+            "amount": txn.refund_of.amount,
+            "date": txn.refund_of.date,
+        } if txn.refund_of else None,
+        "refunds": [
+            {
+                "id": r.id,
+                "payee": r.payee,
+                "amount": r.amount,
+                "date": r.date,
+                "account_id": r.account_id,
+                "account_name": r.account.name if r.account else None,
+            }
+            for r in refunds
+        ],
+        "refunded_amount": refunded_amount,
+        "is_fully_refunded": refunded_amount >= txn.amount - 0.005,
     }
 
 
@@ -64,7 +86,7 @@ def get_summary(
     q = db.query(Transaction).filter(
         Transaction.date >= start,
         Transaction.date < end,
-        Transaction.type.in_(["income", "expense"]),
+        Transaction.type.in_(["income", "expense", "refund"]),
     )
     if account_id:
         q = q.filter(Transaction.account_id == account_id)
@@ -72,7 +94,13 @@ def get_summary(
     transactions = q.all()
     total_income = sum(t.amount for t in transactions if t.type == "income")
     total_expenses = sum(t.amount for t in transactions if t.type == "expense")
-    return {"total_income": total_income, "total_expenses": total_expenses, "net": total_income - total_expenses}
+    total_refunds = sum(t.amount for t in transactions if t.type == "refund")
+    return {
+        "total_income": total_income,
+        "total_expenses": total_expenses,
+        "total_refunds": total_refunds,
+        "net": total_income - total_expenses + total_refunds,
+    }
 
 
 @router.get("", response_model=List[TransactionRead])
@@ -131,6 +159,7 @@ def create_transaction(data: TransactionCreate, db: Session = Depends(get_db)):
         to_account_id=data.to_account_id,
         payee=data.payee,
         notes=data.notes,
+        refund_of_id=data.refund_of_id or None,
     )
     if tag_ids:
         txn.tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()

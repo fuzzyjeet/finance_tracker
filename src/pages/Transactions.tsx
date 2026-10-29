@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight,
-  ArrowUpRight, ArrowDownLeft, ArrowLeftRight, ChevronDown, X,
+  ArrowUpRight, ArrowDownLeft, ArrowLeftRight, ChevronDown, X, Undo2,
 } from 'lucide-react';
 import { Header } from '../components/layout/Header';
 import { Button } from '../components/ui/Button';
@@ -125,6 +125,7 @@ export const Transactions: React.FC = () => {
   // Modal
   const [modalOpen, setModalOpen]           = useState(false);
   const [editing, setEditing]               = useState<Transaction | null>(null);
+  const [refundOf, setRefundOf]             = useState<Transaction | null>(null);
   const [deleteConfirm, setDeleteConfirm]   = useState<string | null>(null);
   const [expandedSplits, setExpandedSplits] = useState<Set<string>>(new Set());
 
@@ -160,8 +161,9 @@ export const Transactions: React.FC = () => {
   useEffect(() => { loadRefs(); }, []);
   useEffect(() => { setOffset(0); load(0); }, [load]);
 
-  const openCreate = () => { setEditing(null); setModalOpen(true); };
-  const openEdit   = (txn: Transaction) => { setEditing(txn); setModalOpen(true); };
+  const openCreate = () => { setEditing(null); setRefundOf(null); setModalOpen(true); };
+  const openEdit   = (txn: Transaction) => { setEditing(txn); setRefundOf(null); setModalOpen(true); };
+  const openRefund = (txn: Transaction) => { setEditing(null); setRefundOf(txn); setModalOpen(true); };
 
   const handleSaved = async () => { await load(offset); await loadRefs(); };
 
@@ -207,6 +209,7 @@ export const Transactions: React.FC = () => {
     { value: 'income',   label: 'Income',   color: '#4edea3' },
     { value: 'expense',  label: 'Expense',  color: '#ffb4ab' },
     { value: 'transfer', label: 'Transfer', color: '#8ed5ff' },
+    { value: 'refund',   label: 'Refund',   color: '#c4b5fd' },
   ];
 
   return (
@@ -359,7 +362,8 @@ export const Transactions: React.FC = () => {
                 {dateGroups.map(group => {
                   const income   = group.txns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
                   const expenses = group.txns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-                  const net      = income - expenses;
+                  const refunds  = group.txns.filter(t => t.type === 'refund').reduce((s, t) => s + t.amount, 0);
+                  const net      = income - expenses + refunds;
 
                   return (
                     <React.Fragment key={group.date}>
@@ -382,7 +386,12 @@ export const Transactions: React.FC = () => {
                                 −{formatCurrency(expenses)}
                               </span>
                             )}
-                            {(income > 0 || expenses > 0) && (
+                            {refunds > 0 && (
+                              <span className="text-[11px] font-semibold" style={{ color: '#c4b5fd' }}>
+                                ↩{formatCurrency(refunds)}
+                              </span>
+                            )}
+                            {(income > 0 || expenses > 0 || refunds > 0) && (
                               <span
                                 className="text-[11px] font-semibold pl-2"
                                 style={{
@@ -424,7 +433,25 @@ export const Transactions: React.FC = () => {
 
                               {/* Payee */}
                               <td className="px-4 py-3">
-                                <div className="font-medium" style={{ color: '#dae2fd' }}>{txn.payee}</div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-medium" style={{ color: '#dae2fd' }}>{txn.payee}</span>
+                                  {txn.refunds && txn.refunds.length > 0 && (
+                                    <span
+                                      className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                                      style={{ background: 'rgba(196,181,253,0.15)', color: '#c4b5fd', border: '1px solid rgba(196,181,253,0.3)' }}
+                                      title={txn.is_fully_refunded ? 'Fully refunded' : `Partially refunded: ${txn.refunded_amount?.toFixed(2)}`}
+                                    >
+                                      <Undo2 size={9} />
+                                      {txn.is_fully_refunded ? 'Refunded' : 'Partial'}
+                                    </span>
+                                  )}
+                                </div>
+                                {txn.type === 'refund' && txn.refund_of && (
+                                  <div className="text-xs mt-0.5 flex items-center gap-1" style={{ color: '#c4b5fd' }}>
+                                    <Undo2 size={10} />
+                                    <span>Refund of {txn.refund_of.payee}</span>
+                                  </div>
+                                )}
                                 {txn.notes && (
                                   <div className="text-xs truncate max-w-[180px]" style={{ color: '#4b5563' }}>{txn.notes}</div>
                                 )}
@@ -472,20 +499,39 @@ export const Transactions: React.FC = () => {
                                   style={{
                                     color: txn.type === 'income'   ? '#4edea3'
                                          : txn.type === 'expense'  ? '#ffb4ab'
+                                         : txn.type === 'refund'   ? '#c4b5fd'
                                          : '#8ed5ff',
                                   }}
                                 >
                                   {txn.type === 'income'   ? <ArrowDownLeft size={14}  /> :
                                    txn.type === 'expense'  ? <ArrowUpRight size={14}   /> :
+                                   txn.type === 'refund'   ? <Undo2 size={14}          /> :
                                                              <ArrowLeftRight size={14} />}
-                                  {txn.type === 'income' ? '+' : txn.type === 'expense' ? '−' : ''}
+                                  {txn.type === 'income' ? '+' : txn.type === 'expense' ? '−' : txn.type === 'refund' ? '+' : ''}
                                   {formatCurrency(txn.amount)}
                                 </div>
+                                {txn.type === 'expense' && txn.refunded_amount && txn.refunded_amount > 0 && (
+                                  <div className="text-[10px] text-right" style={{ color: '#c4b5fd' }}>
+                                    −{formatCurrency(txn.refunded_amount)} refunded
+                                  </div>
+                                )}
                               </td>
 
                               {/* Actions */}
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-1">
+                                  {(txn.type === 'expense' || txn.type === 'income') && (
+                                    <button
+                                      onClick={() => openRefund(txn)}
+                                      className="p-1 rounded transition-colors"
+                                      style={{ color: '#4b5563' }}
+                                      title="Add refund / reimbursement"
+                                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#c4b5fd'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(196,181,253,0.1)'; }}
+                                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#4b5563'; (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+                                    >
+                                      <Undo2 size={14} />
+                                    </button>
+                                  )}
                                   <button
                                     onClick={() => openEdit(txn)}
                                     className="p-1 rounded transition-colors"
@@ -568,9 +614,10 @@ export const Transactions: React.FC = () => {
 
       <TransactionFormModal
         isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => { setModalOpen(false); setRefundOf(null); }}
         onSaved={handleSaved}
         editing={editing}
+        refundOf={refundOf}
       />
 
       {/* Delete confirm */}

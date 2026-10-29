@@ -24,6 +24,8 @@ def recalculate_balance(db: Session, account_id: str) -> float:
             balance += txn.amount
         elif txn.type == "expense" and txn.account_id == account_id:
             balance -= txn.amount
+        elif txn.type == "refund" and txn.account_id == account_id:
+            balance += txn.amount
         elif txn.type == "transfer":
             if txn.account_id == account_id:
                 balance -= txn.amount

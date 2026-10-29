@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AlertCircle, ChevronDown, Plus, X, ArrowDown, ArrowUp, ArrowLeftRight, Tag as TagIcon, Split } from 'lucide-react';
+import { AlertCircle, ChevronDown, Plus, X, ArrowDown, ArrowUp, ArrowLeftRight, Tag as TagIcon, Split, Undo2 } from 'lucide-react';
 import { CustomSelect } from '../ui/CustomSelect';
 import { transactionsApi, TransactionPayload, SplitPayload } from '../../api/transactions';
 import { accountsApi } from '../../api/accounts';
@@ -25,6 +25,7 @@ const TYPE_COLORS = {
   income:   { text: '#4edea3', bg: 'rgba(78,222,163,0.15)',  border: 'rgba(78,222,163,0.4)'  },
   expense:  { text: '#ffb4ab', bg: 'rgba(255,180,171,0.15)', border: 'rgba(255,180,171,0.4)' },
   transfer: { text: '#8ed5ff', bg: 'rgba(142,213,255,0.15)', border: 'rgba(142,213,255,0.4)' },
+  refund:   { text: '#c4b5fd', bg: 'rgba(196,181,253,0.15)', border: 'rgba(196,181,253,0.4)' },
 };
 
 // ── Helpers ────────────────────────────────────────────────
@@ -96,6 +97,7 @@ interface TxnForm {
   notes: string;
   tag_ids: string[];
   project_ids: string[];
+  refund_of_id: string;
 }
 
 const emptyForm = (): TxnForm => ({
@@ -110,6 +112,7 @@ const emptyForm = (): TxnForm => ({
   notes: '',
   tag_ids: [],
   project_ids: [],
+  refund_of_id: '',
 });
 
 interface Props {
@@ -117,9 +120,10 @@ interface Props {
   onClose: () => void;
   onSaved: () => void;
   editing?: Transaction | null;
+  refundOf?: Transaction | null;
 }
 
-export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved, editing }) => {
+export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved, editing, refundOf }) => {
   const [accounts, setAccounts]     = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags]             = useState<Tag[]>([]);
@@ -219,6 +223,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
         notes: editing.notes ?? '',
         tag_ids: editing.tags?.map(t => t.id) ?? [],
         project_ids: editing.projects?.map(p => p.id) ?? [],
+        refund_of_id: editing.refund_of_id ?? '',
       });
       if (editing.splits && editing.splits.length > 0) {
         setSplitOpen(true);
@@ -232,13 +237,22 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
         setSplitOpen(false);
         setSplits([{ amount: 0, category_id: '', notes: '', project_ids: [] }]);
       }
+    } else if (refundOf) {
+      setForm({
+        ...emptyForm(),
+        type: 'refund',
+        refund_of_id: refundOf.id,
+        payee: refundOf.payee,
+      });
+      setSplitOpen(false);
+      setSplits([{ amount: 0, category_id: '', notes: '', project_ids: [] }]);
     } else {
       setForm(emptyForm());
       setSplitOpen(false);
       setSplits([{ amount: 0, category_id: '', notes: '', project_ids: [] }]);
     }
     setShowErrors(false);
-  }, [editing, isOpen]);
+  }, [editing, isOpen, refundOf]);
 
   // Lock body scroll
   useEffect(() => {
@@ -264,7 +278,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
     const t = type ?? form.type;
     return categories.filter(c => {
       if (t === 'income')  return c.type === 'income'  || c.type === 'both';
-      if (t === 'expense') return c.type === 'expense' || c.type === 'both';
+      if (t === 'expense' || t === 'refund') return c.type === 'expense' || c.type === 'both';
       return false;
     });
   };
@@ -298,6 +312,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               project_ids: s.project_ids ?? [],
             }))
           : undefined,
+        refund_of_id: form.refund_of_id || undefined,
       };
       if (editing) {
         await transactionsApi.update(editing.id, payload);
@@ -369,7 +384,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-4 shrink-0">
           <h2 className="text-lg font-bold text-white" style={{ letterSpacing: '-0.02em' }}>
-            {editing ? 'Edit Transaction' : 'New Transaction'}
+            {editing ? 'Edit Transaction' : form.type === 'refund' ? 'New Refund' : 'New Transaction'}
           </h2>
           <button
             onClick={onClose}
@@ -385,14 +400,18 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
         <div className="overflow-y-auto flex-1 px-6 pb-6 space-y-4">
 
           {/* ── 1. Type toggle ──────────────────────────────── */}
-          <div className="grid grid-cols-3 gap-2">
-            {(['income', 'expense', 'transfer'] as const).map(t => {
+          <div className="grid grid-cols-2 gap-2">
+            {(['income', 'expense', 'transfer', 'refund'] as const).map(t => {
               const c = TYPE_COLORS[t];
               const active = form.type === t;
               const icons = {
                 income:   <ArrowUp size={12} strokeWidth={2.5} />,
                 expense:  <ArrowDown size={12} strokeWidth={2.5} />,
                 transfer: <ArrowLeftRight size={12} strokeWidth={2.5} />,
+                refund:   <Undo2 size={12} strokeWidth={2.5} />,
+              };
+              const labels = {
+                income: 'Income', expense: 'Expense', transfer: 'Transfer', refund: 'Refund',
               };
               return (
                 <button
@@ -407,7 +426,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                   }}
                 >
                   {icons[t]}
-                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                  {labels[t]}
                 </button>
               );
             })}
@@ -520,6 +539,24 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               />
             </div>
           </div>
+
+          {/* ── 3b. Refunding info (when type = refund) ─────── */}
+          {form.type === 'refund' && (refundOf || form.refund_of_id) && (
+            <div
+              className="rounded-xl px-4 py-3 flex items-center gap-3"
+              style={{ background: 'rgba(196,181,253,0.08)', border: '1px solid rgba(196,181,253,0.2)' }}
+            >
+              <Undo2 size={16} style={{ color: '#c4b5fd', flexShrink: 0 }} />
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-widest" style={{ color: '#c4b5fd' }}>Refunding</p>
+                <p className="text-sm font-medium truncate" style={{ color: '#dae2fd' }}>
+                  {refundOf
+                    ? `${refundOf.payee} · ${refundOf.amount.toFixed(2)}`
+                    : 'Linked transaction'}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* ── 4. Field rows card ──────────────────────────── */}
           <div className="rounded-xl overflow-hidden" style={{ background: SURFACE }}>
@@ -845,7 +882,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
           </div>
 
           {/* ── 6. Split collapsible ────────────────────────── */}
-          {form.type !== 'transfer' && (
+          {form.type !== 'transfer' && form.type !== 'refund' && (
             <div className="rounded-xl overflow-hidden" style={{ background: SURFACE }}>
               <button
                 type="button"

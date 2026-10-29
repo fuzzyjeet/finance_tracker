@@ -121,6 +121,28 @@ class ProjectSummary(BaseModel):
     color: str
 
 
+# ── Refund slim schemas ───────────────────────────────────────────────────────
+
+class RefundSourceRead(BaseModel):
+    """Slim parent transaction embedded in a refund response."""
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    payee: str
+    amount: float
+    date: str
+
+
+class RefundRead(BaseModel):
+    """Slim refund transaction embedded in a parent transaction response."""
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    payee: str
+    amount: float
+    date: str
+    account_id: str
+    account_name: Optional[str] = None
+
+
 # ── Transaction Split ─────────────────────────────────────────────────────────
 
 class TransactionSplitCreate(BaseModel):
@@ -146,7 +168,7 @@ class TransactionBase(BaseModel):
     date: str  # YYYY-MM-DD
     billing_date: Optional[str] = None
     amount: float
-    type: str  # income | expense | transfer
+    type: str  # income | expense | transfer | refund
     category_id: Optional[str] = None
     account_id: str
     to_account_id: Optional[str] = None
@@ -155,6 +177,7 @@ class TransactionBase(BaseModel):
     tag_ids: Optional[List[str]] = []
     project_ids: Optional[List[str]] = []
     splits: Optional[List[TransactionSplitCreate]] = None  # None = no splits
+    refund_of_id: Optional[str] = None
 
 
 class TransactionCreate(TransactionBase):
@@ -174,6 +197,7 @@ class TransactionUpdate(BaseModel):
     tag_ids: Optional[List[str]] = None
     project_ids: Optional[List[str]] = None
     splits: Optional[List[TransactionSplitCreate]] = None  # None = don't touch, [] = clear
+    refund_of_id: Optional[str] = None
 
 
 class TransactionRead(BaseModel):
@@ -196,11 +220,17 @@ class TransactionRead(BaseModel):
     projects: List[ProjectSummary] = []
     account_name: Optional[str] = None
     to_account_name: Optional[str] = None
+    refund_of_id: Optional[str] = None
+    refund_of: Optional[RefundSourceRead] = None
+    refunds: List[RefundRead] = []
+    refunded_amount: float = 0.0
+    is_fully_refunded: bool = False
 
 
 class TransactionSummary(BaseModel):
     total_income: float
     total_expenses: float
+    total_refunds: float = 0.0
     net: float
 
 

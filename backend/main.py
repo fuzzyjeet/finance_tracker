@@ -39,6 +39,10 @@ async def startup():
         if "currency" not in account_cols:
             conn.execute(text("ALTER TABLE accounts ADD COLUMN currency VARCHAR NOT NULL DEFAULT 'EUR'"))
             conn.commit()
+        txn_cols = [c["name"] for c in inspector.get_columns("transactions")]
+        if "refund_of_id" not in txn_cols:
+            conn.execute(text("ALTER TABLE transactions ADD COLUMN refund_of_id VARCHAR REFERENCES transactions(id)"))
+            conn.commit()
     seed_data()
     _ensure_default_categories()
     start_scheduler()
