@@ -121,25 +121,21 @@ class ProjectSummary(BaseModel):
     color: str
 
 
-# ── Refund slim schemas ───────────────────────────────────────────────────────
+# ── Refund links ──────────────────────────────────────────────────────────────
 
-class RefundSourceRead(BaseModel):
-    """Slim parent transaction embedded in a refund response."""
-    model_config = ConfigDict(from_attributes=True)
-    id: str
-    payee: str
+class RefundLinkCreate(BaseModel):
+    original_id: str
     amount: float
-    date: str
 
 
-class RefundRead(BaseModel):
-    """Slim refund transaction embedded in a parent transaction response."""
-    model_config = ConfigDict(from_attributes=True)
+class RefundLinkRead(BaseModel):
+    """One refund↔original allocation, seen from either side."""
     id: str
+    transaction_id: str  # the counterpart transaction
+    amount: float        # portion of the refund allocated to this pair
     payee: str
-    amount: float
     date: str
-    account_id: str
+    transaction_amount: float
     account_name: Optional[str] = None
 
 
@@ -177,7 +173,7 @@ class TransactionBase(BaseModel):
     tag_ids: Optional[List[str]] = []
     project_ids: Optional[List[str]] = []
     splits: Optional[List[TransactionSplitCreate]] = None  # None = no splits
-    refund_of_id: Optional[str] = None
+    refund_links: Optional[List[RefundLinkCreate]] = None
 
 
 class TransactionCreate(TransactionBase):
@@ -197,7 +193,7 @@ class TransactionUpdate(BaseModel):
     tag_ids: Optional[List[str]] = None
     project_ids: Optional[List[str]] = None
     splits: Optional[List[TransactionSplitCreate]] = None  # None = don't touch, [] = clear
-    refund_of_id: Optional[str] = None
+    refund_links: Optional[List[RefundLinkCreate]] = None  # None = don't touch, [] = clear
 
 
 class TransactionRead(BaseModel):
@@ -220,9 +216,8 @@ class TransactionRead(BaseModel):
     projects: List[ProjectSummary] = []
     account_name: Optional[str] = None
     to_account_name: Optional[str] = None
-    refund_of_id: Optional[str] = None
-    refund_of: Optional[RefundSourceRead] = None
-    refunds: List[RefundRead] = []
+    refund_for: List[RefundLinkRead] = []  # originals this refund covers
+    refunds: List[RefundLinkRead] = []     # refunds this transaction received
     refunded_amount: float = 0.0
     is_fully_refunded: bool = False
 

@@ -129,8 +129,12 @@ export const Transactions: React.FC = () => {
   const [deleteConfirm, setDeleteConfirm]   = useState<string | null>(null);
   const [expandedSplits, setExpandedSplits] = useState<Set<string>>(new Set());
 
+  const [expandedLinks, setExpandedLinks]   = useState<Set<string>>(new Set());
+
   const toggleSplits = (id: string) =>
     setExpandedSplits(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  const toggleLinks = (id: string) =>
+    setExpandedLinks(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
 
   const loadRefs = async () => {
     const [accts, cats] = await Promise.all([accountsApi.list(), categoriesApi.list()]);
@@ -436,21 +440,35 @@ export const Transactions: React.FC = () => {
                                 <div className="flex items-center gap-1.5">
                                   <span className="font-medium" style={{ color: '#dae2fd' }}>{txn.payee}</span>
                                   {txn.refunds && txn.refunds.length > 0 && (
-                                    <span
-                                      className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                                    <button
+                                      onClick={() => toggleLinks(txn.id)}
+                                      className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full hover:brightness-125"
                                       style={{ background: 'rgba(196,181,253,0.15)', color: '#c4b5fd', border: '1px solid rgba(196,181,253,0.3)' }}
                                       title={txn.is_fully_refunded ? 'Fully refunded' : `Partially refunded: ${txn.refunded_amount?.toFixed(2)}`}
                                     >
                                       <Undo2 size={9} />
                                       {txn.is_fully_refunded ? 'Refunded' : 'Partial'}
-                                    </span>
+                                      {txn.refunds.length > 1 && ` ×${txn.refunds.length}`}
+                                    </button>
                                   )}
                                 </div>
-                                {txn.type === 'refund' && txn.refund_of && (
-                                  <div className="text-xs mt-0.5 flex items-center gap-1" style={{ color: '#c4b5fd' }}>
+                                {txn.type === 'refund' && txn.refund_for && txn.refund_for.length > 0 && (
+                                  <button
+                                    onClick={() => toggleLinks(txn.id)}
+                                    className="text-xs mt-0.5 flex items-center gap-1 hover:underline"
+                                    style={{ color: '#c4b5fd' }}
+                                  >
                                     <Undo2 size={10} />
-                                    <span>Refund of {txn.refund_of.payee}</span>
-                                  </div>
+                                    <span>
+                                      Refund of {txn.refund_for.length === 1
+                                        ? txn.refund_for[0].payee
+                                        : `${txn.refund_for.length} transactions`}
+                                    </span>
+                                    <ChevronDown
+                                      size={10}
+                                      style={{ transform: expandedLinks.has(txn.id) ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}
+                                    />
+                                  </button>
                                 )}
                                 {txn.notes && (
                                   <div className="text-xs truncate max-w-[180px]" style={{ color: '#4b5563' }}>{txn.notes}</div>
@@ -520,7 +538,7 @@ export const Transactions: React.FC = () => {
                               {/* Actions */}
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-1">
-                                  {(txn.type === 'expense' || txn.type === 'income') && (
+                                  {txn.type === 'expense' && !txn.is_fully_refunded && (
                                     <button
                                       onClick={() => openRefund(txn)}
                                       className="p-1 rounded transition-colors"
@@ -582,6 +600,38 @@ export const Transactions: React.FC = () => {
                                 <td />
                               </tr>
                             )}
+
+                            {/* Expanded refund links (either direction) */}
+                            {expandedLinks.has(txn.id) && (() => {
+                              const linkRows = txn.type === 'refund' ? (txn.refund_for ?? []) : (txn.refunds ?? []);
+                              if (linkRows.length === 0) return null;
+                              return (
+                                <tr style={{ background: 'rgba(196,181,253,0.04)', borderBottom: '1px solid rgba(196,181,253,0.1)' }}>
+                                  <td />
+                                  <td colSpan={4} className="px-4 py-2.5">
+                                    <p className="text-[10px] uppercase tracking-widest mb-1.5" style={{ color: '#8b7fc7' }}>
+                                      {txn.type === 'refund' ? 'Covers' : 'Refunded by'}
+                                    </p>
+                                    <div className="space-y-1.5">
+                                      {linkRows.map(l => (
+                                        <div key={l.id} className="flex items-center gap-3 text-xs" style={{ color: '#bdc8d1' }}>
+                                          <Undo2 size={11} style={{ color: '#c4b5fd' }} />
+                                          <span className="font-medium">{l.payee || '—'}</span>
+                                          <span style={{ color: '#4b5563' }}>
+                                            {formatDateLabel(l.date)}{l.account_name ? ` · ${l.account_name}` : ''}
+                                            {txn.type === 'refund' && ` · of ${formatCurrency(l.transaction_amount)}`}
+                                          </span>
+                                          <span className="ml-auto font-semibold tabular-nums" style={{ color: '#c4b5fd' }}>
+                                            {formatCurrency(l.amount)}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </td>
+                                  <td />
+                                </tr>
+                              );
+                            })()}
                           </React.Fragment>
                         );
                       })}

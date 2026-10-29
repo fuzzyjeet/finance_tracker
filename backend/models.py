@@ -112,7 +112,6 @@ class Transaction(Base):
     payee = Column(String, nullable=False, default="")
     notes = Column(String, nullable=True)
     recurring_id = Column(String, ForeignKey("recurring_transactions.id", ondelete="SET NULL"), nullable=True)
-    refund_of_id = Column(String, ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     account = relationship("Account", foreign_keys=[account_id], back_populates="transactions")
@@ -122,7 +121,27 @@ class Transaction(Base):
     recurring = relationship("RecurringTransaction", back_populates="transactions")
     splits = relationship("TransactionSplit", back_populates="transaction", cascade="all, delete-orphan")
     projects = relationship("Project", secondary=transaction_projects, back_populates="transactions")
-    refund_of = relationship("Transaction", foreign_keys=[refund_of_id], remote_side="Transaction.id", backref="refunds")
+    # On a refund: which originals it covers. On an original: which refunds it received.
+    refund_allocations = relationship(
+        "RefundLink", foreign_keys="RefundLink.refund_id",
+        back_populates="refund", cascade="all, delete-orphan",
+    )
+    refunded_by = relationship(
+        "RefundLink", foreign_keys="RefundLink.original_id",
+        back_populates="original", cascade="all, delete-orphan",
+    )
+
+
+class RefundLink(Base):
+    __tablename__ = "refund_links"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    refund_id = Column(String, ForeignKey("transactions.id", ondelete="CASCADE"), nullable=False, index=True)
+    original_id = Column(String, ForeignKey("transactions.id", ondelete="CASCADE"), nullable=False, index=True)
+    amount = Column(Float, nullable=False)
+
+    refund = relationship("Transaction", foreign_keys=[refund_id], back_populates="refund_allocations")
+    original = relationship("Transaction", foreign_keys=[original_id], back_populates="refunded_by")
 
 
 class TransactionSplit(Base):

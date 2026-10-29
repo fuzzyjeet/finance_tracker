@@ -39,9 +39,17 @@ async def startup():
         if "currency" not in account_cols:
             conn.execute(text("ALTER TABLE accounts ADD COLUMN currency VARCHAR NOT NULL DEFAULT 'EUR'"))
             conn.commit()
+        # Legacy single-link refunds (refund_of_id) → refund_links table
         txn_cols = [c["name"] for c in inspector.get_columns("transactions")]
-        if "refund_of_id" not in txn_cols:
-            conn.execute(text("ALTER TABLE transactions ADD COLUMN refund_of_id VARCHAR REFERENCES transactions(id)"))
+        if "refund_of_id" in txn_cols:
+            conn.execute(text("""
+                INSERT INTO refund_links (id, refund_id, original_id, amount)
+                SELECT lower(hex(randomblob(16))), t.id, t.refund_of_id, t.amount
+                FROM transactions t
+                WHERE t.refund_of_id IS NOT NULL
+                  AND NOT EXISTS (SELECT 1 FROM refund_links l WHERE l.refund_id = t.id)
+            """))
+            conn.execute(text("UPDATE transactions SET refund_of_id = NULL WHERE refund_of_id IS NOT NULL"))
             conn.commit()
     seed_data()
     _ensure_default_categories()

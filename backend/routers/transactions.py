@@ -3,16 +3,27 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 import uuid
 from database import get_db
-from models import Transaction, TransactionSplit, Tag, Account, Project
+from models import Transaction, TransactionSplit, Tag, Account, Project, RefundLink
 from schemas import TransactionCreate, TransactionUpdate, TransactionRead, TransactionSummary, TransactionSplitRead
 from routers.accounts import recalculate_balance
 
 router = APIRouter()
 
 
+def _link_read(link: RefundLink, counterpart: Transaction) -> dict:
+    return {
+        "id": link.id,
+        "transaction_id": counterpart.id,
+        "amount": link.amount,
+        "payee": counterpart.payee,
+        "date": counterpart.date,
+        "transaction_amount": counterpart.amount,
+        "account_name": counterpart.account.name if counterpart.account else None,
+    }
+
+
 def build_transaction_read(txn: Transaction) -> dict:
-    refunds = getattr(txn, 'refunds', None) or []
-    refunded_amount = sum(r.amount for r in refunds)
+    refunded_amount = sum(l.amount for l in txn.refunded_by)
     return {
         "id": txn.id,
         "date": txn.date,
@@ -32,27 +43,47 @@ def build_transaction_read(txn: Transaction) -> dict:
         "projects": txn.projects,
         "account_name": txn.account.name if txn.account else None,
         "to_account_name": txn.to_account.name if txn.to_account else None,
-        "refund_of_id": txn.refund_of_id,
-        "refund_of": {
-            "id": txn.refund_of.id,
-            "payee": txn.refund_of.payee,
-            "amount": txn.refund_of.amount,
-            "date": txn.refund_of.date,
-        } if txn.refund_of else None,
-        "refunds": [
-            {
-                "id": r.id,
-                "payee": r.payee,
-                "amount": r.amount,
-                "date": r.date,
-                "account_id": r.account_id,
-                "account_name": r.account.name if r.account else None,
-            }
-            for r in refunds
-        ],
+        "refund_for": [_link_read(l, l.original) for l in txn.refund_allocations],
+        "refunds": [_link_read(l, l.refund) for l in txn.refunded_by],
         "refunded_amount": refunded_amount,
-        "is_fully_refunded": refunded_amount >= txn.amount - 0.005,
+        "is_fully_refunded": bool(txn.refunded_by) and refunded_amount >= txn.amount - 0.005,
     }
+
+
+def apply_refund_links(db: Session, txn: Transaction, links) -> None:
+    """Replace the originals this refund covers. Validates before mutating."""
+    links = links or []
+    if links and txn.type != "refund":
+        raise HTTPException(400, "Only refund transactions can be linked to originals")
+
+    seen = set()
+    total = 0.0
+    originals = {}
+    for l in links:
+        original_id = l["original_id"] if isinstance(l, dict) else l.original_id
+        amount = l["amount"] if isinstance(l, dict) else l.amount
+        if original_id == txn.id:
+            raise HTTPException(400, "A refund cannot be linked to itself")
+        if original_id in seen:
+            raise HTTPException(400, "Each original transaction can only be linked once per refund")
+        if amount <= 0:
+            raise HTTPException(400, "Linked amounts must be greater than zero")
+        original = db.query(Transaction).filter(Transaction.id == original_id).first()
+        if not original:
+            raise HTTPException(404, f"Original transaction {original_id} not found")
+        if original.type != "expense":
+            raise HTTPException(400, "Refunds can only be linked to expense transactions")
+        seen.add(original_id)
+        total += amount
+        originals[original_id] = amount
+
+    if total > txn.amount + 0.005:
+        raise HTTPException(400, "Linked amounts exceed the refund amount")
+
+    txn.refund_allocations = [
+        RefundLink(id=str(uuid.uuid4()), refund_id=txn.id, original_id=oid, amount=amt)
+        for oid, amt in originals.items()
+    ]
 
 
 def apply_splits(db: Session, txn: Transaction, splits_data):
@@ -112,7 +143,7 @@ def list_transactions(
     date_to: Optional[str] = None,
     search: Optional[str] = None,
     tag_ids: Optional[str] = None,
-    limit: int = Query(20, ge=1, le=200),
+    limit: int = Query(20, ge=1, le=5000),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
 ):
@@ -159,8 +190,9 @@ def create_transaction(data: TransactionCreate, db: Session = Depends(get_db)):
         to_account_id=data.to_account_id,
         payee=data.payee,
         notes=data.notes,
-        refund_of_id=data.refund_of_id or None,
     )
+    if data.refund_links:
+        apply_refund_links(db, txn, data.refund_links)
     if tag_ids:
         txn.tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()
     if project_ids and not has_splits:
@@ -213,9 +245,17 @@ def update_transaction(transaction_id: str, data: TransactionUpdate, db: Session
     tag_ids = update_data.pop("tag_ids", None)
     project_ids = update_data.pop("project_ids", None)
     splits_data = update_data.pop("splits", None)
+    refund_links = update_data.pop("refund_links", None)
 
     for field, value in update_data.items():
         setattr(txn, field, value)
+
+    if refund_links is not None:
+        apply_refund_links(db, txn, refund_links)
+    elif txn.type != "refund" and txn.refund_allocations:
+        txn.refund_allocations = []
+    if txn.type != "expense" and txn.refunded_by:
+        raise HTTPException(400, "This transaction has refunds linked to it; unlink them before changing its type")
 
     if tag_ids is not None:
         txn.tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, ChevronDown, Plus, X, ArrowDown, ArrowUp, ArrowLeftRight, Tag as TagIcon, Split, Undo2 } from 'lucide-react';
 import { CustomSelect } from '../ui/CustomSelect';
+import { RefundLinkPicker, remainingRefundable } from './RefundLinkPicker';
 import { transactionsApi, TransactionPayload, SplitPayload } from '../../api/transactions';
 import { accountsApi } from '../../api/accounts';
 import { categoriesApi } from '../../api/categories';
@@ -97,8 +98,25 @@ interface TxnForm {
   notes: string;
   tag_ids: string[];
   project_ids: string[];
-  refund_of_id: string;
 }
+
+interface LinkDraft {
+  id: string;
+  payee: string;
+  date: string;
+  total: number;
+  remaining: number;
+  categoryIcon?: string;
+  amount: string;
+}
+
+const draftFromTxn = (t: Transaction): LinkDraft => {
+  const remaining = remainingRefundable(t);
+  return {
+    id: t.id, payee: t.payee, date: t.date, total: t.amount, remaining,
+    categoryIcon: t.category?.icon, amount: remaining.toFixed(2),
+  };
+};
 
 const emptyForm = (): TxnForm => ({
   date: new Date().toISOString().split('T')[0],
@@ -112,7 +130,6 @@ const emptyForm = (): TxnForm => ({
   notes: '',
   tag_ids: [],
   project_ids: [],
-  refund_of_id: '',
 });
 
 interface Props {
@@ -153,6 +170,11 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
   const [splits, setSplits] = useState<SplitPayload[]>([
     { amount: 0, category_id: '', notes: '', project_ids: [] },
   ]);
+
+  // Refund links
+  const [links, setLinks]           = useState<LinkDraft[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [saveError, setSaveError]   = useState('');
 
   const amountRef = useRef<HTMLInputElement>(null);
 
@@ -223,8 +245,11 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
         notes: editing.notes ?? '',
         tag_ids: editing.tags?.map(t => t.id) ?? [],
         project_ids: editing.projects?.map(p => p.id) ?? [],
-        refund_of_id: editing.refund_of_id ?? '',
       });
+      setLinks((editing.refund_for ?? []).map(l => ({
+        id: l.transaction_id, payee: l.payee, date: l.date, total: l.transaction_amount,
+        remaining: l.transaction_amount, amount: l.amount.toFixed(2),
+      })));
       if (editing.splits && editing.splits.length > 0) {
         setSplitOpen(true);
         setSplits(editing.splits.map(s => ({
@@ -241,17 +266,20 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
       setForm({
         ...emptyForm(),
         type: 'refund',
-        refund_of_id: refundOf.id,
         payee: refundOf.payee,
+        category_id: refundOf.category_id ?? '',
       });
+      setLinks([draftFromTxn(refundOf)]);
       setSplitOpen(false);
       setSplits([{ amount: 0, category_id: '', notes: '', project_ids: [] }]);
     } else {
       setForm(emptyForm());
+      setLinks([]);
       setSplitOpen(false);
       setSplits([{ amount: 0, category_id: '', notes: '', project_ids: [] }]);
     }
     setShowErrors(false);
+    setSaveError('');
   }, [editing, isOpen, refundOf]);
 
   // Lock body scroll
@@ -283,14 +311,31 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
     });
   };
 
+  const isRefund        = form.type === 'refund';
+  const linkAmounts     = links.map(l => parseFloat(l.amount) || 0);
+  const linkedTotal     = linkAmounts.reduce((s, a) => s + a, 0);
+  const unallocated     = totalAmount - linkedTotal;
+  const overAllocated   = isRefund && unallocated < -0.005;
+  const badLinkAmount   = isRefund && linkAmounts.some(a => a <= 0);
+  const showSuggestion  = isRefund && links.length > 0 && Math.abs(linkedTotal - totalAmount) > 0.005 && linkedTotal > 0;
+
   const canSave = !!form.amount && !!form.account_id && !!form.payee &&
-    (!splitOpen || splitBalanced);
+    (!splitOpen || splitBalanced) && !overAllocated && !badLinkAmount;
+
+  const addLinks = (txns: Transaction[]) => {
+    setLinks(prev => [...prev, ...txns.filter(t => !prev.some(l => l.id === t.id)).map(draftFromTxn)]);
+    if (!form.payee && txns.length === 1) setForm(f => ({ ...f, payee: txns[0].payee }));
+  };
+  const updateLinkAmount = (id: string, amount: string) =>
+    setLinks(prev => prev.map(l => l.id === id ? { ...l, amount } : l));
+  const removeLink = (id: string) => setLinks(prev => prev.filter(l => l.id !== id));
 
   // ── Actions ───────────────────────────────────────────────
   const handleSave = async () => {
     if (!canSave) { setShowErrors(true); return; }
     if (splitOpen && !splitBalanced) return;
     setSaving(true);
+    setSaveError('');
     try {
       const payload: TransactionPayload = {
         date: form.date,
@@ -312,7 +357,9 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               project_ids: s.project_ids ?? [],
             }))
           : undefined,
-        refund_of_id: form.refund_of_id || undefined,
+        refund_links: isRefund
+          ? links.map(l => ({ original_id: l.id, amount: parseFloat(l.amount) || 0 }))
+          : editing ? [] : undefined,
       };
       if (editing) {
         await transactionsApi.update(editing.id, payload);
@@ -321,6 +368,8 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
       }
       onSaved();
       onClose();
+    } catch (err: any) {
+      setSaveError(err?.response?.data?.detail ?? 'Could not save the transaction');
     } finally {
       setSaving(false);
     }
@@ -465,6 +514,20 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                     style={{ color: typeColor.text, caretColor: typeColor.text }}
                   />
                 </div>
+                {showSuggestion && (
+                  <button
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, amount: linkedTotal.toFixed(2) }))}
+                    className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-colors hover:brightness-125"
+                    style={{ background: 'rgba(196,181,253,0.12)', color: '#c4b5fd', border: '1px solid rgba(196,181,253,0.3)' }}
+                  >
+                    <Undo2 size={11} />
+                    Use €{linkedTotal.toFixed(2)}
+                    <span style={{ color: '#8b7fc7' }}>
+                      · {links.length > 1 ? `sum of ${links.length} linked` : 'linked amount'}
+                    </span>
+                  </button>
+                )}
               </div>
             );
           })()}
@@ -540,21 +603,110 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
             </div>
           </div>
 
-          {/* ── 3b. Refunding info (when type = refund) ─────── */}
-          {form.type === 'refund' && (refundOf || form.refund_of_id) && (
+          {/* ── 3b. Covered transactions (refund only) ──────── */}
+          {isRefund && (
             <div
-              className="rounded-xl px-4 py-3 flex items-center gap-3"
-              style={{ background: 'rgba(196,181,253,0.08)', border: '1px solid rgba(196,181,253,0.2)' }}
+              className="rounded-xl overflow-hidden"
+              style={{ background: 'rgba(196,181,253,0.05)', border: '1px solid rgba(196,181,253,0.18)' }}
             >
-              <Undo2 size={16} style={{ color: '#c4b5fd', flexShrink: 0 }} />
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-widest" style={{ color: '#c4b5fd' }}>Refunding</p>
-                <p className="text-sm font-medium truncate" style={{ color: '#dae2fd' }}>
-                  {refundOf
-                    ? `${refundOf.payee} · ${refundOf.amount.toFixed(2)}`
-                    : 'Linked transaction'}
-                </p>
+              <div className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-2.5">
+                  <Undo2 size={15} style={{ color: '#c4b5fd' }} />
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest" style={{ color: '#c4b5fd' }}>Refund for</p>
+                    <p className="text-xs" style={{ color: '#6b7280' }}>
+                      {links.length === 0 ? 'Optional — link the expenses this covers'
+                        : `${links.length} transaction${links.length > 1 ? 's' : ''}`}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPickerOpen(true)}
+                  className="text-[10px] font-bold uppercase tracking-tight px-2.5 py-1 rounded-full"
+                  style={{ color: '#c4b5fd', border: '1px solid rgba(196,181,253,0.35)', background: 'rgba(196,181,253,0.1)' }}
+                >
+                  + Link
+                </button>
               </div>
+
+              {links.length > 0 && (
+                <>
+                  {links.map(l => {
+                    const amt = parseFloat(l.amount) || 0;
+                    const exceeds = amt > l.remaining + 0.005;
+                    const invalid = amt <= 0;
+                    return (
+                      <div
+                        key={l.id}
+                        className="flex items-center gap-2.5 px-4 py-2"
+                        style={{ borderTop: '1px solid rgba(196,181,253,0.1)' }}
+                      >
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-sm" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                          {l.categoryIcon ?? '🧾'}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate" style={{ color: '#dae2fd' }}>{l.payee || '—'}</p>
+                          <p className="text-[11px]" style={{ color: exceeds ? '#f59e0b' : '#6b7280' }}>
+                            {new Date(l.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            {' · of '}{l.total.toFixed(2)}
+                            {exceeds && ` · only ${l.remaining.toFixed(2)} unrefunded`}
+                          </p>
+                        </div>
+                        <div
+                          className="flex items-center rounded-lg px-2 py-1 shrink-0"
+                          style={{
+                            background: SURFACE_HI,
+                            border: `1px solid ${invalid && showErrors ? 'rgba(255,100,100,0.5)' : 'rgba(255,255,255,0.08)'}`,
+                          }}
+                        >
+                          <span className="text-xs mr-1" style={{ color: '#4b5563' }}>€</span>
+                          <input
+                            type="number" min={0} step="0.01"
+                            value={l.amount}
+                            onChange={e => updateLinkAmount(l.id, e.target.value)}
+                            className="w-16 bg-transparent text-sm text-right outline-none tabular-nums"
+                            style={{ color: '#c4b5fd' }}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeLink(l.id)}
+                          className="p-1 transition-colors hover:text-[#ffb4ab]"
+                          style={{ color: '#4b5563' }}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    );
+                  })}
+
+                  {/* Allocation bar */}
+                  <div
+                    className="flex items-center justify-between px-4 py-2"
+                    style={{ borderTop: '1px solid rgba(196,181,253,0.1)' }}
+                  >
+                    <span className="text-[11px]" style={{ color: '#6b7280' }}>Allocated</span>
+                    <span
+                      className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
+                      style={{
+                        background: overAllocated ? 'rgba(255,180,171,0.15)'
+                          : Math.abs(unallocated) < 0.005 ? 'rgba(78,222,163,0.15)' : 'rgba(245,158,11,0.15)',
+                        color: overAllocated ? '#ffb4ab'
+                          : Math.abs(unallocated) < 0.005 ? '#4edea3' : '#f59e0b',
+                      }}
+                    >
+                      {!totalAmount
+                        ? `${linkedTotal.toFixed(2)} — enter refund amount`
+                        : overAllocated
+                        ? `Over by ${Math.abs(unallocated).toFixed(2)}`
+                        : Math.abs(unallocated) < 0.005
+                        ? `✓ ${linkedTotal.toFixed(2)} fully allocated`
+                        : `${linkedTotal.toFixed(2)} / ${totalAmount.toFixed(2)} — ${unallocated.toFixed(2)} unallocated`}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -1006,6 +1158,17 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
           )}
 
           {/* ── 7. Action buttons ───────────────────────────── */}
+          {(saveError || (showErrors && (overAllocated || badLinkAmount))) && (
+            <div
+              className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs"
+              style={{ background: 'rgba(255,100,100,0.08)', border: '1px solid rgba(255,100,100,0.3)', color: '#ffb4ab' }}
+            >
+              <AlertCircle size={13} className="shrink-0" />
+              {saveError
+                || (overAllocated ? 'Linked amounts exceed the refund amount'
+                : 'Each linked transaction needs an amount greater than zero')}
+            </div>
+          )}
           <div className="flex gap-3 pt-1">
             <button
               type="button"
@@ -1034,6 +1197,15 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
 
         </div>
       </div>
+
+      <RefundLinkPicker
+        isOpen={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onConfirm={addLinks}
+        excludeIds={[...links.map(l => l.id), ...(editing ? [editing.id] : [])]}
+        accounts={accounts}
+        categories={categories}
+      />
     </div>
   );
 };

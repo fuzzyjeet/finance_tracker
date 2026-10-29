@@ -33,7 +33,7 @@ export interface TransactionPayload {
   tag_ids?: string[];
   project_ids?: string[];
   splits?: SplitPayload[];
-  refund_of_id?: string;
+  refund_links?: { original_id: string; amount: number }[];
 }
 
 export const transactionsApi = {

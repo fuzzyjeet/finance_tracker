@@ -207,7 +207,7 @@ export const Dashboard: React.FC = () => {
       for (let i = 5; i >= 0; i--) {
         const d = subMonths(new Date(), i);
         const s = await transactionsApi.summary(format(d, 'yyyy-MM'));
-        months.push({ month: format(d, 'MMM yy'), income: s.total_income, expenses: s.total_expenses });
+        months.push({ month: format(d, 'MMM yy'), income: s.total_income, expenses: s.total_expenses - (s.total_refunds ?? 0) });
       }
       setMonthlyData(months);
     } catch (err) {
@@ -239,11 +239,13 @@ export const Dashboard: React.FC = () => {
 
       const catMap: Record<string, CatSpend> = {};
       for (const t of inRange) {
+        // Refunds linked to this expense reduce its spend proportionally across categories
+        const netFactor = t.amount > 0 ? Math.max(0, 1 - (t.refunded_amount ?? 0) / t.amount) : 1;
         if (t.category) {
           if (!catMap[t.category.id]) {
             catMap[t.category.id] = { id: t.category.id, name: t.category.name, icon: t.category.icon, color: t.category.color, amount: 0 };
           }
-          catMap[t.category.id].amount += t.amount;
+          catMap[t.category.id].amount += t.amount * netFactor;
         }
         // also tally split categories
         if (t.splits?.length) {
@@ -252,12 +254,12 @@ export const Dashboard: React.FC = () => {
               if (!catMap[sp.category.id]) {
                 catMap[sp.category.id] = { id: sp.category.id, name: sp.category.name, icon: sp.category.icon, color: sp.category.color, amount: 0 };
               }
-              catMap[sp.category.id].amount += sp.amount;
+              catMap[sp.category.id].amount += sp.amount * netFactor;
             }
           }
         }
       }
-      setCategorySpending(Object.values(catMap).sort((a, b) => b.amount - a.amount).slice(0, 6));
+      setCategorySpending(Object.values(catMap).filter(c => c.amount > 0.005).sort((a, b) => b.amount - a.amount).slice(0, 6));
     } catch (err) {
       console.error('Pie chart load error', err);
     } finally {

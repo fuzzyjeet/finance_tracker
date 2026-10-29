@@ -75,20 +75,15 @@ export interface TransactionSplit {
   projects?: ProjectSummary[];
 }
 
-export interface RefundSummary {
+/** One refund↔original allocation, seen from either side. */
+export interface RefundLink {
   id: string;
-  payee: string;
+  transaction_id: string;
   amount: number;
+  payee: string;
   date: string;
-  account_id: string;
+  transaction_amount: number;
   account_name?: string;
-}
-
-export interface RefundSourceSummary {
-  id: string;
-  payee: string;
-  amount: number;
-  date: string;
 }
 
 export interface Transaction {
@@ -112,9 +107,8 @@ export interface Transaction {
   account_name?: string;
   to_account_name?: string;
   // refund fields
-  refund_of_id?: string;
-  refund_of?: RefundSourceSummary;
-  refunds?: RefundSummary[];
+  refund_for?: RefundLink[];
+  refunds?: RefundLink[];
   refunded_amount?: number;
   is_fully_refunded?: boolean;
 }
