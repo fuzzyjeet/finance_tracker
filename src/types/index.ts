@@ -11,6 +11,7 @@ export interface Account {
   color: string;
   billing_cycle_day?: number;
   currency: string;
+  opening_balance: number;
   created_at: string;
 }
 
@@ -89,6 +90,7 @@ export interface RefundLink {
 export interface Transaction {
   id: string;
   date: string;
+  time?: string;
   billing_date?: string;
   amount: number;
   type: TransactionType;

@@ -42,7 +42,8 @@ interface AccountFormData {
   color: string;
   billing_cycle_day: string;
   currency: string;
-  starting_balance: string;
+  opening_amount: string;
+  opening_is_debt: boolean;
 }
 
 const emptyForm: AccountFormData = {
@@ -51,7 +52,8 @@ const emptyForm: AccountFormData = {
   color: '#3b82f6',
   billing_cycle_day: '',
   currency: 'EUR',
-  starting_balance: '',
+  opening_amount: '',
+  opening_is_debt: false,
 };
 
 export const Accounts: React.FC = () => {
@@ -89,7 +91,8 @@ export const Accounts: React.FC = () => {
       color: account.color,
       billing_cycle_day: account.billing_cycle_day?.toString() ?? '',
       currency: account.currency ?? 'EUR',
-      starting_balance: '',
+      opening_amount: account.opening_balance ? Math.abs(account.opening_balance).toString() : '',
+      opening_is_debt: account.opening_balance < 0,
     });
     setModalOpen(true);
   };
@@ -103,13 +106,11 @@ export const Accounts: React.FC = () => {
         color: form.color,
         billing_cycle_day: form.billing_cycle_day ? parseInt(form.billing_cycle_day) : undefined,
         currency: form.currency,
+        opening_balance: Math.abs(parseFloat(form.opening_amount) || 0) * (form.opening_is_debt ? -1 : 1),
       };
       if (editing) {
         await accountsApi.update(editing.id, payload);
       } else {
-        if (form.starting_balance) {
-          payload.starting_balance = parseFloat(form.starting_balance);
-        }
         await accountsApi.create(payload);
       }
       setModalOpen(false);
@@ -248,17 +249,41 @@ export const Accounts: React.FC = () => {
               hint="The day the billing cycle closes each month"
             />
           )}
-          {!editing && (
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-sm font-medium text-on-surface-variant">Opening balance</label>
+              <div className="flex rounded-lg p-0.5" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                {[{ debt: false, label: 'Balance' }, { debt: true, label: 'Debt' }].map(opt => {
+                  const active = form.opening_is_debt === opt.debt;
+                  return (
+                    <button
+                      key={opt.label}
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, opening_is_debt: opt.debt }))}
+                      className="px-3 py-1 rounded-md text-xs font-semibold transition-colors"
+                      style={{
+                        background: active ? (opt.debt ? 'rgba(255,180,171,0.15)' : 'rgba(78,222,163,0.15)') : 'transparent',
+                        color: active ? (opt.debt ? '#ffb4ab' : '#4edea3') : '#6b7280',
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <Input
-              label="Starting Balance (optional)"
               type="number"
+              min={0}
               step="0.01"
-              value={form.starting_balance}
-              onChange={e => setForm(f => ({ ...f, starting_balance: e.target.value }))}
+              value={form.opening_amount}
+              onChange={e => setForm(f => ({ ...f, opening_amount: e.target.value }))}
               placeholder="0.00"
-              hint="Initial balance when this account was opened"
+              hint={form.opening_is_debt
+                ? 'Amount owed when you started tracking. Not counted as income or expense.'
+                : 'Amount held when you started tracking. Not counted as income or expense.'}
             />
-          )}
+          </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
             <Button onClick={handleSave} loading={saving} disabled={!form.name}>

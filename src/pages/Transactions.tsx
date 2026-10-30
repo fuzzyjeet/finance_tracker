@@ -431,6 +431,9 @@ export const Transactions: React.FC = () => {
                                 >
                                   {txnIdx + 1}
                                 </span>
+                                {txn.time && (
+                                  <div className="text-[10px] tabular-nums mt-0.5" style={{ color: '#4b5563' }}>{txn.time}</div>
+                                )}
                                 {txn.billing_date && (
                                   <div className="text-[10px] mt-0.5" style={{ color: '#4b5563' }}>📅</div>
                                 )}

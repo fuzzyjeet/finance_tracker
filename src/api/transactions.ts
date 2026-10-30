@@ -22,6 +22,7 @@ export interface SplitPayload {
 
 export interface TransactionPayload {
   date: string;
+  time?: string | null;
   billing_date?: string;
   amount: number;
   type: string;

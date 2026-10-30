@@ -33,6 +33,7 @@ def build_transaction_read(txn: Transaction) -> dict:
     return {
         "id": txn.id,
         "date": txn.date,
+        "time": txn.time,
         "billing_date": txn.billing_date,
         "amount": txn.amount,
         "type": txn.type,
@@ -180,7 +181,7 @@ def list_transactions(
         ids = tag_ids.split(",")
         q = q.filter(Transaction.tags.any(Tag.id.in_(ids)))
 
-    transactions = q.order_by(Transaction.date.desc(), Transaction.created_at.desc()).offset(offset).limit(limit).all()
+    transactions = q.order_by(Transaction.date.desc(), Transaction.time.desc(), Transaction.created_at.desc()).offset(offset).limit(limit).all()
     return [TransactionRead.model_validate(build_transaction_read(t)) for t in transactions]
 
 
@@ -192,6 +193,7 @@ def create_transaction(data: TransactionCreate, db: Session = Depends(get_db)):
     txn = Transaction(
         id=str(uuid.uuid4()),
         date=data.date,
+        time=data.time,
         billing_date=data.billing_date,
         amount=data.amount,
         type=data.type,

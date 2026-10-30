@@ -39,8 +39,14 @@ async def startup():
         if "currency" not in account_cols:
             conn.execute(text("ALTER TABLE accounts ADD COLUMN currency VARCHAR NOT NULL DEFAULT 'EUR'"))
             conn.commit()
-        # Legacy single-link refunds (refund_of_id) → refund_links table
+        if "opening_balance" not in account_cols:
+            conn.execute(text("ALTER TABLE accounts ADD COLUMN opening_balance FLOAT NOT NULL DEFAULT 0"))
+            conn.commit()
         txn_cols = [c["name"] for c in inspector.get_columns("transactions")]
+        if "time" not in txn_cols:
+            conn.execute(text("ALTER TABLE transactions ADD COLUMN time VARCHAR"))
+            conn.commit()
+        # Legacy single-link refunds (refund_of_id) → refund_links table
         if "refund_of_id" in txn_cols:
             conn.execute(text("""
                 INSERT INTO refund_links (id, refund_id, original_id, amount)

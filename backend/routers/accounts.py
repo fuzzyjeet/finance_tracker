@@ -14,7 +14,7 @@ def recalculate_balance(db: Session, account_id: str) -> float:
     if not account:
         return 0.0
 
-    balance = 0.0
+    balance = account.opening_balance or 0.0
     transactions = db.query(Transaction).filter(
         (Transaction.account_id == account_id) | (Transaction.to_account_id == account_id)
     ).all()
@@ -48,7 +48,8 @@ def create_account(data: AccountCreate, db: Session = Depends(get_db)):
         id=str(uuid.uuid4()),
         name=data.name,
         type=data.type,
-        balance=0.0,
+        balance=data.opening_balance,
+        opening_balance=data.opening_balance,
         color=data.color,
         billing_cycle_day=data.billing_cycle_day,
         currency=data.currency,
@@ -74,6 +75,8 @@ def update_account(account_id: str, data: AccountUpdate, db: Session = Depends(g
         raise HTTPException(status_code=404, detail="Account not found")
     for field, value in data.model_dump(exclude_none=True).items():
         setattr(account, field, value)
+    if data.opening_balance is not None:
+        recalculate_balance(db, account_id)
     db.commit()
     db.refresh(account)
     return account

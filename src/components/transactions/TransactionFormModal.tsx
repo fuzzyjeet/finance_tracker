@@ -88,6 +88,7 @@ const FieldRow: React.FC<FieldRowProps> = ({ icon, label, value, placeholder, ex
 // ── Form state ─────────────────────────────────────────────
 interface TxnForm {
   date: string;
+  time: string;
   billing_date: string;
   amount: string;
   type: string;
@@ -118,8 +119,22 @@ const draftFromTxn = (t: Transaction): LinkDraft => {
   };
 };
 
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+const nowHHMM = () => {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
+
+// Accepts free typing ("930", "9:3", "0930") and formats toward HH:MM.
+const formatTimeInput = (raw: string) => {
+  const digits = raw.replace(/\D/g, '').slice(0, 4);
+  return digits.length > 2 ? `${digits.slice(0, 2)}:${digits.slice(2)}` : digits;
+};
+
 const emptyForm = (): TxnForm => ({
   date: new Date().toISOString().split('T')[0],
+  time: nowHHMM(),
   billing_date: '',
   amount: '',
   type: 'expense',
@@ -235,6 +250,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
     if (editing) {
       setForm({
         date: editing.date,
+        time: editing.time ?? '',
         billing_date: editing.billing_date ?? '',
         amount: editing.amount.toString(),
         type: editing.type,
@@ -319,7 +335,9 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
   const badLinkAmount   = isRefund && linkAmounts.some(a => a <= 0);
   const showSuggestion  = isRefund && linkedTotal > 0 && totalAmount < linkedTotal - 0.005;
 
-  const canSave = !!form.amount && !!form.account_id && !!form.payee &&
+  const timeInvalid = !!form.time && !TIME_RE.test(form.time);
+
+  const canSave = !!form.amount && !!form.account_id && !!form.payee && !timeInvalid &&
     (!splitOpen || splitBalanced) && !overAllocated && !badLinkAmount;
 
   const addLinks = (txns: Transaction[]) => {
@@ -339,6 +357,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
     try {
       const payload: TransactionPayload = {
         date: form.date,
+        time: form.time || null,
         billing_date: form.billing_date || undefined,
         amount: totalAmount,
         type: form.type,
@@ -591,15 +610,35 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                 </div>
               );
             })()}
-            <div className="rounded-xl px-3 py-2.5" style={{ background: SURFACE }}>
-              <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: '#6b7280' }}>Date</p>
-              <input
-                type="date"
-                className="w-full bg-transparent text-sm outline-none"
-                style={{ color: '#dae2fd', colorScheme: 'dark' }}
-                value={form.date}
-                onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-              />
+            <div
+              className="rounded-xl px-3 py-2.5 transition-all"
+              style={{
+                background: SURFACE,
+                border: timeInvalid && showErrors ? '1px solid rgba(255,100,100,0.45)' : '1px solid transparent',
+              }}
+            >
+              <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: timeInvalid && showErrors ? '#ffb4ab' : '#6b7280' }}>
+                Date &amp; time
+              </p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  className="flex-1 min-w-0 bg-transparent text-sm outline-none"
+                  style={{ color: '#dae2fd', colorScheme: 'dark' }}
+                  value={form.date}
+                  onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                />
+                <input
+                  inputMode="numeric"
+                  aria-label="Time (24h)"
+                  placeholder="HH:MM"
+                  maxLength={5}
+                  className="w-[3.25rem] shrink-0 bg-transparent text-sm outline-none tabular-nums pl-2"
+                  style={{ color: timeInvalid ? '#ffb4ab' : '#dae2fd', borderLeft: '1px solid rgba(255,255,255,0.08)' }}
+                  value={form.time}
+                  onChange={e => setForm(f => ({ ...f, time: formatTimeInput(e.target.value) }))}
+                />
+              </div>
             </div>
           </div>
 
@@ -1162,14 +1201,15 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
           )}
 
           {/* ── 7. Action buttons ───────────────────────────── */}
-          {(saveError || (showErrors && (overAllocated || badLinkAmount))) && (
+          {(saveError || (showErrors && (overAllocated || badLinkAmount || timeInvalid))) && (
             <div
               className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs"
               style={{ background: 'rgba(255,100,100,0.08)', border: '1px solid rgba(255,100,100,0.3)', color: '#ffb4ab' }}
             >
               <AlertCircle size={13} className="shrink-0" />
               {saveError
-                || (overAllocated ? 'Linked amounts exceed the refund amount'
+                || (timeInvalid ? 'Time must be in 24-hour HH:MM format, e.g. 09:30 or 18:45'
+                : overAllocated ? 'Linked amounts exceed the refund amount'
                 : 'Each linked transaction needs an amount greater than zero')}
             </div>
           )}

@@ -1,5 +1,5 @@
-from pydantic import BaseModel, ConfigDict
-from typing import Optional, List
+from pydantic import BaseModel, ConfigDict, StringConstraints
+from typing import Annotated, Optional, List
 from datetime import datetime
 
 
@@ -57,6 +57,7 @@ class AccountBase(BaseModel):
     color: str = "#3b82f6"
     billing_cycle_day: Optional[int] = None
     currency: str = "EUR"
+    opening_balance: float = 0.0
 
 
 class AccountCreate(AccountBase):
@@ -69,6 +70,7 @@ class AccountUpdate(BaseModel):
     color: Optional[str] = None
     billing_cycle_day: Optional[int] = None
     currency: Optional[str] = None
+    opening_balance: Optional[float] = None
 
 
 class AccountRead(AccountBase):
@@ -160,8 +162,12 @@ class TransactionSplitRead(BaseModel):
 
 # ── Transaction ───────────────────────────────────────────────────────────────
 
+TimeStr = Annotated[str, StringConstraints(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")]
+
+
 class TransactionBase(BaseModel):
     date: str  # YYYY-MM-DD
+    time: Optional[TimeStr] = None  # HH:MM, 24h
     billing_date: Optional[str] = None
     amount: float
     type: str  # income | expense | transfer | refund
@@ -182,6 +188,7 @@ class TransactionCreate(TransactionBase):
 
 class TransactionUpdate(BaseModel):
     date: Optional[str] = None
+    time: Optional[TimeStr] = None
     billing_date: Optional[str] = None
     amount: Optional[float] = None
     type: Optional[str] = None
@@ -200,6 +207,7 @@ class TransactionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
     date: str
+    time: Optional[str] = None
     billing_date: Optional[str] = None
     amount: float
     type: str

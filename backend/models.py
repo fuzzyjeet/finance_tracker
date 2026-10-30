@@ -45,6 +45,8 @@ class Account(Base):
     name = Column(String, nullable=False)
     type = Column(SAEnum("checking", "savings", "credit_card", "cash", "investment", name="account_type"), nullable=False)
     balance = Column(Float, default=0.0, nullable=False)
+    # Balance (or debt, if negative) the account started with; not income or expense.
+    opening_balance = Column(Float, nullable=False, default=0.0, server_default="0")
     color = Column(String, nullable=False, default="#3b82f6")
     billing_cycle_day = Column(Integer, nullable=True)
     currency = Column(String, nullable=False, default="EUR", server_default="EUR")
@@ -103,6 +105,7 @@ class Transaction(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     date = Column(String, nullable=False)
+    time = Column(String, nullable=True)  # HH:MM, 24h
     billing_date = Column(String, nullable=True)
     amount = Column(Float, nullable=False)
     type = Column(SAEnum("income", "expense", "transfer", "refund", name="transaction_type"), nullable=False)
