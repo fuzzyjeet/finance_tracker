@@ -23,6 +23,7 @@ import { categoriesApi } from '../api/categories';
 import { tagsApi } from '../api/tags';
 import { projectsApi } from '../api/projects';
 import { Account, Category, Project, Tag, Transaction, TransactionTotals } from '../types';
+import { localISODate } from '../lib/dates';
 
 // Searches look across every month; this caps how many results come back
 const SEARCH_LIMIT = 500;
@@ -31,9 +32,9 @@ const formatCurrency = (v: number) =>
   new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2 }).format(v);
 
 function formatDateLabel(dateStr: string) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = localISODate();
   const d = new Date(dateStr + 'T00:00:00');
-  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  const yesterday = localISODate(new Date(Date.now() - 86400000));
   if (dateStr === today) return 'Today';
   if (dateStr === yesterday) return 'Yesterday';
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });

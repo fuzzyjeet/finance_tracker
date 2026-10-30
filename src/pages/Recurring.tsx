@@ -12,6 +12,7 @@ import { categoriesApi } from '../api/categories';
 import { tagsApi } from '../api/tags';
 import { RecurringTransaction, Account, Category, Tag } from '../types';
 import { emitDataChanged, onDataChanged } from '../lib/events';
+import { localISODate } from '../lib/dates';
 
 const formatCurrency = (v: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v);
@@ -62,9 +63,9 @@ const emptyForm = (): RecurringForm => ({
   notes: '',
   frequency: 'monthly',
   custom_interval_days: '',
-  start_date: new Date().toISOString().split('T')[0],
+  start_date: localISODate(),
   end_date: '',
-  next_due_date: new Date().toISOString().split('T')[0],
+  next_due_date: localISODate(),
   is_active: true,
   auto_post: true,
   tag_ids: [],

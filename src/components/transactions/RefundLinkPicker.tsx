@@ -3,6 +3,7 @@ import { Check, Search, Undo2, X } from 'lucide-react';
 import { CustomSelect } from '../ui/CustomSelect';
 import { transactionsApi } from '../../api/transactions';
 import { Account, Category, Transaction } from '../../types';
+import { localISODate } from '../../lib/dates';
 
 type Period = '30d' | '90d' | 'year' | 'all' | 'custom';
 
@@ -14,7 +15,7 @@ const PERIODS: { value: Period; label: string }[] = [
   { value: 'custom', label: 'Custom' },
 ];
 
-const iso = (d: Date) => d.toISOString().split('T')[0];
+const iso = (d: Date) => localISODate(d);
 const fmt = (v: number) => new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
 const fmtDate = (s: string) =>
   new Date(s + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });

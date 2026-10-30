@@ -12,6 +12,7 @@ import { categoriesApi } from '../../api/categories';
 import { tagsApi } from '../../api/tags';
 import { projectsApi } from '../../api/projects';
 import { Account, Category, Tag, Transaction, Project } from '../../types';
+import { localISODate } from '../../lib/dates';
 
 const TAG_COLORS = [
   '#6366f1', '#22c55e', '#f97316', '#ef4444', '#3b82f6',
@@ -143,17 +144,21 @@ const formatTimeInput = (raw: string) => {
   return digits.length > 2 ? `${digits.slice(0, 2)}:${digits.slice(2)}` : digits;
 };
 
-// Amounts are typed as text so "12,50" (comma) works: keep digits and one separator, max 2 decimals.
+// Amounts are typed as text with a euro decimal comma ("12,50"): keep digits and one comma, max 2 decimals.
 const cleanAmountInput = (raw: string) => {
-  const s = raw.replace(/[^\d.,]/g, '');
+  const digits = raw.replace(/[^\d.,]/g, '');
+  // "12.50" -> "12,50"; with a comma present, dots are thousands separators ("1.234,56")
+  const s = digits.includes(',') ? digits.replace(/\./g, '') : digits.replace('.', ',');
   const i = s.search(/[.,]/);
   return i === -1 ? s : s.slice(0, i + 1) + s.slice(i + 1).replace(/[.,]/g, '').slice(0, 2);
 };
 
 const parseAmount = (s: string) => parseFloat(s.replace(',', '.')) || 0;
+// A stored amount as the form shows it: "12,50", or "12" when whole
+const toAmountInput = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(2).replace('.', ','));
 const fmtAmount = (v: number) => new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
 
-const todayISO = () => new Date().toISOString().split('T')[0];
+const todayISO = () => localISODate();
 
 // The account used for the previous new transaction is the default for the next one
 const LAST_ACCOUNT_KEY = 'last_account_id';
@@ -315,7 +320,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
         date: editing.date,
         time: editing.time ?? '',
         billing_date: editing.billing_date ?? '',
-        amount: editing.amount.toString(),
+        amount: toAmountInput(editing.amount),
         type: editing.type,
         category_id: editing.category_id ?? '',
         account_id: editing.account_id,
@@ -717,7 +722,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                     autoComplete="off"
                     value={form.amount}
                     onChange={e => setForm(f => ({ ...f, amount: cleanAmountInput(e.target.value) }))}
-                    placeholder="0.00"
+                    placeholder="0,00"
                     className="bg-transparent border-none outline-none text-4xl font-bold text-center w-40"
                     style={{ color: typeColor.text, caretColor: typeColor.text }}
                   />
@@ -725,12 +730,12 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                 {showSuggestion && (
                   <button
                     type="button"
-                    onClick={() => setForm(f => ({ ...f, amount: linkedTotal.toFixed(2) }))}
+                    onClick={() => setForm(f => ({ ...f, amount: toAmountInput(linkedTotal) }))}
                     className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-colors hover:brightness-125"
                     style={{ background: 'rgb(var(--refund-rgb) / 0.12)', color: 'var(--refund)', border: '1px solid rgb(var(--refund-rgb) / 0.3)' }}
                   >
                     <Undo2 size={11} />
-                    Use €{linkedTotal.toFixed(2)}
+                    Use €{fmtAmount(linkedTotal)}
                     <span style={{ color: 'var(--refund)' }}>
                       · {links.length > 1 ? `sum of ${links.length} linked` : 'linked amount'}
                     </span>
@@ -786,8 +791,8 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                           <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{l.payee || '—'}</p>
                           <p className="text-xs" style={{ color: exceeds ? 'var(--warn)' : 'var(--muted)' }}>
                             {new Date(l.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                            {' · of '}{l.total.toFixed(2)}
-                            {exceeds && ` · only ${l.remaining.toFixed(2)} unrefunded`}
+                            {' · of '}{fmtAmount(l.total)}
+                            {exceeds && ` · only ${fmtAmount(l.remaining)} unrefunded`}
                           </p>
                         </div>
                         <div
@@ -824,7 +829,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                     style={{ borderTop: '1px solid rgb(var(--refund-rgb) / 0.1)' }}
                   >
                     <span className="text-xs" style={{ color: 'var(--muted)' }}>
-                      Offsets {linkedTotal.toFixed(2)} of expenses
+                      Offsets {fmtAmount(linkedTotal)} of expenses
                     </span>
                     <span
                       className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
@@ -840,10 +845,10 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                       {!totalAmount
                         ? 'Enter refund amount'
                         : overAllocated
-                        ? `Over by ${Math.abs(unallocated).toFixed(2)}`
+                        ? `Over by ${fmtAmount(Math.abs(unallocated))}`
                         : Math.abs(unallocated) < 0.005
                         ? '✓ Fully allocated'
-                        : `+${unallocated.toFixed(2)} booked as income`}
+                        : `+${fmtAmount(unallocated)} booked as income`}
                     </span>
                   </div>
                 </>
@@ -1381,7 +1386,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                           step="0.01"
                           value={split.amount || ''}
                           onChange={e => updateSplit(i, 'amount', parseFloat(e.target.value) || 0)}
-                          placeholder="0.00"
+                          placeholder="0,00"
                           className="w-24 shrink-0 px-2 py-1.5 text-sm rounded-lg outline-none"
                           style={{ background: SURFACE_HI, border: '1px solid rgba(255,255,255,0.08)', color: 'var(--text)' }}
                         />
@@ -1461,10 +1466,10 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                       }}
                     >
                       {splitBalanced
-                        ? `✓ ${allocatedAmount.toFixed(2)} balanced`
+                        ? `✓ ${fmtAmount(allocatedAmount)} balanced`
                         : remaining > 0
-                        ? `${allocatedAmount.toFixed(2)} / ${totalAmount.toFixed(2)} — ${remaining.toFixed(2)} left`
-                        : `Over by ${Math.abs(remaining).toFixed(2)}`}
+                        ? `${fmtAmount(allocatedAmount)} / ${fmtAmount(totalAmount)} — ${fmtAmount(remaining)} left`
+                        : `Over by ${fmtAmount(Math.abs(remaining))}`}
                     </span>
                   </div>
               </div>
