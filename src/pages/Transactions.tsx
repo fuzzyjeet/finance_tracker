@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   Pencil, Trash2, Search, ChevronLeft, ChevronRight,
-  ArrowUpRight, ArrowDownLeft, ArrowLeftRight, ChevronDown, X, Undo2, SlidersHorizontal,
+  ArrowUpRight, ArrowDownLeft, ArrowLeftRight, ChevronDown, X, Undo2, SlidersHorizontal, Check,
 } from 'lucide-react';
 import { Header } from '../components/layout/Header';
 import { Button } from '../components/ui/Button';
@@ -10,12 +10,19 @@ import { Modal } from '../components/ui/Modal';
 import { Badge } from '../components/ui/Badge';
 import { TransactionFormModal } from '../components/transactions/TransactionFormModal';
 import { LogStatus } from '../components/transactions/LogStatus';
+import { TotalsCard, periodLabel } from '../components/transactions/TotalsCard';
+import { BulkBar } from '../components/transactions/BulkBar';
+import { UnusualIcon, UnusualExplainer } from '../components/transactions/UnusualSpend';
+import { useHideFab } from '../contexts/QuickAddContext';
+import { useLongPress } from '../lib/useLongPress';
 import { emitDataChanged, onDataChanged } from '../lib/events';
 import { CustomSelect } from '../components/ui/CustomSelect';
-import { transactionsApi } from '../api/transactions';
+import { transactionsApi, BulkAction } from '../api/transactions';
 import { accountsApi } from '../api/accounts';
 import { categoriesApi } from '../api/categories';
-import { Account, Category, Transaction } from '../types';
+import { tagsApi } from '../api/tags';
+import { projectsApi } from '../api/projects';
+import { Account, Category, Project, Tag, Transaction, TransactionTotals } from '../types';
 
 const PAGE_SIZE = 20;
 
@@ -112,10 +119,14 @@ const AMOUNT_SIGN: Record<string, string> = { income: '+', expense: '−', refun
 
 function MobileTransactionList({
   groups,
-  onOpen,
+  rowProps,
+  selected,
+  onExplain,
 }: {
   groups: { date: string; txns: Transaction[] }[];
-  onOpen: (txn: Transaction) => void;
+  rowProps: (txn: Transaction) => React.HTMLAttributes<HTMLDivElement>;
+  selected: Set<string> | null;
+  onExplain: (txn: Transaction) => void;
 }) {
   return (
     <div className="md:hidden">
@@ -141,19 +152,27 @@ function MobileTransactionList({
                     splitCount > 0 ? `${splitCount} splits` : txn.category?.name ?? 'No category',
                     txn.account_name,
                   ].filter(Boolean).join(' · ');
+              const isSelected = selected?.has(txn.id) ?? false;
               return (
-                <button
+                <div
                   key={txn.id}
-                  type="button"
-                  onClick={() => onOpen(txn)}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left active:bg-white/5"
-                  style={{ borderTop: '1px solid rgba(255,255,255,0.03)' }}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={selected ? isSelected : undefined}
+                  {...rowProps(txn)}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left select-none cursor-pointer active:bg-white/5"
+                  style={{
+                    borderTop: '1px solid rgba(255,255,255,0.03)',
+                    background: isSelected ? 'rgb(var(--accent-rgb) / 0.1)' : undefined,
+                    WebkitTouchCallout: 'none',
+                  }}
                 >
                   <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0"
-                    style={{ background: txn.category ? `${txn.category.color}22` : 'rgba(255,255,255,0.05)' }}
+                    className="relative w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0"
+                    style={{ background: isSelected ? 'var(--accent)' : txn.category ? `color-mix(in srgb, ${txn.category.color} 14%, transparent)` : 'rgba(255,255,255,0.05)' }}
                   >
-                    {txn.type === 'transfer' ? <ArrowLeftRight size={16} style={{ color: 'var(--transfer)' }} />
+                    {isSelected ? <Check size={20} strokeWidth={3} style={{ color: 'var(--on-accent)' }} />
+                      : txn.type === 'transfer' ? <ArrowLeftRight size={16} style={{ color: 'var(--transfer)' }} />
                       : splitCount > 0 ? <span className="text-sm">✂️</span>
                       : txn.category?.icon ?? '💸'}
                   </div>
@@ -165,7 +184,8 @@ function MobileTransactionList({
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-[15px] font-semibold tabular-nums" style={{ color: AMOUNT_COLORS[txn.type] }}>
+                    <p className="flex items-center justify-end gap-0.5 text-[15px] font-semibold tabular-nums" style={{ color: AMOUNT_COLORS[txn.type] }}>
+                      <UnusualIcon txn={txn} onExplain={onExplain} />
                       {AMOUNT_SIGN[txn.type]}{formatCurrency(txn.amount)}
                     </p>
                     <p className="text-xs tabular-nums" style={{ color: (txn.refunded_amount ?? 0) > 0 ? 'var(--refund)' : 'var(--muted)' }}>
@@ -174,13 +194,34 @@ function MobileTransactionList({
                         : txn.time ?? ''}
                     </p>
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
         );
       })}
     </div>
+  );
+}
+
+// ── Desktop row checkbox ───────────────────────────────────
+function SelectBox({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={onChange}
+      className="w-5 h-5 rounded-md flex items-center justify-center"
+      style={{
+        background: checked ? 'var(--accent)' : 'transparent',
+        border: checked ? 'none' : '1.5px solid var(--faint-2)',
+        color: 'var(--on-accent)',
+      }}
+    >
+      {checked && <Check size={13} strokeWidth={3} />}
+    </button>
   );
 }
 
@@ -203,6 +244,15 @@ export const Transactions: React.FC = () => {
   const [filterFrom, setFilterFrom]         = useState('');
   const [filterTo, setFilterTo]             = useState('');
   const [filterSearch, setFilterSearch]     = useState('');
+  const [searchInput, setSearchInput]       = useState('');
+  const [tags, setTags]                     = useState<Tag[]>([]);
+  const [projects, setProjects]             = useState<Project[]>([]);
+  const [totals, setTotals]                 = useState<TransactionTotals | null>(null);
+  // null = not selecting; a set (even empty) = selection mode
+  const [selected, setSelected]             = useState<Set<string> | null>(null);
+  const [notice, setNotice]                 = useState<string | null>(null);
+  const [explain, setExplain]               = useState<Transaction | null>(null);
+  const hideFab = useHideFab();
 
   // Modal
   const [modalOpen, setModalOpen]           = useState(false);
@@ -221,30 +271,71 @@ export const Transactions: React.FC = () => {
     setExpandedLinks(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
 
   const loadRefs = async () => {
-    const [accts, cats] = await Promise.all([accountsApi.list(), categoriesApi.list()]);
+    const [accts, cats, tgs, projs] = await Promise.all([
+      accountsApi.list(), categoriesApi.list(), tagsApi.list(), projectsApi.list(),
+    ]);
     setAccounts(accts);
     setCategories(cats);
+    setTags(tgs);
+    setProjects(projs);
   };
 
   const load = useCallback(async (newOffset = 0) => {
     setLoading(true);
+    const filters = {
+      account_id:  filterAccount  || undefined,
+      category_id: filterCategory || undefined,
+      type:        filterType     || undefined,
+      date_from:   filterFrom     || undefined,
+      date_to:     filterTo       || undefined,
+      search:      filterSearch   || undefined,
+    };
     try {
-      const txns = await transactionsApi.list({
-        account_id:  filterAccount  || undefined,
-        category_id: filterCategory || undefined,
-        type:        filterType     || undefined,
-        date_from:   filterFrom     || undefined,
-        date_to:     filterTo       || undefined,
-        search:      filterSearch   || undefined,
-        limit:  PAGE_SIZE,
-        offset: newOffset,
-      });
+      const [txns, tot] = await Promise.all([
+        transactionsApi.list({ ...filters, limit: PAGE_SIZE, offset: newOffset }),
+        transactionsApi.totals(filters).catch(() => null),
+      ]);
       setTransactions(txns);
+      setTotals(tot);
       setHasMore(txns.length === PAGE_SIZE);
     } finally {
       setLoading(false);
     }
   }, [filterAccount, filterCategory, filterType, filterFrom, filterTo, filterSearch]);
+
+  // Search as you type, without a request per keystroke
+  useEffect(() => {
+    const t = window.setTimeout(() => setFilterSearch(searchInput.trim()), 250);
+    return () => window.clearTimeout(t);
+  }, [searchInput]);
+
+  // Selection: the bulk bar replaces the + button while it's open
+  useEffect(() => { hideFab(selected !== null); }, [selected, hideFab]);
+  useEffect(() => () => hideFab(false), [hideFab]);
+  // A new page or new filters start a fresh selection
+  useEffect(() => { setSelected(s => (s ? new Set() : s)); }, [transactions]);
+  useEffect(() => {
+    if (!notice) return;
+    const t = window.setTimeout(() => setNotice(null), 4000);
+    return () => window.clearTimeout(t);
+  }, [notice]);
+
+  const toggleSelected = (id: string) =>
+    setSelected(prev => { const s = new Set(prev ?? []); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  const allSelected = !!selected && transactions.length > 0 && transactions.every(t => selected.has(t.id));
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(transactions.map(t => t.id)));
+
+  const applyBulk = async (action: BulkAction) => {
+    if (!selected || selected.size === 0) return;
+    const n = selected.size;
+    const res = await transactionsApi.bulk([...selected], action);
+    setSelected(null);
+    const noun = (k: number) => `${k} ${k === 1 ? 'entry' : 'entries'}`;
+    setNotice(action.action === 'delete'
+      ? `Deleted ${noun(n)}`
+      : `Updated ${noun(res.updated)}${res.skipped ? ` · ${res.skipped} skipped (split or transfer)` : ''}`);
+    emitDataChanged();
+  };
 
   useEffect(() => { loadRefs(); }, []);
   useEffect(() => { setOffset(0); load(0); }, [load]);
@@ -252,6 +343,11 @@ export const Transactions: React.FC = () => {
   useEffect(() => onDataChanged(() => { load(offset); loadRefs(); }), [load, offset]);
 
   const openEdit   = (txn: Transaction) => { setEditing(txn); setRefundOf(null); setModalOpen(true); };
+  // Phone rows: tap opens (or toggles while selecting), long-press starts selecting
+  const rowProps = useLongPress<Transaction>(
+    txn => setSelected(prev => new Set([...(prev ?? []), txn.id])),
+    txn => (selected ? toggleSelected(txn.id) : openEdit(txn)),
+  );
   const openRefund = (txn: Transaction) => { setEditing(null); setRefundOf(txn); setModalOpen(true); };
 
   const handleSaved = () => emitDataChanged();
@@ -267,7 +363,7 @@ export const Transactions: React.FC = () => {
 
   const clearFilters = () => {
     setFilterAccount(''); setFilterCategory(''); setFilterType('');
-    setFilterFrom(''); setFilterTo(''); setFilterSearch('');
+    setFilterFrom(''); setFilterTo(''); setFilterSearch(''); setSearchInput('');
   };
 
   const activeFilterCount = [filterAccount, filterCategory, filterType, filterFrom, filterTo, filterSearch]
@@ -317,9 +413,11 @@ export const Transactions: React.FC = () => {
           <div className="relative flex-1 min-w-[160px]">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--muted)' }} />
             <input
-              value={filterSearch}
-              onChange={e => setFilterSearch(e.target.value)}
-              placeholder="Search payee…"
+              type="search"
+              enterKeyHint="search"
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
+              placeholder="Search everything…"
               className={`w-full pl-8 pr-3 ${inputCls}`}
             />
           </div>
@@ -436,9 +534,23 @@ export const Transactions: React.FC = () => {
         </div>
       </div>
 
+      <TotalsCard
+        totals={totals}
+        label={periodLabel(filterFrom, filterTo)}
+        filtered={!!(filterAccount || filterCategory || filterType || filterSearch)}
+        onSelect={selected ? undefined : () => setSelected(new Set())}
+      />
+
+      {notice && (
+        <div className="mb-3 rounded-xl px-4 py-2.5 text-sm" role="status"
+          style={{ background: 'rgb(var(--income-rgb) / 0.1)', color: 'var(--income)', border: '1px solid rgb(var(--income-rgb) / 0.25)' }}>
+          {notice}
+        </div>
+      )}
+
       {/* ── Table ──────────────────────────────────────────── */}
       <div
-        className="rounded-xl overflow-hidden"
+        className={`rounded-xl overflow-hidden ${selected ? 'mb-40 md:mb-28' : ''}`}
         style={{ background: 'var(--surface-low)', border: '1px solid rgba(255,255,255,0.05)' }}
       >
         {loading ? (
@@ -449,11 +561,14 @@ export const Transactions: React.FC = () => {
           <div className="text-center py-12 text-sm" style={{ color: 'var(--faint)' }}>No transactions found</div>
         ) : (
           <>
-          <MobileTransactionList groups={dateGroups} onOpen={openEdit} />
+          <MobileTransactionList groups={dateGroups} rowProps={rowProps} selected={selected} onExplain={setExplain} />
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}>
+                  <th className="pl-4 py-3 w-8">
+                    <SelectBox checked={allSelected} onChange={() => selected ? toggleAll() : setSelected(new Set(transactions.map(t => t.id)))} label="Select all on this page" />
+                  </th>
                   {['#', 'Payee', 'Category', 'Account', 'Tags', 'Amount', ''].map((h, i) => (
                     <th
                       key={i}
@@ -477,7 +592,7 @@ export const Transactions: React.FC = () => {
                     <React.Fragment key={group.date}>
                       {/* ── Date separator row ── */}
                       <tr style={{ background: 'rgba(255,255,255,0.015)', borderTop: '1px solid rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                        <td colSpan={4} className="px-4 py-1.5">
+                        <td colSpan={5} className="px-4 py-1.5">
                           <span className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
                             {formatDateLabel(group.date)}
                           </span>
@@ -521,11 +636,12 @@ export const Transactions: React.FC = () => {
                         return (
                           <React.Fragment key={txn.id}>
                             <tr
-                              className="transition-colors"
+                              className={`transition-colors ${selected?.has(txn.id) ? 'bg-primary/10' : 'hover:bg-white/[0.02]'}`}
                               style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}
-                              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
-                              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >
+                              <td className="pl-4 py-3 w-8">
+                                <SelectBox checked={!!selected?.has(txn.id)} onChange={() => toggleSelected(txn.id)} label={`Select ${txn.payee}`} />
+                              </td>
                               {/* Day index */}
                               <td className="px-4 py-3 whitespace-nowrap text-center w-10">
                                 <span
@@ -621,13 +737,9 @@ export const Transactions: React.FC = () => {
                               <td className="px-4 py-3 text-right whitespace-nowrap">
                                 <div
                                   className="flex items-center justify-end gap-1 font-bold"
-                                  style={{
-                                    color: txn.type === 'income'   ? 'var(--income)'
-                                         : txn.type === 'expense'  ? 'var(--expense)'
-                                         : txn.type === 'refund'   ? 'var(--refund)'
-                                         : 'var(--accent)',
-                                  }}
+                                  style={{ color: AMOUNT_COLORS[txn.type] }}
                                 >
+                                  <UnusualIcon txn={txn} onExplain={setExplain} />
                                   {txn.type === 'income'   ? <ArrowDownLeft size={14}  /> :
                                    txn.type === 'expense'  ? <ArrowUpRight size={14}   /> :
                                    txn.type === 'refund'   ? <Undo2 size={14}          /> :
@@ -689,7 +801,7 @@ export const Transactions: React.FC = () => {
                             {/* Expanded splits detail */}
                             {hasSplits && isExpanded && (
                               <tr style={{ background: 'rgb(var(--accent-rgb) / 0.03)', borderBottom: '1px solid rgb(var(--accent-rgb) / 0.08)' }}>
-                                <td />
+                                <td colSpan={2} />
                                 <td colSpan={4} className="px-4 py-2.5">
                                   <div className="space-y-1.5">
                                     {txn.splits!.map((split, si) => (
@@ -721,7 +833,7 @@ export const Transactions: React.FC = () => {
                               if (linkRows.length === 0) return null;
                               return (
                                 <tr style={{ background: 'rgb(var(--refund-rgb) / 0.04)', borderBottom: '1px solid rgb(var(--refund-rgb) / 0.1)' }}>
-                                  <td />
+                                  <td colSpan={2} />
                                   <td colSpan={4} className="px-4 py-2.5">
                                     <p className="text-xs mb-1.5" style={{ color: 'var(--refund)' }}>
                                       {txn.type === 'refund' ? 'Covers' : 'Refunded by'}
@@ -787,6 +899,21 @@ export const Transactions: React.FC = () => {
         onRefund={editing && editing.type === 'expense' && !editing.is_fully_refunded
           ? () => openRefund(editing) : undefined}
       />
+
+      {selected && (
+        <BulkBar
+          count={selected.size}
+          allSelected={allSelected}
+          onToggleAll={toggleAll}
+          onCancel={() => setSelected(null)}
+          onApply={applyBulk}
+          categories={categories}
+          tags={tags}
+          projects={projects}
+        />
+      )}
+
+      <UnusualExplainer txn={explain} onClose={() => setExplain(null)} onOpen={openEdit} />
 
       {/* Delete confirm */}
       <Modal

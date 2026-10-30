@@ -230,6 +230,24 @@ class TransactionRead(BaseModel):
     refunded_amount: float = 0.0
     refund_surplus: float = 0.0  # unallocated part of a refund, booked as income
     is_fully_refunded: bool = False
+    typical_amount: Optional[float] = None  # set when this expense is unusually high for its category
+
+
+class TransactionTotals(BaseModel):
+    count: int
+    income: float
+    expenses: float
+    refunds: float
+    net: float
+    transfers: int
+
+
+class BulkAction(BaseModel):
+    ids: List[str]
+    action: str  # delete | update
+    category_id: Optional[str] = None
+    add_tag_ids: Optional[List[str]] = None
+    project_id: Optional[str] = None
 
 
 class TransactionSummary(BaseModel):

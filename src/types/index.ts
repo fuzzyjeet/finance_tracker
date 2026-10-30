@@ -114,6 +114,8 @@ export interface Transaction {
   refunded_amount?: number;
   refund_surplus?: number;
   is_fully_refunded?: boolean;
+  /** Set when this expense is more than 2x its category's median over the last 90 days */
+  typical_amount?: number | null;
 }
 
 export interface RecurringTransaction {
@@ -147,6 +149,15 @@ export interface Budget {
   month: string;
   spent?: number;
   category?: Category;
+}
+
+export interface TransactionTotals {
+  count: number;
+  income: number;
+  expenses: number;
+  refunds: number;
+  net: number;
+  transfers: number;
 }
 
 export interface TransactionSummary {

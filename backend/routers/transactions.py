@@ -1,10 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import or_, and_
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import Dict, List, Optional
+from datetime import date as date_cls, timedelta
+from statistics import median
+import re
 import uuid
 from database import get_db
-from models import Transaction, TransactionSplit, Tag, Account, Project, RefundLink
-from schemas import TransactionCreate, TransactionUpdate, TransactionRead, TransactionSummary, TransactionSplitRead
+from models import Transaction, TransactionSplit, Tag, Account, Project, Category, RefundLink
+from schemas import (
+    TransactionCreate, TransactionUpdate, TransactionRead, TransactionSummary, TransactionSplitRead,
+    TransactionTotals, BulkAction,
+)
 from routers.accounts import recalculate_balance
 
 router = APIRouter()
@@ -28,7 +35,7 @@ def refund_surplus(txn: Transaction) -> float:
     return max(0.0, txn.amount - sum(l.amount for l in txn.refund_allocations))
 
 
-def build_transaction_read(txn: Transaction) -> dict:
+def build_transaction_read(txn: Transaction, typical: Optional[float] = None) -> dict:
     refunded_amount = sum(l.amount for l in txn.refunded_by)
     return {
         "id": txn.id,
@@ -55,7 +62,122 @@ def build_transaction_read(txn: Transaction) -> dict:
         "refunded_amount": refunded_amount,
         "refund_surplus": refund_surplus(txn),
         "is_fully_refunded": bool(txn.refunded_by) and refunded_amount >= txn.amount - 0.005,
+        "typical_amount": typical,
     }
+
+
+# ── Unusual spends ────────────────────────────────────────────────────────────
+UNUSUAL_LOOKBACK_DAYS = 90
+UNUSUAL_MIN_SAMPLES = 5
+UNUSUAL_FACTOR = 2.0
+
+
+def typical_amounts(db: Session, txns: List[Transaction]) -> Dict[str, float]:
+    """For expenses more than UNUSUAL_FACTOR x their category's median over the
+    previous 90 days, map transaction id -> that median. Split expenses are skipped."""
+    candidates = [t for t in txns if t.type == "expense" and t.category_id and not t.splits]
+    if not candidates:
+        return {}
+    cat_ids = {t.category_id for t in candidates}
+    earliest = min(t.date for t in candidates)
+    start = (date_cls.fromisoformat(earliest) - timedelta(days=UNUSUAL_LOOKBACK_DAYS)).isoformat()
+    latest = max(t.date for t in candidates)
+    history: Dict[str, List[tuple]] = {}
+    rows = (
+        db.query(Transaction.category_id, Transaction.date, Transaction.amount)
+        .filter(
+            Transaction.type == "expense",
+            Transaction.category_id.in_(cat_ids),
+            Transaction.date >= start,
+            Transaction.date < latest,
+        )
+        .all()
+    )
+    for cat_id, d, amount in rows:
+        history.setdefault(cat_id, []).append((d, amount))
+
+    result = {}
+    for t in candidates:
+        window_start = (date_cls.fromisoformat(t.date) - timedelta(days=UNUSUAL_LOOKBACK_DAYS)).isoformat()
+        amounts = [a for d, a in history.get(t.category_id, []) if window_start <= d < t.date]
+        if len(amounts) < UNUSUAL_MIN_SAMPLES:
+            continue
+        typical = median(amounts)
+        if typical > 0 and t.amount > UNUSUAL_FACTOR * typical:
+            result[t.id] = round(typical, 2)
+    return result
+
+
+# ── Filters shared by the list and its totals ─────────────────────────────────
+def parse_search_amount(term: str) -> Optional[float]:
+    """'12,50', '€12.50' or '1.234,50' -> a number, otherwise None."""
+    cleaned = term.replace("€", "").replace(" ", "")
+    if not re.fullmatch(r"[0-9.,]+", cleaned) or not re.search(r"\d", cleaned):
+        return None
+    if "," in cleaned:
+        cleaned = cleaned.replace(".", "").replace(",", ".")
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
+
+
+def filtered_query(
+    db: Session,
+    account_id: Optional[str] = None,
+    category_id: Optional[str] = None,
+    type: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    search: Optional[str] = None,
+    tag_ids: Optional[str] = None,
+):
+    q = db.query(Transaction)
+    if account_id:
+        q = q.filter(
+            (Transaction.account_id == account_id) | (Transaction.to_account_id == account_id)
+        )
+    if category_id:
+        # Match direct category OR any split with that category
+        q = q.filter(
+            (Transaction.category_id == category_id) |
+            (Transaction.splits.any(TransactionSplit.category_id == category_id))
+        )
+    if type:
+        q = q.filter(Transaction.type == type)
+    if date_from:
+        q = q.filter(Transaction.date >= date_from)
+    if date_to:
+        q = q.filter(Transaction.date <= date_to)
+    if search and search.strip():
+        # Every word must match somewhere: payee, notes, category, tag, account, project or amount
+        for word in search.split():
+            like = f"%{word}%"
+            matches = [
+                Transaction.payee.ilike(like),
+                Transaction.notes.ilike(like),
+                Transaction.category.has(Category.name.ilike(like)),
+                Transaction.splits.any(or_(
+                    TransactionSplit.notes.ilike(like),
+                    TransactionSplit.category.has(Category.name.ilike(like)),
+                    TransactionSplit.projects.any(Project.name.ilike(like)),
+                )),
+                Transaction.tags.any(Tag.name.ilike(like)),
+                Transaction.account.has(Account.name.ilike(like)),
+                Transaction.to_account.has(Account.name.ilike(like)),
+                Transaction.projects.any(Project.name.ilike(like)),
+            ]
+            amount = parse_search_amount(word)
+            if amount is not None:
+                matches.append(and_(Transaction.amount > amount - 0.005, Transaction.amount < amount + 0.005))
+                matches.append(Transaction.splits.any(and_(
+                    TransactionSplit.amount > amount - 0.005, TransactionSplit.amount < amount + 0.005,
+                )))
+            q = q.filter(or_(*matches))
+    if tag_ids:
+        ids = tag_ids.split(",")
+        q = q.filter(Transaction.tags.any(Tag.id.in_(ids)))
+    return q
 
 
 def apply_refund_links(db: Session, txn: Transaction, links) -> None:
@@ -145,6 +267,41 @@ def get_summary(
     }
 
 
+@router.get("/totals", response_model=TransactionTotals)
+def get_totals(
+    account_id: Optional[str] = None,
+    category_id: Optional[str] = None,
+    type: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    search: Optional[str] = None,
+    tag_ids: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """Totals for everything matching the list filters (not just the loaded page)."""
+    txns = filtered_query(db, account_id, category_id, type, date_from, date_to, search, tag_ids).all()
+
+    def counted(t: Transaction) -> float:
+        # Filtering by category: a split transaction only counts its parts in that category
+        if category_id and t.splits and t.category_id != category_id:
+            return sum(s.amount for s in t.splits if s.category_id == category_id)
+        return t.amount
+
+    refund_txns = [t for t in txns if t.type == "refund"]
+    surplus = sum(refund_surplus(t) for t in refund_txns)
+    income = sum(counted(t) for t in txns if t.type == "income") + surplus
+    expenses = sum(counted(t) for t in txns if t.type == "expense")
+    refunds = sum(t.amount for t in refund_txns) - surplus
+    return {
+        "count": len(txns),
+        "income": round(income, 2),
+        "expenses": round(expenses, 2),
+        "refunds": round(refunds, 2),
+        "net": round(income - expenses + refunds, 2),
+        "transfers": sum(1 for t in txns if t.type == "transfer"),
+    }
+
+
 @router.get("", response_model=List[TransactionRead])
 def list_transactions(
     account_id: Optional[str] = None,
@@ -158,31 +315,61 @@ def list_transactions(
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
 ):
-    q = db.query(Transaction)
-    if account_id:
-        q = q.filter(
-            (Transaction.account_id == account_id) | (Transaction.to_account_id == account_id)
-        )
-    if category_id:
-        # Match direct category OR any split with that category
-        q = q.filter(
-            (Transaction.category_id == category_id) |
-            (Transaction.splits.any(TransactionSplit.category_id == category_id))
-        )
-    if type:
-        q = q.filter(Transaction.type == type)
-    if date_from:
-        q = q.filter(Transaction.date >= date_from)
-    if date_to:
-        q = q.filter(Transaction.date <= date_to)
-    if search:
-        q = q.filter(Transaction.payee.ilike(f"%{search}%"))
-    if tag_ids:
-        ids = tag_ids.split(",")
-        q = q.filter(Transaction.tags.any(Tag.id.in_(ids)))
-
+    q = filtered_query(db, account_id, category_id, type, date_from, date_to, search, tag_ids)
     transactions = q.order_by(Transaction.date.desc(), Transaction.time.desc(), Transaction.created_at.desc()).offset(offset).limit(limit).all()
-    return [TransactionRead.model_validate(build_transaction_read(t)) for t in transactions]
+    typical = typical_amounts(db, transactions)
+    return [TransactionRead.model_validate(build_transaction_read(t, typical.get(t.id))) for t in transactions]
+
+
+@router.post("/bulk")
+def bulk_action(data: BulkAction, db: Session = Depends(get_db)):
+    """Apply one change to several transactions: delete, set category, add tags, add a project."""
+    txns = db.query(Transaction).filter(Transaction.id.in_(data.ids)).all()
+    if not txns:
+        raise HTTPException(404, "No matching transactions")
+    affected_accounts = set()
+    updated, skipped = 0, 0
+
+    if data.action == "delete":
+        for t in txns:
+            affected_accounts.update({t.account_id, t.to_account_id})
+            db.delete(t)
+        updated = len(txns)
+    elif data.action == "update":
+        tags = db.query(Tag).filter(Tag.id.in_(data.add_tag_ids)).all() if data.add_tag_ids else []
+        project = db.query(Project).filter(Project.id == data.project_id).first() if data.project_id else None
+        if data.project_id and not project:
+            raise HTTPException(404, "Project not found")
+        if data.category_id:
+            if not db.query(Category).filter(Category.id == data.category_id).first():
+                raise HTTPException(404, "Category not found")
+        for t in txns:
+            changed = False
+            # Split and transfer entries keep their own categories
+            if data.category_id and t.type != "transfer" and not t.splits:
+                t.category_id = data.category_id
+                changed = True
+            for tag in tags:
+                if tag not in t.tags:
+                    t.tags.append(tag)
+                changed = changed or bool(tags)
+            if project and not t.splits:
+                if project not in t.projects:
+                    t.projects.append(project)
+                changed = True
+            if changed:
+                updated += 1
+            else:
+                skipped += 1
+    else:
+        raise HTTPException(400, "Unknown action")
+
+    db.commit()
+    for aid in affected_accounts:
+        if aid:
+            recalculate_balance(db, aid)
+    db.commit()
+    return {"updated": updated, "skipped": skipped}
 
 
 @router.post("", response_model=TransactionRead)

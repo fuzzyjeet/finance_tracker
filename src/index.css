@@ -81,6 +81,11 @@ html, body {
 @media (min-width: 768px) {
   .fab-position { right: 2rem; bottom: 2rem; }
 }
+/* Bulk-action bar: above the tab bar on phones, near the bottom edge on desktop */
+.bulk-bar-position { bottom: calc(4.75rem + env(safe-area-inset-bottom)); }
+@media (min-width: 768px) {
+  .bulk-bar-position { bottom: 1.5rem; }
+}
 
 /* iOS zooms into any field under 16px; keep inputs at 16px on phones (big amount input excepted) */
 @media (max-width: 767px) {

@@ -1,5 +1,5 @@
 import api from './client';
-import { Transaction, TransactionSummary } from '../types';
+import { Transaction, TransactionSummary, TransactionTotals } from '../types';
 
 export interface TransactionFilters {
   account_id?: string;
@@ -37,6 +37,10 @@ export interface TransactionPayload {
   refund_links?: { original_id: string; amount: number }[];
 }
 
+export type BulkAction =
+  | { action: 'delete' }
+  | { action: 'update'; category_id?: string; add_tag_ids?: string[]; project_id?: string };
+
 export const transactionsApi = {
   list: (filters?: TransactionFilters) =>
     api.get<Transaction[]>('/transactions', { params: filters }).then(r => r.data),
@@ -46,6 +50,10 @@ export const transactionsApi = {
   update: (id: string, data: Partial<TransactionPayload>) =>
     api.put<Transaction>(`/transactions/${id}`, data).then(r => r.data),
   delete: (id: string) => api.delete(`/transactions/${id}`).then(r => r.data),
+  totals: (filters?: Omit<TransactionFilters, 'limit' | 'offset'>) =>
+    api.get<TransactionTotals>('/transactions/totals', { params: filters }).then(r => r.data),
+  bulk: (ids: string[], action: BulkAction) =>
+    api.post<{ updated: number; skipped: number }>('/transactions/bulk', { ids, ...action }).then(r => r.data),
   summary: (month: string, account_id?: string) =>
     api.get<TransactionSummary>('/transactions/summary', { params: { month, account_id } }).then(r => r.data),
 };
