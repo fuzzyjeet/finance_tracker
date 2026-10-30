@@ -155,6 +155,44 @@ export interface Budget {
   category?: Category;
 }
 
+/** Money set aside in a month for a project; that month its spending counts here, not in category budgets */
+export interface Provision {
+  id: string;
+  project_id: string;
+  amount: number;
+  month: string;
+  spent: number;
+  project?: Pick<Project, 'id' | 'name' | 'icon' | 'color'>;
+}
+
+export interface CategorySpend {
+  category_id: string | null;
+  name: string;
+  icon: string;
+  color: string;
+  spent: number;
+}
+
+export interface BudgetOverview {
+  month: string;
+  days_in_month: number;
+  /** How far through the month we are, 0..1 (1 for past months, 0 for future ones) */
+  pace: number;
+  budgets: Budget[];
+  provisions: Provision[];
+  categories: CategorySpend[];
+  total_spent: number;
+  unbudgeted_spent: number;
+  carried_from: string | null;
+  previous_month: string | null;
+}
+
+export interface BudgetSuggestion {
+  category_id: string;
+  amount: number;
+  average: number;
+}
+
 export interface TransactionTotals {
   count: number;
   income: number;

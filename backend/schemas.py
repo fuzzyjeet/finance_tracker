@@ -362,3 +362,55 @@ class BudgetRead(BaseModel):
     created_at: datetime
     spent: float = 0.0
     category: Optional[CategoryRead] = None
+
+
+class ProvisionCreate(BaseModel):
+    project_id: str
+    amount: float
+    month: str  # YYYY-MM
+
+
+class ProvisionUpdate(BaseModel):
+    amount: Optional[float] = None
+
+
+class ProvisionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    project_id: str
+    amount: float
+    month: str
+    spent: float = 0.0
+    project: Optional[ProjectSummary] = None
+
+
+class CategorySpend(BaseModel):
+    category_id: Optional[str] = None
+    name: str
+    icon: str
+    color: str
+    spent: float
+
+
+class BudgetOverview(BaseModel):
+    month: str
+    days_in_month: int
+    # How far through the month we are (0..1): 1 for past months, 0 for future ones
+    pace: float
+    budgets: List[BudgetRead]
+    provisions: List[ProvisionRead]
+    # All of my spending this month by its real category, provisions or not
+    categories: List[CategorySpend]
+    total_spent: float
+    # Spending in categories with no budget that no provision covers
+    unbudgeted_spent: float
+    # Set when this month's budgets were just carried over from an earlier month
+    carried_from: Optional[str] = None
+    # Latest earlier month with budgets, offered as "copy from" when this month is empty
+    previous_month: Optional[str] = None
+
+
+class BudgetSuggestion(BaseModel):
+    category_id: str
+    amount: float
+    average: float

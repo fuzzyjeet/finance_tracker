@@ -213,3 +213,25 @@ class Budget(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     category = relationship("Category", back_populates="budgets")
+
+
+class ProjectProvision(Base):
+    """Money set aside in a month's budget for a project. That month, spending on the
+    project counts here instead of in its categories' budgets."""
+    __tablename__ = "project_provisions"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    amount = Column(Float, nullable=False)
+    month = Column(String, nullable=False)  # YYYY-MM
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    project = relationship("Project")
+
+
+class BudgetMonth(Base):
+    """Months whose budgets have been set up, so carrying budgets over happens only once
+    (deleting every budget in a month doesn't bring them back)."""
+    __tablename__ = "budget_months"
+
+    month = Column(String, primary_key=True)  # YYYY-MM
