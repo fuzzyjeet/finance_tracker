@@ -11,3 +11,6 @@ Accounts already have a `currency` field, but every total, chart and balance add
 Money moved into savings or investments is not spending and should not count as an expense.
 - Decide how to model it (savings/investment accounts with transfers, goals, holdings, returns)
 - Revisit the imported "Savings" category rows once this exists
+
+## Improve the Accounts page view
+The Accounts page is still a grid of plain cards; give it a proper design pass (phone width first).
