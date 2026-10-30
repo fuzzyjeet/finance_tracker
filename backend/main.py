@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 from database import engine
 import models
 import os
-from routers import accounts, transactions, categories, budgets, recurring, tags, projects
+from routers import accounts, transactions, categories, budgets, recurring, tags, projects, stats
 from services.scheduler import start_scheduler
 from seed import seed_data
 
@@ -27,6 +27,7 @@ app.include_router(budgets.router, prefix="/api/budgets", tags=["budgets"])
 app.include_router(recurring.router, prefix="/api/recurring", tags=["recurring"])
 app.include_router(tags.router, prefix="/api/tags", tags=["tags"])
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
+app.include_router(stats.router, prefix="/api/stats", tags=["stats"])
 
 
 @app.on_event("startup")

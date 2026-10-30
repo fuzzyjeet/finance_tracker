@@ -255,10 +255,10 @@ export const Transactions: React.FC = () => {
   const [filterAccount, setFilterAccount]   = useState(_initParams.get('account_id') ?? '');
   const [filterCategory, setFilterCategory] = useState(_initParams.get('category_id') ?? '');
   const [filterType, setFilterType]         = useState('');
-  const [filterFrom, setFilterFrom]         = useState('');
-  const [filterTo, setFilterTo]             = useState('');
-  const [filterSearch, setFilterSearch]     = useState('');
-  const [searchInput, setSearchInput]       = useState('');
+  const [filterFrom, setFilterFrom]         = useState(_initParams.get('date_from') ?? '');
+  const [filterTo, setFilterTo]             = useState(_initParams.get('date_to') ?? '');
+  const [filterSearch, setFilterSearch]     = useState(_initParams.get('search') ?? '');
+  const [searchInput, setSearchInput]       = useState(_initParams.get('search') ?? '');
   const [tags, setTags]                     = useState<Tag[]>([]);
   const [projects, setProjects]             = useState<Project[]>([]);
   const [totals, setTotals]                 = useState<TransactionTotals | null>(null);
