@@ -604,36 +604,36 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               </p>
             )}
           </div>
-          <div className="flex items-center gap-1 shrink-0">
+          {/* 40px tinted buttons so they stand out from the fields below */}
+          <div className="flex items-center gap-2 shrink-0">
           {editing && onRefund && (
             <button
               type="button"
               onClick={onRefund}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold"
-              style={{ color: 'var(--refund)', background: 'rgb(var(--refund-rgb) / 0.1)' }}
+              className="flex items-center gap-1.5 h-10 px-3 rounded-xl text-sm font-semibold"
+              style={{ color: 'var(--refund)', background: 'rgb(var(--refund-rgb) / 0.12)' }}
             >
-              <Undo2 size={13} /> Refund
+              <Undo2 size={17} /> Refund
             </button>
           )}
           {editing && onDelete && (
             <button
               type="button"
               onClick={onDelete}
-              className="p-2 rounded-lg"
-              style={{ color: 'var(--expense)' }}
+              className="w-10 h-10 flex items-center justify-center rounded-xl"
+              style={{ color: 'var(--expense)', background: 'rgb(var(--expense-rgb) / 0.12)' }}
               aria-label="Delete transaction"
             >
-              <Trash2 size={16} />
+              <Trash2 size={19} />
             </button>
           )}
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg transition-colors"
-            style={{ color: 'var(--muted)' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--text)'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.05)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--muted)'; (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+            className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-on-surface-variant hover:text-on-surface transition-colors"
+            aria-label="Close"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
           </div>
         </div>
