@@ -126,7 +126,7 @@ export const Budgets: React.FC = () => {
         >
           <ChevronLeft size={16} />
         </button>
-        <span className="font-headline text-base font-semibold text-white min-w-[140px] text-center">
+        <span className="font-headline text-base font-semibold text-on-surface min-w-[140px] text-center">
           {format(currentDate, 'MMMM yyyy')}
         </span>
         <button
@@ -140,7 +140,7 @@ export const Budgets: React.FC = () => {
       {/* Project filter — include mode (all selected by default) */}
       {projects.length > 0 && includedProjectIds !== null && (
         <div className="flex flex-wrap items-center gap-2 mb-4">
-          <span className="text-[10px] text-slate-500 font-medium uppercase tracking-widest">Include projects:</span>
+          <span className="text-xs text-muted font-medium">Include projects:</span>
           {projects.map(p => {
             const included = includedProjectIds.includes(p.id);
             return (
@@ -166,7 +166,7 @@ export const Budgets: React.FC = () => {
           {includedProjectIds.length < projects.length && (
             <button
               onClick={() => setIncludedProjectIds(projects.map(p => p.id))}
-              className="text-xs text-slate-500 hover:text-on-surface-variant underline"
+              className="text-xs text-muted hover:text-on-surface-variant underline"
             >
               Select all
             </button>
@@ -178,8 +178,8 @@ export const Budgets: React.FC = () => {
       {budgets.length > 0 && (
         <Card className="mb-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-on-surface-variant uppercase tracking-widest">Overall Budget</span>
-            <span className="text-xs text-slate-500">
+            <span className="text-xs font-medium text-on-surface-variant">Overall Budget</span>
+            <span className="text-xs text-muted">
               {formatCurrency(totalSpent)} / {formatCurrency(totalBudgeted)}
             </span>
           </div>
@@ -189,7 +189,7 @@ export const Budgets: React.FC = () => {
                 totalBudgeted > 0 && totalSpent / totalBudgeted > 1
                   ? 'bg-error'
                   : totalBudgeted > 0 && totalSpent / totalBudgeted > 0.75
-                  ? 'bg-yellow-400'
+                  ? 'bg-warn'
                   : 'bg-primary'
               }`}
               style={{ width: `${Math.min(100, totalBudgeted > 0 ? (totalSpent / totalBudgeted) * 100 : 0)}%` }}
@@ -204,7 +204,7 @@ export const Budgets: React.FC = () => {
         </div>
       ) : budgets.length === 0 ? (
         <div className="text-center py-16">
-          <p className="text-slate-500 text-sm mb-3">No budgets for this month</p>
+          <p className="text-muted text-sm mb-3">No budgets for this month</p>
           <Button onClick={openCreate}><Plus size={16} /> Add Budget</Button>
         </div>
       ) : (
@@ -214,8 +214,8 @@ export const Budgets: React.FC = () => {
             const pct = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
             const over = pct > 100;
             const warning = pct > 75 && pct <= 100;
-            const barColor = over ? 'bg-error' : warning ? 'bg-yellow-400' : 'bg-secondary';
-            const textColor = over ? 'text-error' : warning ? 'text-yellow-400' : 'text-secondary';
+            const barColor = over ? 'bg-error' : warning ? 'bg-warn' : 'bg-secondary';
+            const textColor = over ? 'text-error' : warning ? 'text-warn' : 'text-secondary';
 
             return (
               <Card
@@ -232,7 +232,7 @@ export const Budgets: React.FC = () => {
                       {budget.category?.icon ?? '📦'}
                     </div>
                     <div>
-                      <p className="font-headline font-semibold text-white text-sm">
+                      <p className="font-headline font-semibold text-on-surface text-sm">
                         {budget.category?.name ?? 'Unknown'}
                       </p>
                       <p className={`text-xs font-medium ${textColor}`}>
@@ -244,13 +244,13 @@ export const Budgets: React.FC = () => {
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={e => { e.stopPropagation(); openEdit(budget); }}
-                      className="p-1.5 text-slate-500 hover:text-on-surface hover:bg-white/10 rounded-lg transition-colors"
+                      className="p-1.5 text-muted hover:text-on-surface hover:bg-white/10 rounded-lg transition-colors"
                     >
                       <Pencil size={14} />
                     </button>
                     <button
                       onClick={e => { e.stopPropagation(); setDeleteConfirm(budget.id); }}
-                      className="p-1.5 text-slate-500 hover:text-error hover:bg-error/10 rounded-lg transition-colors"
+                      className="p-1.5 text-muted hover:text-error hover:bg-error/10 rounded-lg transition-colors"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -267,10 +267,10 @@ export const Budgets: React.FC = () => {
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-500">
+                  <span className="text-muted">
                     Spent: <span className="font-medium text-on-surface">{formatCurrency(spent)}</span>
                   </span>
-                  <span className="text-slate-500">
+                  <span className="text-muted">
                     Budget: <span className="font-medium text-on-surface">{formatCurrency(budget.amount)}</span>
                   </span>
                 </div>
@@ -281,7 +281,7 @@ export const Budgets: React.FC = () => {
                   </div>
                 )}
                 {!over && (
-                  <div className="mt-2 text-xs text-slate-500">
+                  <div className="mt-2 text-xs text-muted">
                     {formatCurrency(budget.amount - spent)} remaining
                   </div>
                 )}
@@ -310,7 +310,7 @@ export const Budgets: React.FC = () => {
           )}
           {editing && (
             <div>
-              <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-widest mb-1">Category</label>
+              <label className="block text-xs font-medium text-on-surface-variant mb-1">Category</label>
               <div className="flex items-center gap-2 px-3 py-2 bg-surface-container-highest border border-white/10 rounded-lg">
                 <span>{editing.category?.icon}</span>
                 <span className="text-sm text-on-surface">{editing.category?.name}</span>

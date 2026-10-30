@@ -63,7 +63,7 @@ function DropdownList({
     left: pos.left,
     width: Math.max(pos.width, 180),
     zIndex: 99999,
-    background: '#131c30',
+    background: 'var(--surface-raised)',
     border: '1px solid rgba(255,255,255,0.1)',
     borderRadius: 10,
     boxShadow: '0 12px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.03)',
@@ -86,8 +86,8 @@ function DropdownList({
             onClick={() => { onSelect(opt.value); onClose(); }}
             className="w-full flex items-center justify-between px-3 py-2.5 text-sm text-left transition-colors"
             style={{
-              color:      isSelected ? '#dae2fd' : '#bdc8d1',
-              background: isSelected ? 'rgba(142,213,255,0.08)' : 'transparent',
+              color:      isSelected ? 'var(--text)' : 'var(--text-2)',
+              background: isSelected ? 'rgb(var(--accent-rgb) / 0.08)' : 'transparent',
             }}
             onMouseEnter={e => {
               if (!isSelected) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.05)';
@@ -97,7 +97,7 @@ function DropdownList({
             }}
           >
             <span>{opt.label}</span>
-            {isSelected && <Check size={12} style={{ color: '#8ed5ff', flexShrink: 0 }} />}
+            {isSelected && <Check size={12} style={{ color: 'var(--accent)', flexShrink: 0 }} />}
           </button>
         );
       })}
@@ -181,7 +181,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
   return (
     <div className="flex flex-col gap-1" style={style}>
       {label && (
-        <label className="text-[10px] font-medium uppercase tracking-widest" style={{ color: '#6b7280' }}>
+        <label className="text-xs font-medium" style={{ color: 'var(--muted)' }}>
           {label}
         </label>
       )}
@@ -197,10 +197,10 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
           className,
         ].join(' ')}
         style={{
-          background:   '#171f33',
-          borderColor:  open ? 'rgba(142,213,255,0.35)' : 'rgba(255,255,255,0.08)',
-          color:        selected ? '#dae2fd' : '#4b5563',
-          boxShadow:    open ? '0 0 0 1px rgba(142,213,255,0.2)' : 'none',
+          background:   'var(--surface)',
+          borderColor:  open ? 'rgb(var(--accent-rgb) / 0.35)' : 'rgba(255,255,255,0.08)',
+          color:        selected ? 'var(--text)' : 'var(--faint)',
+          boxShadow:    open ? '0 0 0 1px rgb(var(--accent-rgb) / 0.2)' : 'none',
           ...style,
         }}
       >
@@ -208,14 +208,14 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         <ChevronDown
           size={14}
           style={{
-            color:     '#6b7280',
+            color:     'var(--muted)',
             flexShrink: 0,
             transform: open ? 'rotate(180deg)' : 'none',
             transition: 'transform 0.15s',
           }}
         />
       </button>
-      {error && <p className="text-xs" style={{ color: '#ffb4ab' }}>{error}</p>}
+      {error && <p className="text-xs" style={{ color: 'var(--expense)' }}>{error}</p>}
       {open && (
         <DropdownList
           options={options}

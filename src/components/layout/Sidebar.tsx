@@ -30,8 +30,7 @@ export const Sidebar: React.FC = () => {
             <TrendingUp size={16} className="text-on-primary-container" />
           </div>
           <div>
-            <h1 className="font-headline text-lg font-black text-white tracking-normal">JeetMoney</h1>
-            <p className="text-[10px] tracking-[0.2em]" style={{ color: 'var(--sidebar-text)' }}>Institutional Grade</p>
+            <h1 className="font-headline text-lg font-black text-on-surface tracking-normal">JeetMoney</h1>
           </div>
         </div>
       </div>
@@ -43,10 +42,10 @@ export const Sidebar: React.FC = () => {
             key={to}
             to={to}
             className={({ isActive }) =>
-              `flex items-center gap-3 py-3 px-6 text-xs font-medium uppercase tracking-widest transition-all duration-300 ease-in-out ${
+              `flex items-center gap-3 py-3 px-6 text-xs font-medium transition-all duration-300 ease-in-out ${
                 isActive
                   ? 'text-primary bg-primary/10 border-r-2 border-primary'
-                  : 'hover:text-slate-200 hover:bg-white/5'
+                  : 'hover:text-on-surface hover:bg-white/5'
               }`
             }
             style={({ isActive }) => ({ color: isActive ? undefined : 'var(--sidebar-text)' })}
@@ -62,10 +61,10 @@ export const Sidebar: React.FC = () => {
         <NavLink
           to="/settings"
           className={({ isActive }) =>
-            `flex items-center gap-3 py-3 px-6 text-xs font-medium uppercase tracking-widest transition-all duration-300 ease-in-out ${
+            `flex items-center gap-3 py-3 px-6 text-xs font-medium transition-all duration-300 ease-in-out ${
               isActive
                 ? 'text-primary bg-primary/10 border-r-2 border-primary'
-                : 'hover:text-slate-200 hover:bg-white/5'
+                : 'hover:text-on-surface hover:bg-white/5'
             }`
           }
           style={({ isActive }) => ({ color: isActive ? undefined : 'var(--sidebar-text)' })}
@@ -74,7 +73,7 @@ export const Sidebar: React.FC = () => {
           Settings
         </NavLink>
         <div className="px-6 pb-2 pt-1">
-          <p className="text-[10px] tracking-widest uppercase" style={{ color: 'var(--sidebar-text)' }}>Finance Tracker v1.0</p>
+          <p className="text-xs" style={{ color: 'var(--sidebar-text)' }}>Finance Tracker v1.0</p>
         </div>
       </div>
     </aside>

@@ -2,47 +2,57 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Theme variables ──────────────────────────────────────── */
-:root, :root.dark {
-  --color-surface:                  #0b1326;
-  --color-surface-dim:              #0b1326;
-  --color-surface-container:        #171f33;
-  --color-surface-container-low:    #131b2e;
-  --color-surface-container-high:   #222a3d;
-  --color-surface-container-highest:#2d3449;
-  --color-on-surface:               #dae2fd;
-  --color-on-surface-variant:       #bdc8d1;
+/* ── Theme: Mocha (dark only) ─────────────────────────────
+   Every colour in the app comes from these variables. Plain hex for
+   colours used directly; "r g b" triplets for ones used with opacity:
+   rgb(var(--accent-rgb) / 0.15) */
+:root {
+  --bg:               #1a1613;
+  --surface-low:      #201b17;
+  --surface:          #25201b;
+  --surface-hi:       #2f2822;
+  --surface-highest:  #3a3029;
+  --surface-raised:   #2a231d;   /* menus, tooltips */
 
-  --sidebar-bg:      #0b1326;
-  --sidebar-border:  rgba(255,255,255,0.05);
-  --sidebar-text:    #4b5563;
-  --sidebar-hover:   rgba(255,255,255,0.05);
-  --card-border:     rgba(255,255,255,0.05);
-  --scrollbar-track: #0b1326;
-  --scrollbar-thumb: #2d3449;
-  --text-muted:      #4b5563;
-  --text-body:       #dae2fd;
-}
+  --text:             #f3ece4;
+  --text-2:           #d8cdc0;   /* secondary text */
+  --muted:            #b5a798;   /* labels, meta */
+  --faint:            #8f8274;   /* placeholders, disabled */
+  --faint-2:          #6b5f53;   /* decorative only */
 
-:root.light {
-  --color-surface:                  #f8fafc;
-  --color-surface-dim:              #f0f4f8;
-  --color-surface-container:        #ffffff;
-  --color-surface-container-low:    #f8fafc;
-  --color-surface-container-high:   #e8f0fe;
-  --color-surface-container-highest:#dde6f5;
-  --color-on-surface:               #1e293b;
-  --color-on-surface-variant:       #475569;
+  --accent:           #f2b45c;
+  --accent-rgb:       242 180 92;
+  --on-accent:        #2e1b03;
 
-  --sidebar-bg:      #1e2a45;
-  --sidebar-border:  rgba(255,255,255,0.08);
-  --sidebar-text:    #94a3b8;
-  --sidebar-hover:   rgba(255,255,255,0.08);
-  --card-border:     rgba(30,42,69,0.12);
-  --scrollbar-track: #f0f4f8;
-  --scrollbar-thumb: #cbd5e1;
-  --text-muted:      #64748b;
-  --text-body:       #1e293b;
+  --expense:          #ff8a73;
+  --expense-rgb:      255 138 115;
+  --income:           #8fd3a2;
+  --income-rgb:       143 211 162;
+  --transfer:         #93bff5;
+  --transfer-rgb:     147 191 245;
+  --refund:           #c5a3ff;
+  --refund-rgb:       197 163 255;
+  --warn:             #ffd66b;
+  --warn-rgb:         255 214 107;
+
+  /* Names the Tailwind config and older components use */
+  --color-surface:                   var(--bg);
+  --color-surface-dim:               var(--bg);
+  --color-surface-container:         var(--surface);
+  --color-surface-container-low:     var(--surface-low);
+  --color-surface-container-high:    var(--surface-hi);
+  --color-surface-container-highest: var(--surface-highest);
+  --color-on-surface:                var(--text);
+  --color-on-surface-variant:        var(--text-2);
+
+  --sidebar-bg:      var(--bg);
+  --sidebar-border:  rgba(255,255,255,0.06);
+  --sidebar-text:    var(--muted);
+  --scrollbar-track: var(--bg);
+  --scrollbar-thumb: var(--surface-highest);
+  --text-body:       var(--text);
+
+  color-scheme: dark;
 }
 
 * {
@@ -80,7 +90,7 @@ html, body {
 }
 
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--color-surface-dim);
@@ -90,25 +100,15 @@ body {
 
 /* Glass panel utility */
 .glass-panel {
-  background: rgba(34, 42, 61, 0.6);
+  background: rgb(47 40 34 / 0.6);
   backdrop-filter: blur(20px);
 }
 
-:root.light .glass-panel {
-  background: rgba(248, 250, 252, 0.85);
-  backdrop-filter: blur(20px);
-  border-color: rgba(30, 42, 69, 0.12) !important;
-}
 
 /* Sidebar theming */
 .sidebar-themed {
   background-color: var(--sidebar-bg);
   border-color: var(--sidebar-border);
-}
-
-/* Card border in light mode */
-:root.light .border-white\/5 {
-  border-color: var(--card-border) !important;
 }
 
 /* Data pulse animation */
@@ -137,11 +137,11 @@ body {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3e484f;
+  background: var(--faint-2);
 }
 
 /* Dark select options */
 select option {
-  background-color: #171f33;
-  color: #dae2fd;
+  background-color: var(--surface);
+  color: var(--text);
 }

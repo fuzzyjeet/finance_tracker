@@ -22,15 +22,15 @@ const CATEGORY_COLORS = TAG_COLORS;
 const CATEGORY_ICONS = ['🛒', '🍔', '🚗', '🏠', '💊', '🎮', '✈️', '📚', '💼', '💰', '🎁', '⚡', '📱', '🏋️', '🎨'];
 
 // ── Color palette ─────────────────────────────────────────
-const SURFACE    = '#171f33';
-const SURFACE_HI = '#222a3d';
+const SURFACE    = 'var(--surface)';
+const SURFACE_HI = 'var(--surface-hi)';
 const BORDER     = 'rgba(255,255,255,0.06)';
 
 const TYPE_COLORS = {
-  income:   { text: '#4edea3', bg: 'rgba(78,222,163,0.15)',  border: 'rgba(78,222,163,0.4)'  },
-  expense:  { text: '#ffb4ab', bg: 'rgba(255,180,171,0.15)', border: 'rgba(255,180,171,0.4)' },
-  transfer: { text: '#8ed5ff', bg: 'rgba(142,213,255,0.15)', border: 'rgba(142,213,255,0.4)' },
-  refund:   { text: '#c4b5fd', bg: 'rgba(196,181,253,0.15)', border: 'rgba(196,181,253,0.4)' },
+  income:   { text: 'var(--income)', bg: 'rgb(var(--income-rgb) / 0.15)',  border: 'rgb(var(--income-rgb) / 0.4)'  },
+  expense:  { text: 'var(--expense)', bg: 'rgb(var(--expense-rgb) / 0.15)', border: 'rgb(var(--expense-rgb) / 0.4)' },
+  transfer: { text: 'var(--transfer)', bg: 'rgb(var(--transfer-rgb) / 0.15)', border: 'rgb(var(--transfer-rgb) / 0.4)' },
+  refund:   { text: 'var(--refund)', bg: 'rgb(var(--refund-rgb) / 0.15)', border: 'rgb(var(--refund-rgb) / 0.4)' },
 };
 
 // ── Helpers ────────────────────────────────────────────────
@@ -61,30 +61,30 @@ const FieldRow: React.FC<FieldRowProps> = ({ icon, label, value, placeholder, ex
     className="relative flex items-center justify-between px-4 py-3 group cursor-pointer transition-colors hover:bg-white/[0.03]"
     style={{
       borderBottom: noBorder ? 'none' : `1px solid ${BORDER}`,
-      background: error ? 'rgba(255,100,100,0.05)' : undefined,
+      background: error ? 'rgb(var(--expense-rgb) / 0.05)' : undefined,
     }}
   >
     <div className="flex items-center gap-3 min-w-0">
       <div
         className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-sm transition-colors"
-        style={{ background: error ? 'rgba(255,100,100,0.12)' : 'rgba(255,255,255,0.04)' }}
+        style={{ background: error ? 'rgb(var(--expense-rgb) / 0.12)' : 'rgba(255,255,255,0.04)' }}
       >
-        {error ? <AlertCircle size={14} style={{ color: '#ffb4ab' }} /> : icon}
+        {error ? <AlertCircle size={14} style={{ color: 'var(--expense)' }} /> : icon}
       </div>
       <div className="min-w-0">
-        <p className="text-[10px] uppercase tracking-widest leading-none mb-0.5"
-          style={{ color: error ? '#ffb4ab' : '#6b7280' }}>
+        <p className="text-xs leading-none mb-0.5"
+          style={{ color: error ? 'var(--expense)' : 'var(--muted)' }}>
           {label}
-          {hint && <span className="normal-case tracking-normal" style={{ color: '#8ed5ff' }}> · {hint}</span>}
+          {hint && <span className="normal-case tracking-normal" style={{ color: 'var(--accent)' }}> · {hint}</span>}
         </p>
-        <p className="text-sm font-medium truncate" style={{ color: value ? '#dae2fd' : error ? '#ff8a80' : '#4b5563' }}>
+        <p className="text-sm font-medium truncate" style={{ color: value ? 'var(--text)' : error ? 'var(--expense)' : 'var(--faint)' }}>
           {value || (error ? 'Required' : placeholder)}
         </p>
       </div>
     </div>
     <div className="flex items-center gap-2 shrink-0 ml-2">
       {extra}
-      <ChevronDown size={15} style={{ color: error ? '#ffb4ab' : '#4b5563' }} />
+      <ChevronDown size={15} style={{ color: error ? 'var(--expense)' : 'var(--faint)' }} />
     </div>
     {select && (
       <div className="absolute inset-0 opacity-0 overflow-hidden">
@@ -589,17 +589,17 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
       {/* Dialog */}
       <div
         className="relative w-full md:max-w-md rounded-t-2xl md:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[94dvh] md:max-h-[90vh]"
-        style={{ background: '#0f1829', border: '1px solid rgba(255,255,255,0.06)' }}
+        style={{ background: 'var(--surface-low)', border: '1px solid rgba(255,255,255,0.06)' }}
         onKeyDown={onFormKeyDown}
       >
         {/* Header */}
         <div className="flex items-center justify-between gap-2 px-5 md:px-6 pt-4 md:pt-5 pb-3 md:pb-4 shrink-0">
           <div className="min-w-0">
-            <h2 className="text-lg font-bold text-white" style={{ letterSpacing: '-0.02em' }}>
+            <h2 className="text-lg font-bold text-on-surface" style={{ letterSpacing: '-0.02em' }}>
               {editing ? 'Edit Transaction' : form.type === 'refund' ? 'New Refund' : 'New Transaction'}
             </h2>
             {lastSaved && (
-              <p className="flex items-center gap-1 text-xs mt-0.5 truncate" style={{ color: '#4edea3' }}>
+              <p className="flex items-center gap-1 text-xs mt-0.5 truncate" style={{ color: 'var(--income)' }}>
                 <CheckCircle2 size={12} className="shrink-0" /> Saved {lastSaved}
               </p>
             )}
@@ -610,7 +610,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               type="button"
               onClick={onRefund}
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold"
-              style={{ color: '#c4b5fd', background: 'rgba(196,181,253,0.1)' }}
+              style={{ color: 'var(--refund)', background: 'rgb(var(--refund-rgb) / 0.1)' }}
             >
               <Undo2 size={13} /> Refund
             </button>
@@ -620,7 +620,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               type="button"
               onClick={onDelete}
               className="p-2 rounded-lg"
-              style={{ color: '#ffb4ab' }}
+              style={{ color: 'var(--expense)' }}
               aria-label="Delete transaction"
             >
               <Trash2 size={16} />
@@ -629,9 +629,9 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg transition-colors"
-            style={{ color: '#6b7280' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#dae2fd'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.05)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#6b7280'; (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+            style={{ color: 'var(--muted)' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--text)'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.05)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--muted)'; (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
           >
             <X size={18} />
           </button>
@@ -665,7 +665,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                   className="rounded-lg border py-2 text-xs font-semibold flex items-center justify-center gap-1 transition-all"
                   style={{
                     background:  active ? c.bg    : 'transparent',
-                    color:       active ? c.text  : '#6b7280',
+                    color:       active ? c.text  : 'var(--muted)',
                     borderColor: active ? c.border : 'rgba(255,255,255,0.07)',
                   }}
                 >
@@ -684,19 +684,19 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                 className="rounded-xl px-6 py-4 text-center relative transition-all"
                 style={{
                   background: SURFACE,
-                  border: amtError ? '1px solid rgba(255,100,100,0.45)' : '1px solid transparent',
-                  boxShadow: amtError ? '0 0 0 3px rgba(255,100,100,0.08)' : 'none',
+                  border: amtError ? '1px solid rgb(var(--expense-rgb) / 0.45)' : '1px solid transparent',
+                  boxShadow: amtError ? '0 0 0 3px rgb(var(--expense-rgb) / 0.08)' : 'none',
                 }}
               >
                 {amtError && (
                   <div className="absolute top-2 right-2 flex items-center gap-1">
-                    <AlertCircle size={13} style={{ color: '#ffb4ab' }} />
-                    <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: '#ffb4ab' }}>Required</span>
+                    <AlertCircle size={13} style={{ color: 'var(--expense)' }} />
+                    <span className="text-xs font-semibold tracking-wide" style={{ color: 'var(--expense)' }}>Required</span>
                   </div>
                 )}
-                <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: amtError ? '#ffb4ab' : '#6b7280' }}>Amount</p>
+                <p className="text-xs mb-1" style={{ color: amtError ? 'var(--expense)' : 'var(--muted)' }}>Amount</p>
                 <div className="flex items-center justify-center gap-2">
-                  <span className="text-3xl font-bold" style={{ color: '#374151' }}>€</span>
+                  <span className="text-3xl font-bold" style={{ color: 'var(--faint-2)' }}>€</span>
                   {/* Text + inputMode so phones show the decimal keypad and "12,50" works */}
                   <input
                     ref={amountRef}
@@ -716,11 +716,11 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                     type="button"
                     onClick={() => setForm(f => ({ ...f, amount: linkedTotal.toFixed(2) }))}
                     className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-colors hover:brightness-125"
-                    style={{ background: 'rgba(196,181,253,0.12)', color: '#c4b5fd', border: '1px solid rgba(196,181,253,0.3)' }}
+                    style={{ background: 'rgb(var(--refund-rgb) / 0.12)', color: 'var(--refund)', border: '1px solid rgb(var(--refund-rgb) / 0.3)' }}
                   >
                     <Undo2 size={11} />
                     Use €{linkedTotal.toFixed(2)}
-                    <span style={{ color: '#8b7fc7' }}>
+                    <span style={{ color: 'var(--refund)' }}>
                       · {links.length > 1 ? `sum of ${links.length} linked` : 'linked amount'}
                     </span>
                   </button>
@@ -733,14 +733,14 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
           {isRefund && (
             <div
               className="rounded-xl overflow-hidden"
-              style={{ background: 'rgba(196,181,253,0.05)', border: '1px solid rgba(196,181,253,0.18)' }}
+              style={{ background: 'rgb(var(--refund-rgb) / 0.05)', border: '1px solid rgb(var(--refund-rgb) / 0.18)' }}
             >
               <div className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-2.5">
-                  <Undo2 size={15} style={{ color: '#c4b5fd' }} />
+                  <Undo2 size={15} style={{ color: 'var(--refund)' }} />
                   <div>
-                    <p className="text-[10px] uppercase tracking-widest" style={{ color: '#c4b5fd' }}>Refund for</p>
-                    <p className="text-xs" style={{ color: '#6b7280' }}>
+                    <p className="text-xs" style={{ color: 'var(--refund)' }}>Refund for</p>
+                    <p className="text-xs" style={{ color: 'var(--muted)' }}>
                       {links.length === 0 ? 'Link the expenses this covers — unlinked amounts count as income'
                         : `${links.length} transaction${links.length > 1 ? 's' : ''}`}
                     </p>
@@ -749,8 +749,8 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                 <button
                   type="button"
                   onClick={() => setPickerOpen(true)}
-                  className="text-[10px] font-bold uppercase tracking-tight px-2.5 py-1 rounded-full"
-                  style={{ color: '#c4b5fd', border: '1px solid rgba(196,181,253,0.35)', background: 'rgba(196,181,253,0.1)' }}
+                  className="text-xs font-bold tracking-tight px-2.5 py-1 rounded-full"
+                  style={{ color: 'var(--refund)', border: '1px solid rgb(var(--refund-rgb) / 0.35)', background: 'rgb(var(--refund-rgb) / 0.1)' }}
                 >
                   + Link
                 </button>
@@ -766,14 +766,14 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                       <div
                         key={l.id}
                         className="flex items-center gap-2.5 px-4 py-2"
-                        style={{ borderTop: '1px solid rgba(196,181,253,0.1)' }}
+                        style={{ borderTop: '1px solid rgb(var(--refund-rgb) / 0.1)' }}
                       >
                         <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-sm" style={{ background: 'rgba(255,255,255,0.04)' }}>
                           {l.categoryIcon ?? '🧾'}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate" style={{ color: '#dae2fd' }}>{l.payee || '—'}</p>
-                          <p className="text-[11px]" style={{ color: exceeds ? '#f59e0b' : '#6b7280' }}>
+                          <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{l.payee || '—'}</p>
+                          <p className="text-xs" style={{ color: exceeds ? 'var(--warn)' : 'var(--muted)' }}>
                             {new Date(l.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                             {' · of '}{l.total.toFixed(2)}
                             {exceeds && ` · only ${l.remaining.toFixed(2)} unrefunded`}
@@ -783,23 +783,23 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                           className="flex items-center rounded-lg px-2 py-1 shrink-0"
                           style={{
                             background: SURFACE_HI,
-                            border: `1px solid ${invalid && showErrors ? 'rgba(255,100,100,0.5)' : 'rgba(255,255,255,0.08)'}`,
+                            border: `1px solid ${invalid && showErrors ? 'rgb(var(--expense-rgb) / 0.5)' : 'rgba(255,255,255,0.08)'}`,
                           }}
                         >
-                          <span className="text-xs mr-1" style={{ color: '#4b5563' }}>€</span>
+                          <span className="text-xs mr-1" style={{ color: 'var(--faint)' }}>€</span>
                           <input
                             type="number" inputMode="decimal" min={0} step="0.01"
                             value={l.amount}
                             onChange={e => updateLinkAmount(l.id, e.target.value)}
                             className="w-16 bg-transparent text-sm text-right outline-none tabular-nums"
-                            style={{ color: '#c4b5fd' }}
+                            style={{ color: 'var(--refund)' }}
                           />
                         </div>
                         <button
                           type="button"
                           onClick={() => removeLink(l.id)}
-                          className="p-1 transition-colors hover:text-[#ffb4ab]"
-                          style={{ color: '#4b5563' }}
+                          className="p-1 transition-colors hover:text-[var(--expense)]"
+                          style={{ color: 'var(--faint)' }}
                         >
                           <X size={14} />
                         </button>
@@ -810,20 +810,20 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                   {/* Allocation bar */}
                   <div
                     className="flex items-center justify-between px-4 py-2"
-                    style={{ borderTop: '1px solid rgba(196,181,253,0.1)' }}
+                    style={{ borderTop: '1px solid rgb(var(--refund-rgb) / 0.1)' }}
                   >
-                    <span className="text-[11px]" style={{ color: '#6b7280' }}>
+                    <span className="text-xs" style={{ color: 'var(--muted)' }}>
                       Offsets {linkedTotal.toFixed(2)} of expenses
                     </span>
                     <span
                       className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
                       style={{
-                        background: overAllocated ? 'rgba(255,180,171,0.15)'
+                        background: overAllocated ? 'rgb(var(--expense-rgb) / 0.15)'
                           : !totalAmount ? 'rgba(255,255,255,0.05)'
-                          : Math.abs(unallocated) < 0.005 ? 'rgba(196,181,253,0.15)' : 'rgba(78,222,163,0.15)',
-                        color: overAllocated ? '#ffb4ab'
-                          : !totalAmount ? '#6b7280'
-                          : Math.abs(unallocated) < 0.005 ? '#c4b5fd' : '#4edea3',
+                          : Math.abs(unallocated) < 0.005 ? 'rgb(var(--refund-rgb) / 0.15)' : 'rgb(var(--income-rgb) / 0.15)',
+                        color: overAllocated ? 'var(--expense)'
+                          : !totalAmount ? 'var(--muted)'
+                          : Math.abs(unallocated) < 0.005 ? 'var(--refund)' : 'var(--income)',
                       }}
                     >
                       {!totalAmount
@@ -849,18 +849,18 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                   className="rounded-xl px-4 py-2.5 transition-all"
                   style={{
                     background: SURFACE,
-                    border: payeeError ? '1px solid rgba(255,100,100,0.45)' : '1px solid transparent',
-                    boxShadow: payeeError ? '0 0 0 3px rgba(255,100,100,0.08)' : 'none',
+                    border: payeeError ? '1px solid rgb(var(--expense-rgb) / 0.45)' : '1px solid transparent',
+                    boxShadow: payeeError ? '0 0 0 3px rgb(var(--expense-rgb) / 0.08)' : 'none',
                   }}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <p className="text-[10px] uppercase tracking-widest" style={{ color: payeeError ? '#ffb4ab' : '#6b7280' }}>Payee</p>
-                    {payeeError && <AlertCircle size={12} style={{ color: '#ffb4ab' }} />}
+                    <p className="text-xs" style={{ color: payeeError ? 'var(--expense)' : 'var(--muted)' }}>Payee</p>
+                    {payeeError && <AlertCircle size={12} style={{ color: 'var(--expense)' }} />}
                   </div>
                   <input
                     ref={payeeInputRef}
                     className="w-full bg-transparent text-sm outline-none"
-                    style={{ color: '#dae2fd' }}
+                    style={{ color: 'var(--text)' }}
                     placeholder={payeeError ? 'Required' : 'e.g. REWE'}
                     autoCapitalize="words"
                     autoComplete="off"
@@ -883,7 +883,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                 {showPayeeSug && filteredPayees.length > 0 && (
                   <div
                     className="absolute left-0 right-0 z-50 rounded-xl overflow-hidden mt-1"
-                    style={{ background: '#131c30', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}
+                    style={{ background: 'var(--surface-raised)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}
                   >
                     {filteredPayees.map((name, i) => (
                       <button
@@ -892,8 +892,8 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                         onMouseDown={e => { e.preventDefault(); selectPayee(name); }}
                         className="w-full text-left px-3 py-2 text-sm transition-colors"
                         style={{
-                          color: '#dae2fd',
-                          background: i === payeeHighlight ? 'rgba(142,213,255,0.1)' : 'transparent',
+                          color: 'var(--text)',
+                          background: i === payeeHighlight ? 'rgb(var(--accent-rgb) / 0.1)' : 'transparent',
                           borderBottom: i < filteredPayees.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
                         }}
                       >
@@ -913,10 +913,10 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
             {form.type === 'transfer' ? null : splitOpen ? (
               <div className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: `1px solid ${BORDER}` }}>
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                  style={{ background: 'rgba(142,213,255,0.08)' }}>
-                  <Split size={13} style={{ color: '#8ed5ff' }} />
+                  style={{ background: 'rgb(var(--accent-rgb) / 0.08)' }}>
+                  <Split size={13} style={{ color: 'var(--accent)' }} />
                 </div>
-                <p className="text-sm" style={{ color: '#8ed5ff' }}>Categories set per split below</p>
+                <p className="text-sm" style={{ color: 'var(--accent)' }}>Categories set per split below</p>
               </div>
             ) : (
               <FieldRow
@@ -929,8 +929,8 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                   <button
                     type="button"
                     onClick={e => { e.stopPropagation(); setShowCategoryInput(v => !v); }}
-                    className="text-[10px] font-bold uppercase tracking-tight px-2 py-0.5 rounded-full transition-colors z-10 relative"
-                    style={{ color: '#8ed5ff', border: '1px solid rgba(142,213,255,0.3)', background: 'rgba(142,213,255,0.08)' }}
+                    className="text-xs font-bold tracking-tight px-2 py-0.5 rounded-full transition-colors z-10 relative"
+                    style={{ color: 'var(--accent)', border: '1px solid rgb(var(--accent-rgb) / 0.3)', background: 'rgb(var(--accent-rgb) / 0.08)' }}
                   >
                     + New
                   </button>
@@ -981,7 +981,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
             {/* To account (transfers only) */}
             {form.type === 'transfer' && (
               <FieldRow
-                icon={<ArrowLeftRight size={14} style={{ color: '#8ed5ff' }} />}
+                icon={<ArrowLeftRight size={14} style={{ color: 'var(--accent)' }} />}
                 label="To Account"
                 value={selectedToAccount?.name ?? ''}
                 placeholder="Select destination"
@@ -1002,18 +1002,18 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
             {/* Date & time */}
             <div className="flex items-center gap-3 px-4 py-3">
               <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                style={{ background: timeInvalid && showErrors ? 'rgba(255,100,100,0.12)' : 'rgba(255,255,255,0.04)' }}>
-                <CalendarDays size={14} style={{ color: timeInvalid && showErrors ? '#ffb4ab' : '#6b7280' }} />
+                style={{ background: timeInvalid && showErrors ? 'rgb(var(--expense-rgb) / 0.12)' : 'rgba(255,255,255,0.04)' }}>
+                <CalendarDays size={14} style={{ color: timeInvalid && showErrors ? 'var(--expense)' : 'var(--muted)' }} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] uppercase tracking-widest leading-none mb-1" style={{ color: timeInvalid && showErrors ? '#ffb4ab' : '#6b7280' }}>
+                <p className="text-xs leading-none mb-1" style={{ color: timeInvalid && showErrors ? 'var(--expense)' : 'var(--muted)' }}>
                   Date &amp; time
                 </p>
                 <div className="flex items-center gap-2">
                   <input
                     type="date"
                     className="flex-1 min-w-0 bg-transparent text-sm font-medium outline-none"
-                    style={{ color: '#dae2fd', colorScheme: 'dark' }}
+                    style={{ color: 'var(--text)', colorScheme: 'dark' }}
                     value={form.date}
                     onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
                   />
@@ -1024,7 +1024,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                     placeholder="HH:MM"
                     maxLength={5}
                     className="w-[4.5rem] shrink-0 bg-transparent text-sm font-medium outline-none tabular-nums pl-2"
-                    style={{ color: timeInvalid ? '#ffb4ab' : '#dae2fd', borderLeft: '1px solid rgba(255,255,255,0.08)' }}
+                    style={{ color: timeInvalid ? 'var(--expense)' : 'var(--text)', borderLeft: '1px solid rgba(255,255,255,0.08)' }}
                     value={form.time}
                     onChange={e => setForm(f => ({ ...f, time: formatTimeInput(e.target.value) }))}
                   />
@@ -1040,11 +1040,11 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                   🧾
                 </div>
                 <div className="flex-1">
-                  <p className="text-[10px] uppercase tracking-widest mb-0.5" style={{ color: '#6b7280' }}>Billing Date (optional)</p>
+                  <p className="text-xs mb-0.5" style={{ color: 'var(--muted)' }}>Billing Date (optional)</p>
                   <input
                     type="date"
                     className="w-full bg-transparent text-sm outline-none"
-                    style={{ color: '#dae2fd', colorScheme: 'dark' }}
+                    style={{ color: 'var(--text)', colorScheme: 'dark' }}
                     value={form.billing_date}
                     onChange={e => setForm(f => ({ ...f, billing_date: e.target.value }))}
                   />
@@ -1055,7 +1055,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
 
           {/* Inline new category form */}
           {showCategoryInput && form.type !== 'transfer' && !splitOpen && (
-            <div className="rounded-xl p-3 space-y-2.5" style={{ background: SURFACE, border: '1px solid rgba(142,213,255,0.2)' }}>
+            <div className="rounded-xl p-3 space-y-2.5" style={{ background: SURFACE, border: '1px solid rgb(var(--accent-rgb) / 0.2)' }}>
               <div className="flex items-center gap-2">
                 <input
                   value={newCatName}
@@ -1064,19 +1064,19 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                   placeholder="Category name"
                   autoFocus
                   className="flex-1 text-sm px-2 py-1.5 rounded-lg outline-none"
-                  style={{ background: SURFACE_HI, border: '1px solid rgba(255,255,255,0.08)', color: '#dae2fd' }}
+                  style={{ background: SURFACE_HI, border: '1px solid rgba(255,255,255,0.08)', color: 'var(--text)' }}
                 />
                 <button
                   type="button"
                   onClick={handleCreateCategory}
                   disabled={!newCatName.trim()}
                   className="text-xs px-3 py-1.5 rounded-lg font-bold disabled:opacity-40 whitespace-nowrap"
-                  style={{ background: '#38bdf8', color: '#004965' }}
+                  style={{ background: 'var(--accent)', color: 'var(--on-accent)' }}
                 >
                   Add
                 </button>
                 <button type="button" onClick={() => setShowCategoryInput(false)}>
-                  <X size={14} style={{ color: '#6b7280' }} />
+                  <X size={14} style={{ color: 'var(--muted)' }} />
                 </button>
               </div>
               <div className="flex items-center gap-3 flex-wrap">
@@ -1088,8 +1088,8 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                       onClick={() => setNewCatIcon(icon)}
                       className="w-7 h-7 rounded text-sm flex items-center justify-center transition-all"
                       style={{
-                        background: newCatIcon === icon ? 'rgba(142,213,255,0.15)' : 'transparent',
-                        outline: newCatIcon === icon ? '1px solid rgba(142,213,255,0.4)' : 'none',
+                        background: newCatIcon === icon ? 'rgb(var(--accent-rgb) / 0.15)' : 'transparent',
+                        outline: newCatIcon === icon ? '1px solid rgb(var(--accent-rgb) / 0.4)' : 'none',
                       }}
                     >
                       {icon}
@@ -1120,13 +1120,13 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                 onClick={onClick}
                 className="flex items-center gap-1.5 max-w-full px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors"
                 style={{
-                  background:  set ? 'rgba(142,213,255,0.08)' : 'transparent',
-                  color:       set ? '#dae2fd' : '#6b7280',
-                  borderColor: active ? 'rgba(142,213,255,0.6)' : set ? 'rgba(142,213,255,0.25)' : 'rgba(255,255,255,0.1)',
+                  background:  set ? 'rgb(var(--accent-rgb) / 0.08)' : 'transparent',
+                  color:       set ? 'var(--text)' : 'var(--muted)',
+                  borderColor: active ? 'rgb(var(--accent-rgb) / 0.6)' : set ? 'rgb(var(--accent-rgb) / 0.25)' : 'rgba(255,255,255,0.1)',
                   borderStyle: set || active ? 'solid' : 'dashed',
                 }}
               >
-                <span className="shrink-0" style={{ color: set ? '#8ed5ff' : '#6b7280' }}>{icon}</span>
+                <span className="shrink-0" style={{ color: set ? 'var(--accent)' : 'var(--muted)' }}>{icon}</span>
                 <span className="truncate">{text}</span>
               </button>
             );
@@ -1155,7 +1155,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                 autoFocus
                 enterKeyHint="done"
                 className="w-full bg-transparent text-sm outline-none"
-                style={{ color: '#dae2fd' }}
+                style={{ color: 'var(--text)' }}
                 placeholder="Add a note…"
                 value={form.notes}
                 onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
@@ -1169,8 +1169,8 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                 <button
                   type="button"
                   onClick={() => setShowTagInput(v => !v)}
-                  className="text-[10px] font-bold uppercase tracking-tight px-2 py-0.5 rounded-full transition-colors"
-                  style={{ color: '#8ed5ff', border: '1px solid rgba(142,213,255,0.3)', background: 'rgba(142,213,255,0.08)' }}
+                  className="text-xs font-bold tracking-tight px-2 py-0.5 rounded-full transition-colors"
+                  style={{ color: 'var(--accent)', border: '1px solid rgb(var(--accent-rgb) / 0.3)', background: 'rgb(var(--accent-rgb) / 0.08)' }}
                 >
                   + New tag
                 </button>
@@ -1184,7 +1184,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                     placeholder="Tag name"
                     autoFocus
                     className="flex-1 text-sm border rounded px-2 py-1 outline-none bg-transparent"
-                    style={{ color: '#dae2fd', borderColor: 'rgba(255,255,255,0.12)' }}
+                    style={{ color: 'var(--text)', borderColor: 'rgba(255,255,255,0.12)' }}
                   />
                   <div className="flex gap-1">
                     {TAG_COLORS.map(c => (
@@ -1199,18 +1199,18 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                     onClick={handleCreateTag}
                     disabled={!newTagName.trim()}
                     className="text-xs px-2 py-1 rounded disabled:opacity-40"
-                    style={{ background: '#38bdf8', color: '#004965', fontWeight: 700 }}
+                    style={{ background: 'var(--accent)', color: 'var(--on-accent)', fontWeight: 700 }}
                   >
                     Add
                   </button>
                   <button type="button" onClick={() => setShowTagInput(false)}>
-                    <X size={13} style={{ color: '#6b7280' }} />
+                    <X size={13} style={{ color: 'var(--muted)' }} />
                   </button>
                 </div>
               )}
               <div className="flex flex-wrap gap-1.5 min-h-[28px]">
                 {tags.length === 0 && !showTagInput && (
-                  <span className="text-xs self-center" style={{ color: '#4b5563' }}>No tags yet</span>
+                  <span className="text-xs self-center" style={{ color: 'var(--faint)' }}>No tags yet</span>
                 )}
                 {tags.map(tag => {
                   const active = form.tag_ids.includes(tag.id);
@@ -1277,16 +1277,16 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               <div className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-3">
                   <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                    style={{ background: 'rgba(142,213,255,0.08)' }}>
-                    <Split size={13} style={{ color: '#8ed5ff' }} />
+                    style={{ background: 'rgb(var(--accent-rgb) / 0.08)' }}>
+                    <Split size={13} style={{ color: 'var(--accent)' }} />
                   </div>
-                  <p className="text-sm" style={{ color: '#8ed5ff' }}>Split transaction</p>
+                  <p className="text-sm" style={{ color: 'var(--accent)' }}>Split transaction</p>
                 </div>
                 <button
                   type="button"
                   onClick={toggleSplitOpen}
                   className="text-xs font-semibold"
-                  style={{ color: '#6b7280' }}
+                  style={{ color: 'var(--muted)' }}
                 >
                   Remove split
                 </button>
@@ -1305,7 +1305,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                           onChange={e => updateSplit(i, 'amount', parseFloat(e.target.value) || 0)}
                           placeholder="0.00"
                           className="w-24 shrink-0 px-2 py-1.5 text-sm rounded-lg outline-none"
-                          style={{ background: SURFACE_HI, border: '1px solid rgba(255,255,255,0.08)', color: '#dae2fd' }}
+                          style={{ background: SURFACE_HI, border: '1px solid rgba(255,255,255,0.08)', color: 'var(--text)' }}
                         />
                         <CustomSelect
                           value={split.category_id ?? ''}
@@ -1323,16 +1323,16 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                           onChange={e => updateSplit(i, 'notes', e.target.value)}
                           placeholder="Note…"
                           className="flex-1 px-2 py-1.5 text-sm rounded-lg outline-none"
-                          style={{ background: SURFACE_HI, border: '1px solid rgba(255,255,255,0.08)', color: '#dae2fd' }}
+                          style={{ background: SURFACE_HI, border: '1px solid rgba(255,255,255,0.08)', color: 'var(--text)' }}
                         />
                         {splits.length > 2 && (
                           <button
                             type="button"
                             onClick={() => removeSplit(i)}
                             className="mt-1 p-1 transition-colors"
-                            style={{ color: '#4b5563' }}
-                            onMouseEnter={e => (e.currentTarget.style.color = '#ffb4ab')}
-                            onMouseLeave={e => (e.currentTarget.style.color = '#4b5563')}
+                            style={{ color: 'var(--faint)' }}
+                            onMouseEnter={e => (e.currentTarget.style.color = 'var(--expense)')}
+                            onMouseLeave={e => (e.currentTarget.style.color = 'var(--faint)')}
                           >
                             <X size={14} />
                           </button>
@@ -1367,7 +1367,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                       type="button"
                       onClick={addSplit}
                       className="flex items-center gap-1 text-xs font-semibold"
-                      style={{ color: '#8ed5ff' }}
+                      style={{ color: 'var(--accent)' }}
                     >
                       <Plus size={12} /> Add split
                     </button>
@@ -1375,11 +1375,11 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                       className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
                       style={{
                         background: splitBalanced
-                          ? 'rgba(78,222,163,0.15)'
+                          ? 'rgb(var(--income-rgb) / 0.15)'
                           : remaining > 0
-                          ? 'rgba(245,158,11,0.15)'
-                          : 'rgba(255,180,171,0.15)',
-                        color: splitBalanced ? '#4edea3' : remaining > 0 ? '#f59e0b' : '#ffb4ab',
+                          ? 'rgb(var(--warn-rgb) / 0.15)'
+                          : 'rgb(var(--expense-rgb) / 0.15)',
+                        color: splitBalanced ? 'var(--income)' : remaining > 0 ? 'var(--warn)' : 'var(--expense)',
                       }}
                     >
                       {splitBalanced
@@ -1403,7 +1403,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
           {(saveError || (showErrors && (overAllocated || badLinkAmount || timeInvalid))) && (
             <div
               className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs"
-              style={{ background: 'rgba(255,100,100,0.08)', border: '1px solid rgba(255,100,100,0.3)', color: '#ffb4ab' }}
+              style={{ background: 'rgb(var(--expense-rgb) / 0.08)', border: '1px solid rgb(var(--expense-rgb) / 0.3)', color: 'var(--expense)' }}
             >
               <AlertCircle size={13} className="shrink-0" />
               {saveError
@@ -1417,7 +1417,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               type="button"
               onClick={onClose}
               className="px-4 py-3 rounded-xl text-sm font-bold transition-colors"
-              style={{ border: '1px solid rgba(255,255,255,0.1)', color: '#bdc8d1', background: 'transparent' }}
+              style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-2)', background: 'transparent' }}
               onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
@@ -1431,9 +1431,9 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                 title="Save and start another (Shift+Enter)"
                 className="flex-1 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50"
                 style={{
-                  border: '1px solid rgba(56,189,248,0.5)',
-                  color: '#8ed5ff',
-                  background: 'rgba(56,189,248,0.08)',
+                  border: '1px solid rgb(var(--accent-rgb) / 0.5)',
+                  color: 'var(--accent)',
+                  background: 'rgb(var(--accent-rgb) / 0.08)',
                   opacity: (!canSave && !showErrors) ? 0.4 : 1,
                 }}
               >
@@ -1447,8 +1447,8 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               title="Save (Enter)"
               className="flex-1 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50"
               style={{
-                background: '#38bdf8',
-                color: '#004965',
+                background: 'var(--accent)',
+                color: 'var(--on-accent)',
                 opacity: (!canSave && !showErrors) ? 0.4 : 1,
               }}
             >

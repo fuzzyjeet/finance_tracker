@@ -103,7 +103,7 @@ export const RefundLinkPicker: React.FC<Props> = ({ isOpen, onClose, onConfirm, 
   const selectedSum = selectedList.reduce((s, t) => s + remainingRefundable(t), 0);
   const filtersActive = !!(search || accountId || categoryId || period !== '90d');
 
-  const fieldStyle = { background: '#171f33', border: '1px solid rgba(255,255,255,0.08)' };
+  const fieldStyle = { background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)' };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -111,15 +111,15 @@ export const RefundLinkPicker: React.FC<Props> = ({ isOpen, onClose, onConfirm, 
 
       <div
         className="relative w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh]"
-        style={{ background: '#0f1829', border: '1px solid rgba(255,255,255,0.06)' }}
+        style={{ background: 'var(--surface-low)', border: '1px solid rgba(255,255,255,0.06)' }}
       >
         {/* Header */}
         <div className="flex items-start justify-between px-5 pt-5 pb-3 shrink-0">
           <div>
-            <h3 className="text-lg font-bold text-white" style={{ letterSpacing: '-0.02em' }}>Link transactions</h3>
-            <p className="text-xs mt-0.5" style={{ color: '#6b7280' }}>Select the expenses this refund covers</p>
+            <h3 className="text-lg font-bold text-on-surface" style={{ letterSpacing: '-0.02em' }}>Link transactions</h3>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>Select the expenses this refund covers</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: '#6b7280' }}>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: 'var(--muted)' }}>
             <X size={18} />
           </button>
         </div>
@@ -127,14 +127,14 @@ export const RefundLinkPicker: React.FC<Props> = ({ isOpen, onClose, onConfirm, 
         {/* Filters */}
         <div className="px-5 pb-3 space-y-2 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
           <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#6b7280' }} />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--muted)' }} />
             <input
               autoFocus
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search payee…"
               className="w-full pl-8 pr-3 py-2 text-sm rounded-lg outline-none"
-              style={{ ...fieldStyle, color: '#dae2fd' }}
+              style={{ ...fieldStyle, color: 'var(--text)' }}
             />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -162,21 +162,21 @@ export const RefundLinkPicker: React.FC<Props> = ({ isOpen, onClose, onConfirm, 
                   onClick={() => setPeriod(p.value)}
                   className="px-3 py-1 rounded-full text-xs font-semibold transition-all"
                   style={{
-                    background: active ? 'rgba(196,181,253,0.15)' : 'transparent',
-                    color: active ? '#c4b5fd' : '#6b7280',
-                    border: `1px solid ${active ? 'rgba(196,181,253,0.4)' : 'rgba(255,255,255,0.07)'}`,
+                    background: active ? 'rgb(var(--refund-rgb) / 0.15)' : 'transparent',
+                    color: active ? 'var(--refund)' : 'var(--muted)',
+                    border: `1px solid ${active ? 'rgb(var(--refund-rgb) / 0.4)' : 'rgba(255,255,255,0.07)'}`,
                   }}
                 >
                   {p.label}
                 </button>
               );
             })}
-            <label className="ml-auto flex items-center gap-1.5 text-xs cursor-pointer select-none" style={{ color: '#6b7280' }}>
+            <label className="ml-auto flex items-center gap-1.5 text-xs cursor-pointer select-none" style={{ color: 'var(--muted)' }}>
               <input
                 type="checkbox"
                 checked={hideRefunded}
                 onChange={e => setHideRefunded(e.target.checked)}
-                className="accent-[#c4b5fd]"
+                className="accent-[var(--refund)]"
               />
               Hide fully refunded
             </label>
@@ -185,12 +185,12 @@ export const RefundLinkPicker: React.FC<Props> = ({ isOpen, onClose, onConfirm, 
             <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 w-fit" style={fieldStyle}>
               <input
                 type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
-                className="bg-transparent text-sm outline-none" style={{ color: '#dae2fd', colorScheme: 'dark' }}
+                className="bg-transparent text-sm outline-none" style={{ color: 'var(--text)', colorScheme: 'dark' }}
               />
-              <span style={{ color: '#374151' }}>–</span>
+              <span style={{ color: 'var(--faint-2)' }}>–</span>
               <input
                 type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
-                className="bg-transparent text-sm outline-none" style={{ color: '#dae2fd', colorScheme: 'dark' }}
+                className="bg-transparent text-sm outline-none" style={{ color: 'var(--text)', colorScheme: 'dark' }}
               />
             </div>
           )}
@@ -200,10 +200,10 @@ export const RefundLinkPicker: React.FC<Props> = ({ isOpen, onClose, onConfirm, 
         <div className="flex-1 overflow-y-auto min-h-[200px]">
           {loading ? (
             <div className="flex items-center justify-center h-40">
-              <div className="animate-spin w-6 h-6 border-[3px] border-[#c4b5fd] border-t-transparent rounded-full" />
+              <div className="animate-spin w-6 h-6 border-[3px] border-[var(--refund)] border-t-transparent rounded-full" />
             </div>
           ) : visible.length === 0 ? (
-            <div className="text-center py-12 text-sm" style={{ color: '#4b5563' }}>
+            <div className="text-center py-12 text-sm" style={{ color: 'var(--faint)' }}>
               No matching expenses{filtersActive ? ' — try widening the filters' : ''}
             </div>
           ) : (
@@ -211,8 +211,8 @@ export const RefundLinkPicker: React.FC<Props> = ({ isOpen, onClose, onConfirm, 
               <button
                 type="button"
                 onClick={toggleAll}
-                className="w-full flex items-center gap-3 px-5 py-2 text-[10px] uppercase tracking-widest hover:bg-white/[0.02]"
-                style={{ color: '#6b7280', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                className="w-full flex items-center gap-3 px-5 py-2 text-xs hover:bg-white/[0.02]"
+                style={{ color: 'var(--muted)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
               >
                 <CheckBox checked={allVisibleSelected} />
                 {allVisibleSelected ? 'Deselect all' : `Select all ${visible.length}`}
@@ -228,7 +228,7 @@ export const RefundLinkPicker: React.FC<Props> = ({ isOpen, onClose, onConfirm, 
                     onClick={() => toggle(t)}
                     className="w-full flex items-center gap-3 px-5 py-2.5 text-left transition-colors"
                     style={{
-                      background: isSel ? 'rgba(196,181,253,0.07)' : 'transparent',
+                      background: isSel ? 'rgb(var(--refund-rgb) / 0.07)' : 'transparent',
                       borderBottom: '1px solid rgba(255,255,255,0.03)',
                     }}
                   >
@@ -237,16 +237,16 @@ export const RefundLinkPicker: React.FC<Props> = ({ isOpen, onClose, onConfirm, 
                       {t.category?.icon ?? (t.splits?.length ? '✂️' : '·')}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate" style={{ color: '#dae2fd' }}>{t.payee || '—'}</p>
-                      <p className="text-[11px] truncate" style={{ color: '#6b7280' }}>
+                      <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{t.payee || '—'}</p>
+                      <p className="text-xs truncate" style={{ color: 'var(--muted)' }}>
                         {fmtDate(t.date)} · {t.account_name}
                         {t.category ? ` · ${t.category.name}` : t.splits?.length ? ` · ${t.splits.length} splits` : ''}
                       </p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-sm font-bold tabular-nums" style={{ color: '#ffb4ab' }}>−{fmt(t.amount)}</p>
+                      <p className="text-sm font-bold tabular-nums" style={{ color: 'var(--expense)' }}>−{fmt(t.amount)}</p>
                       {partly && (
-                        <p className="text-[10px] flex items-center justify-end gap-0.5" style={{ color: '#c4b5fd' }}>
+                        <p className="text-xs flex items-center justify-end gap-0.5" style={{ color: 'var(--refund)' }}>
                           <Undo2 size={9} /> {fmt(remaining)} left
                         </p>
                       )}
@@ -261,18 +261,18 @@ export const RefundLinkPicker: React.FC<Props> = ({ isOpen, onClose, onConfirm, 
         {/* Footer */}
         <div className="flex items-center gap-3 px-5 py-3 shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold" style={{ color: selectedList.length ? '#dae2fd' : '#4b5563' }}>
+            <p className="text-sm font-semibold" style={{ color: selectedList.length ? 'var(--text)' : 'var(--faint)' }}>
               {selectedList.length} selected
             </p>
             {selectedList.length > 0 && (
-              <p className="text-[11px]" style={{ color: '#c4b5fd' }}>{fmt(selectedSum)} refundable</p>
+              <p className="text-xs" style={{ color: 'var(--refund)' }}>{fmt(selectedSum)} refundable</p>
             )}
           </div>
           <button
             type="button"
             onClick={onClose}
             className="px-4 py-2.5 rounded-xl text-sm font-bold"
-            style={{ border: '1px solid rgba(255,255,255,0.1)', color: '#bdc8d1' }}
+            style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-2)' }}
           >
             Cancel
           </button>
@@ -281,7 +281,7 @@ export const RefundLinkPicker: React.FC<Props> = ({ isOpen, onClose, onConfirm, 
             disabled={selectedList.length === 0}
             onClick={() => { onConfirm(selectedList); onClose(); }}
             className="px-4 py-2.5 rounded-xl text-sm font-bold disabled:opacity-40"
-            style={{ background: '#c4b5fd', color: '#2e1065' }}
+            style={{ background: 'var(--refund)', color: '#2e1065' }}
           >
             Link {selectedList.length || ''}
           </button>
@@ -295,8 +295,8 @@ const CheckBox: React.FC<{ checked: boolean }> = ({ checked }) => (
   <span
     className="w-4 h-4 rounded flex items-center justify-center shrink-0 transition-colors"
     style={{
-      background: checked ? '#c4b5fd' : 'transparent',
-      border: `1.5px solid ${checked ? '#c4b5fd' : 'rgba(255,255,255,0.2)'}`,
+      background: checked ? 'var(--refund)' : 'transparent',
+      border: `1.5px solid ${checked ? 'var(--refund)' : 'rgba(255,255,255,0.2)'}`,
     }}
   >
     {checked && <Check size={11} strokeWidth={3} style={{ color: '#2e1065' }} />}

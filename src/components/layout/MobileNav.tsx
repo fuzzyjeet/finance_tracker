@@ -27,7 +27,7 @@ export const MobileNav: React.FC = () => {
   useEffect(() => { setMoreOpen(false); }, [pathname]);
 
   const tabCls = (active: boolean) =>
-    `flex-1 flex flex-col items-center justify-center gap-1 h-14 text-[10px] font-semibold transition-colors ${
+    `flex-1 flex flex-col items-center justify-center gap-1 h-14 text-xs font-semibold transition-colors ${
       active ? 'text-primary' : 'text-on-surface-variant'
     }`;
 

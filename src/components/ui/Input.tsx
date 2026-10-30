@@ -11,7 +11,7 @@ export const Input: React.FC<InputProps> = ({ label, error, hint, className = ''
   return (
     <div className="flex flex-col gap-1">
       {label && (
-        <label htmlFor={inputId} className="text-xs font-medium text-on-surface-variant uppercase tracking-widest">
+        <label htmlFor={inputId} className="text-xs font-medium text-on-surface-variant">
           {label}
         </label>
       )}
@@ -28,7 +28,7 @@ export const Input: React.FC<InputProps> = ({ label, error, hint, className = ''
         {...props}
       />
       {error && <p className="text-xs text-error">{error}</p>}
-      {hint && !error && <p className="text-xs text-slate-500">{hint}</p>}
+      {hint && !error && <p className="text-xs text-muted">{hint}</p>}
     </div>
   );
 };

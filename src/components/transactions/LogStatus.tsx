@@ -51,7 +51,7 @@ export const LogStatus: React.FC = () => {
           key={d}
           type="button"
           onClick={() => openAdd({ date: d })}
-          className="shrink-0 whitespace-nowrap flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-yellow-500/30 bg-yellow-400/10 text-yellow-400 hover:bg-yellow-400/20 transition-colors"
+          className="shrink-0 whitespace-nowrap flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-warn/30 bg-warn/10 text-warn hover:bg-warn/20 transition-colors"
           title={`Add a transaction on ${d}`}
         >
           <CalendarPlus size={12} /> {dayLabel(d)}

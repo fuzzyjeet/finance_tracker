@@ -28,7 +28,7 @@ const ACCOUNT_COLORS = [
 ];
 
 const AccountIcon = ({ type }: { type: AccountType }) => {
-  const props = { size: 24, className: 'text-white' };
+  const props = { size: 24, className: 'text-on-surface' };
   if (type === 'credit_card') return <CreditCard {...props} />;
   if (type === 'savings') return <PiggyBank {...props} />;
   if (type === 'investment') return <TrendingUp {...props} />;
@@ -159,33 +159,33 @@ export const Accounts: React.FC = () => {
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   onClick={e => { e.stopPropagation(); openEdit(account); }}
-                  className="p-1.5 text-slate-500 hover:text-on-surface hover:bg-white/10 rounded-lg transition-colors"
+                  className="p-1.5 text-muted hover:text-on-surface hover:bg-white/10 rounded-lg transition-colors"
                 >
                   <Pencil size={15} />
                 </button>
                 <button
                   onClick={e => { e.stopPropagation(); setDeleteConfirm(account.id); }}
-                  className="p-1.5 text-slate-500 hover:text-error hover:bg-error/10 rounded-lg transition-colors"
+                  className="p-1.5 text-muted hover:text-error hover:bg-error/10 rounded-lg transition-colors"
                 >
                   <Trash2 size={15} />
                 </button>
               </div>
             </div>
 
-            <p className="font-headline font-semibold text-white">{account.name}</p>
+            <p className="font-headline font-semibold text-on-surface">{account.name}</p>
             <div className="flex items-center gap-2 mt-1 mb-3">
-              <Badge color={account.color}>
+              <Badge>
                 {account.type.replace('_', ' ')}
               </Badge>
-              <span className="text-xs text-slate-500 font-medium">{account.currency}</span>
+              <span className="text-xs text-muted font-medium">{account.currency}</span>
               {account.type === 'credit_card' && account.billing_cycle_day && (
-                <span className="text-xs text-slate-500">· Closes day {account.billing_cycle_day}</span>
+                <span className="text-xs text-muted">· Closes day {account.billing_cycle_day}</span>
               )}
             </div>
 
             <p
               className={`font-headline text-2xl font-bold ${
-                account.balance < 0 ? 'text-error' : 'text-white'
+                account.balance < 0 ? 'text-error' : 'text-on-surface'
               }`}
             >
               {formatAmount(account.balance, account.currency)}
@@ -222,7 +222,7 @@ export const Accounts: React.FC = () => {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-widest mb-2">Color</label>
+            <label className="block text-xs font-medium text-on-surface-variant mb-2">Color</label>
             <div className="flex flex-wrap gap-2">
               {ACCOUNT_COLORS.map(c => (
                 <button
@@ -262,8 +262,8 @@ export const Accounts: React.FC = () => {
                       onClick={() => setForm(f => ({ ...f, opening_is_debt: opt.debt }))}
                       className="px-3 py-1 rounded-md text-xs font-semibold transition-colors"
                       style={{
-                        background: active ? (opt.debt ? 'rgba(255,180,171,0.15)' : 'rgba(78,222,163,0.15)') : 'transparent',
-                        color: active ? (opt.debt ? '#ffb4ab' : '#4edea3') : '#6b7280',
+                        background: active ? (opt.debt ? 'rgb(var(--expense-rgb) / 0.15)' : 'rgb(var(--income-rgb) / 0.15)') : 'transparent',
+                        color: active ? (opt.debt ? 'var(--expense)' : 'var(--income)') : 'var(--muted)',
                       }}
                     >
                       {opt.label}

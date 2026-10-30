@@ -20,7 +20,7 @@ const fmt = (value: number) =>
 const TransactionTypeIcon = ({ type }: { type: string }) => {
   if (type === 'income') return <ArrowDownLeft size={14} className="text-secondary" />;
   if (type === 'expense') return <ArrowUpRight size={14} className="text-error" />;
-  return <ArrowLeftRight size={14} className="text-primary" />;
+  return <ArrowLeftRight size={14} className="text-transfer" />;
 };
 
 // ── Custom tooltips ────────────────────────────────────────
@@ -31,22 +31,22 @@ const CustomBarTooltip = ({ active, payload, label }: any) => {
   const net = income - expenses;
   return (
     <div style={{
-      background: '#131c30', border: '1px solid rgba(255,255,255,0.1)',
+      background: 'var(--surface-raised)', border: '1px solid rgba(255,255,255,0.1)',
       borderRadius: 10, padding: '10px 14px', fontSize: 12, minWidth: 160,
     }}>
-      <p style={{ color: '#dae2fd', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: 10 }}>{label}</p>
+      <p style={{ color: 'var(--text)', fontWeight: 700, marginBottom: 8, fontSize: 12 }}>{label}</p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
-          <span style={{ color: '#4edea3' }}>Income</span>
-          <span style={{ color: '#4edea3', fontWeight: 700 }}>+{fmt(income)}</span>
+          <span style={{ color: 'var(--income)' }}>Income</span>
+          <span style={{ color: 'var(--income)', fontWeight: 700 }}>+{fmt(income)}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
-          <span style={{ color: '#ffb4ab' }}>Expenses</span>
-          <span style={{ color: '#ffb4ab', fontWeight: 700 }}>−{fmt(expenses)}</span>
+          <span style={{ color: 'var(--expense)' }}>Expenses</span>
+          <span style={{ color: 'var(--expense)', fontWeight: 700 }}>−{fmt(expenses)}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.06)', marginTop: 2 }}>
-          <span style={{ color: '#bdc8d1' }}>Net</span>
-          <span style={{ color: net >= 0 ? '#4edea3' : '#ffb4ab', fontWeight: 700 }}>
+          <span style={{ color: 'var(--text-2)' }}>Net</span>
+          <span style={{ color: net >= 0 ? 'var(--income)' : 'var(--expense)', fontWeight: 700 }}>
             {net >= 0 ? '+' : ''}{fmt(net)}
           </span>
         </div>
@@ -60,11 +60,11 @@ const CustomPieTooltip = ({ active, payload }: any) => {
   const d = payload[0];
   return (
     <div style={{
-      background: '#131c30', border: '1px solid rgba(255,255,255,0.1)',
+      background: 'var(--surface-raised)', border: '1px solid rgba(255,255,255,0.1)',
       borderRadius: 10, padding: '8px 14px', fontSize: 12,
     }}>
-      <p style={{ color: '#dae2fd', fontWeight: 700, marginBottom: 2 }}>{d.name}</p>
-      <p style={{ color: '#ffb4ab', fontWeight: 700 }}>{fmt(d.value as number)}</p>
+      <p style={{ color: 'var(--text)', fontWeight: 700, marginBottom: 2 }}>{d.name}</p>
+      <p style={{ color: 'var(--expense)', fontWeight: 700 }}>{fmt(d.value as number)}</p>
     </div>
   );
 };
@@ -96,9 +96,9 @@ const PeriodControl: React.FC<PeriodControlProps> = ({
         onClick={onToggleMode}
         className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors"
         style={{
-          background: rangeMode === 'custom' ? 'rgba(142,213,255,0.15)' : 'rgba(255,255,255,0.05)',
-          color: rangeMode === 'custom' ? '#8ed5ff' : '#6b7280',
-          border: `1px solid ${rangeMode === 'custom' ? 'rgba(142,213,255,0.3)' : 'transparent'}`,
+          background: rangeMode === 'custom' ? 'rgb(var(--accent-rgb) / 0.15)' : 'rgba(255,255,255,0.05)',
+          color: rangeMode === 'custom' ? 'var(--accent)' : 'var(--muted)',
+          border: `1px solid ${rangeMode === 'custom' ? 'rgb(var(--accent-rgb) / 0.3)' : 'transparent'}`,
         }}
       >
         <Calendar size={11} />
@@ -111,11 +111,11 @@ const PeriodControl: React.FC<PeriodControlProps> = ({
             type="button"
             onClick={onPrev}
             className="p-1 rounded transition-colors hover:bg-white/5"
-            style={{ color: '#6b7280' }}
+            style={{ color: 'var(--muted)' }}
           >
             <ChevronLeft size={14} />
           </button>
-          <span className="text-xs font-semibold w-20 text-center" style={{ color: '#dae2fd' }}>
+          <span className="text-xs font-semibold w-20 text-center" style={{ color: 'var(--text)' }}>
             {format(chartDate, 'MMM yyyy')}
           </span>
           <button
@@ -123,7 +123,7 @@ const PeriodControl: React.FC<PeriodControlProps> = ({
             onClick={onNext}
             disabled={isCurrentMonth}
             className="p-1 rounded transition-colors hover:bg-white/5 disabled:opacity-30"
-            style={{ color: '#6b7280' }}
+            style={{ color: 'var(--muted)' }}
           >
             <ChevronRight size={14} />
           </button>
@@ -135,15 +135,15 @@ const PeriodControl: React.FC<PeriodControlProps> = ({
             value={customFrom}
             onChange={e => onCustomFrom(e.target.value)}
             className="bg-transparent text-xs outline-none px-2 py-1 rounded-lg"
-            style={{ color: '#dae2fd', border: '1px solid rgba(255,255,255,0.1)', colorScheme: 'dark' }}
+            style={{ color: 'var(--text)', border: '1px solid rgba(255,255,255,0.1)', colorScheme: 'dark' }}
           />
-          <span style={{ color: '#4b5563', fontSize: 11 }}>–</span>
+          <span style={{ color: 'var(--faint)', fontSize: 11 }}>–</span>
           <input
             type="date"
             value={customTo}
             onChange={e => onCustomTo(e.target.value)}
             className="bg-transparent text-xs outline-none px-2 py-1 rounded-lg"
-            style={{ color: '#dae2fd', border: '1px solid rgba(255,255,255,0.1)', colorScheme: 'dark' }}
+            style={{ color: 'var(--text)', border: '1px solid rgba(255,255,255,0.1)', colorScheme: 'dark' }}
           />
         </div>
       )}
@@ -305,8 +305,8 @@ export const Dashboard: React.FC = () => {
             const pct    = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
             const over   = pct > 100;
             const warn   = pct > 75 && !over;
-            const barColor  = over ? 'bg-error' : warn ? 'bg-yellow-400' : 'bg-secondary';
-            const textColor = over ? 'text-error' : warn ? 'text-yellow-400' : 'text-secondary';
+            const barColor  = over ? 'bg-error' : warn ? 'bg-warn' : 'bg-secondary';
+            const textColor = over ? 'text-error' : warn ? 'text-warn' : 'text-secondary';
             return (
               <Card
                 key={budget.id}
@@ -315,7 +315,7 @@ export const Dashboard: React.FC = () => {
               >
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-xl">{budget.category?.icon ?? '📦'}</span>
-                  <span className="text-xs font-medium text-on-surface-variant uppercase tracking-widest truncate">{budget.category?.name}</span>
+                  <span className="text-xs font-medium text-on-surface-variant truncate">{budget.category?.name}</span>
                 </div>
                 <div className="mb-3">
                   <div className="h-1 bg-surface-container-highest rounded-full overflow-hidden">
@@ -324,8 +324,8 @@ export const Dashboard: React.FC = () => {
                 </div>
                 <div className="flex flex-wrap items-end justify-between gap-x-2 gap-y-1">
                   <div>
-                    <p className="font-headline text-lg font-bold text-white">{fmt(spent)}</p>
-                    <p className="text-xs text-slate-500">of {fmt(budget.amount)}</p>
+                    <p className="font-headline text-lg font-bold text-on-surface">{fmt(spent)}</p>
+                    <p className="text-xs text-muted">of {fmt(budget.amount)}</p>
                   </div>
                   <span className={`text-xs font-bold ${textColor}`}>
                     {over ? `+${fmt(spent - budget.amount)} over` : `${fmt(budget.amount - spent)} left`}
@@ -344,7 +344,7 @@ export const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Account Balances */}
         <Card>
-          <h2 className="font-headline text-sm font-bold text-white uppercase tracking-widest mb-4">Account Balances</h2>
+          <h2 className="font-headline text-sm font-bold text-on-surface mb-4">Account Balances</h2>
           <div className="space-y-3">
             {accounts.map(account => (
               <button
@@ -356,10 +356,10 @@ export const Dashboard: React.FC = () => {
                   <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: account.color }} />
                   <div className="text-left">
                     <p className="text-sm font-medium text-on-surface">{account.name}</p>
-                    <p className="text-xs text-slate-500 capitalize">{account.type.replace('_', ' ')} · {account.currency}</p>
+                    <p className="text-xs text-muted capitalize">{account.type.replace('_', ' ')} · {account.currency}</p>
                   </div>
                 </div>
-                <span className={`text-sm font-semibold font-headline ${account.balance < 0 ? 'text-error' : 'text-white'}`}>
+                <span className={`text-sm font-semibold font-headline ${account.balance < 0 ? 'text-error' : 'text-on-surface'}`}>
                   {getCurrencySymbol(account.currency)}{fmt(account.balance)}
                 </span>
               </button>
@@ -370,18 +370,18 @@ export const Dashboard: React.FC = () => {
         {/* Recent Transactions */}
         <Card className="lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-headline text-sm font-bold text-white uppercase tracking-widest">Recent Transactions</h2>
+            <h2 className="font-headline text-sm font-bold text-on-surface">Recent Transactions</h2>
             <button
               onClick={() => navigate('/transactions')}
-              className="text-xs font-semibold transition-colors hover:text-white"
-              style={{ color: '#8ed5ff' }}
+              className="text-xs font-semibold transition-colors hover:text-on-surface"
+              style={{ color: 'var(--accent)' }}
             >
               View all →
             </button>
           </div>
           <div className="space-y-1">
             {recentTransactions.length === 0 && (
-              <p className="text-sm text-slate-500 text-center py-4">No transactions yet</p>
+              <p className="text-sm text-muted text-center py-4">No transactions yet</p>
             )}
             {recentTransactions.map(txn => (
               <button
@@ -398,13 +398,13 @@ export const Dashboard: React.FC = () => {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-on-surface">{txn.payee}</p>
-                    <p className="text-xs text-slate-500">{txn.account_name} · {txn.date}</p>
+                    <p className="text-xs text-muted">{txn.account_name} · {txn.date}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <TransactionTypeIcon type={txn.type} />
                   <span className={`text-sm font-semibold font-headline ${
-                    txn.type === 'income' ? 'text-secondary' : txn.type === 'expense' ? 'text-error' : 'text-primary'
+                    txn.type === 'income' ? 'text-secondary' : txn.type === 'expense' ? 'text-error' : 'text-transfer'
                   }`}>
                     {txn.type === 'income' ? '+' : txn.type === 'expense' ? '−' : ''}
                     {fmt(txn.amount)}
@@ -421,25 +421,25 @@ export const Dashboard: React.FC = () => {
         {/* Bar chart */}
         <Card glass>
           <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
-            <h2 className="font-headline text-sm font-bold text-white uppercase tracking-widest">Income vs Expenses</h2>
-            <span className="text-[10px]" style={{ color: '#4b5563' }}>Last 6 months</span>
+            <h2 className="font-headline text-sm font-bold text-on-surface">Income vs Expenses</h2>
+            <span className="text-xs" style={{ color: 'var(--faint)' }}>Last 6 months</span>
           </div>
           {barLoading ? (
             <div className="h-[240px] flex items-center justify-center">
               <div className="animate-spin w-6 h-6 border-4 border-primary border-t-transparent rounded-full" />
             </div>
           ) : monthlyData.length === 0 ? (
-            <div className="h-[240px] flex items-center justify-center text-sm text-slate-500">No data yet</div>
+            <div className="h-[240px] flex items-center justify-center text-sm text-muted">No data yet</div>
           ) : (
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={monthlyData} barGap={4} margin={{ top: 20, right: 0, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#6b7280' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} axisLine={false} tickLine={false}
+                <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--muted)' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: 'var(--muted)' }} axisLine={false} tickLine={false}
                   tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
                 <Tooltip content={<CustomBarTooltip />} />
-                <Bar dataKey="income" name="Income" fill="#4edea3" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expenses" name="Expenses" fill="#ffb4ab" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="income" name="Income" fill="var(--income)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="expenses" name="Expenses" fill="var(--expense)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -449,8 +449,8 @@ export const Dashboard: React.FC = () => {
         <Card glass>
           <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
             <div>
-              <h2 className="font-headline text-sm font-bold text-white uppercase tracking-widest">Spending by Category</h2>
-              <p className="text-[10px] mt-0.5" style={{ color: '#4b5563' }}>{piePeriodLabel}</p>
+              <h2 className="font-headline text-sm font-bold text-on-surface">Spending by Category</h2>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--faint)' }}>{piePeriodLabel}</p>
             </div>
             <PeriodControl
               chartDate={pieDate}
@@ -469,7 +469,7 @@ export const Dashboard: React.FC = () => {
               <div className="animate-spin w-6 h-6 border-4 border-primary border-t-transparent rounded-full" />
             </div>
           ) : categorySpending.length === 0 ? (
-            <div className="h-[220px] flex items-center justify-center text-sm text-slate-500">
+            <div className="h-[220px] flex items-center justify-center text-sm text-muted">
               No expense data for this period
             </div>
           ) : (
@@ -501,7 +501,7 @@ export const Dashboard: React.FC = () => {
                   layout="vertical"
                   align="right"
                   verticalAlign="middle"
-                  formatter={v => <span style={{ fontSize: 11, color: '#bdc8d1', cursor: 'pointer' }}>{v}</span>}
+                  formatter={v => <span style={{ fontSize: 11, color: 'var(--text-2)', cursor: 'pointer' }}>{v}</span>}
                 />
               </PieChart>
             </ResponsiveContainer>

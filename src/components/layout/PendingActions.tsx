@@ -51,7 +51,7 @@ export const PendingActions: React.FC = () => {
         onClick={() => setOpen(o => !o)}
         className={`relative w-9 h-9 rounded-lg flex items-center justify-center border transition-colors ${
           count > 0
-            ? 'text-yellow-400 border-yellow-500/30 bg-yellow-400/10 hover:bg-yellow-400/20'
+            ? 'text-warn border-warn/30 bg-warn/10 hover:bg-warn/20'
             : 'text-on-surface-variant border-white/5 hover:bg-white/5'
         }`}
         title={count > 0 ? `${count} pending approval${count > 1 ? 's' : ''}` : 'No pending actions'}
@@ -59,7 +59,7 @@ export const PendingActions: React.FC = () => {
       >
         <Bell size={16} />
         {count > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-yellow-400 text-[10px] font-bold text-black flex items-center justify-center">
+          <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-warn text-xs font-bold text-black flex items-center justify-center">
             {count}
           </span>
         )}

@@ -13,11 +13,11 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle, actions }) => {
   return (
     <div className="flex items-start justify-between gap-3 mb-5 md:mb-8">
       <div className="min-w-0">
-        <h1 className="font-headline text-xl md:text-2xl font-bold text-white flex items-center gap-2">{title}</h1>
+        <h1 className="font-headline text-xl md:text-2xl font-bold text-on-surface flex items-center gap-2">{title}</h1>
         {subtitle ? (
-          <p className="text-xs text-slate-500 mt-1 uppercase tracking-widest">{subtitle}</p>
+          <p className="text-xs text-muted mt-1">{subtitle}</p>
         ) : (
-          <p className="text-xs text-slate-500 mt-1 uppercase tracking-widest">{today}</p>
+          <p className="text-xs text-muted mt-1">{today}</p>
         )}
       </div>
       <div className="flex items-center gap-2 shrink-0 [&_button]:whitespace-nowrap">

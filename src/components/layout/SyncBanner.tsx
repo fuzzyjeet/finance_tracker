@@ -33,10 +33,10 @@ export const SyncBanner: React.FC = () => {
 
   const waiting = queue.length;
   return (
-    <div className="mb-4 rounded-xl border border-yellow-500/30 bg-yellow-400/10 px-4 py-3">
+    <div className="mb-4 rounded-xl border border-warn/30 bg-warn/10 px-4 py-3">
       <div className="flex items-center gap-2.5">
-        {online ? <RefreshCw size={15} className={`text-yellow-400 shrink-0 ${syncing ? 'animate-spin' : ''}`} />
-                : <CloudOff size={15} className="text-yellow-400 shrink-0" />}
+        {online ? <RefreshCw size={15} className={`text-warn shrink-0 ${syncing ? 'animate-spin' : ''}`} />
+                : <CloudOff size={15} className="text-warn shrink-0" />}
         <p className="flex-1 text-sm text-on-surface">
           {!online && waiting === 0 && "You're offline. New transactions will be saved on this phone and synced later."}
           {!online && waiting > 0 && `Offline · ${waiting} ${waiting === 1 ? 'entry' : 'entries'} saved on this phone, will sync when you're back online`}
@@ -47,7 +47,7 @@ export const SyncBanner: React.FC = () => {
             type="button"
             onClick={syncNow}
             disabled={syncing}
-            className="shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-yellow-400 border border-yellow-500/30 disabled:opacity-50"
+            className="shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-warn border border-warn/30 disabled:opacity-50"
           >
             Sync now
           </button>

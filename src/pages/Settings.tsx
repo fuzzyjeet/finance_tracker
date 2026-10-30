@@ -1,14 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Palette, Tag, Users, Plus, Pencil, Trash2, Check, X,
-  Sun, Moon, ChevronRight,
+  Tag, Users, Plus, Pencil, Trash2, Check, X,
+  ChevronRight,
 } from 'lucide-react';
 import { Header } from '../components/layout/Header';
 import { Card } from '../components/ui/Card';
 import { categoriesApi, CategoryPayload } from '../api/categories';
 import { transactionsApi } from '../api/transactions';
 import { Category, CategoryType } from '../types';
-import { useTheme } from '../contexts/ThemeContext';
 
 // ── Constants ──────────────────────────────────────────────
 const CAT_ICONS = [
@@ -22,17 +21,17 @@ const CAT_COLORS = [
   '#06b6d4','#f43f5e','#a855f7','#10b981','#fb923c',
 ];
 
-const DARK_HI = '#222a3d';
+const DARK_HI = 'var(--surface-hi)';
 const BORDER  = 'rgba(255,255,255,0.07)';
-const TEXT    = '#dae2fd';
-const MUTED   = '#6b7280';
+const TEXT    = 'var(--text)';
+const MUTED   = 'var(--muted)';
 
-type SettingsTab = 'appearance' | 'categories' | 'payees';
+type SettingsTab = 'categories' | 'payees';
 
 const TYPE_OPTIONS: { value: CategoryType; label: string; color: string }[] = [
-  { value: 'expense', label: 'Expense', color: '#ffb4ab' },
-  { value: 'income',  label: 'Income',  color: '#4edea3' },
-  { value: 'both',    label: 'Both',    color: '#8ed5ff' },
+  { value: 'expense', label: 'Expense', color: 'var(--expense)' },
+  { value: 'income',  label: 'Income',  color: 'var(--income)' },
+  { value: 'both',    label: 'Both',    color: 'var(--accent)' },
 ];
 
 // ── Category form ──────────────────────────────────────────
@@ -41,8 +40,7 @@ const emptyCatForm = (): CatForm => ({ name: '', icon: '📦', color: '#6366f1',
 
 // ── Settings page ──────────────────────────────────────────
 export const Settings: React.FC = () => {
-  const { theme, setTheme } = useTheme();
-  const [tab, setTab] = useState<SettingsTab>('appearance');
+  const [tab, setTab] = useState<SettingsTab>('categories');
 
   // ── Categories state ──────────────────────────────────
   const [categories, setCategories]   = useState<Category[]>([]);
@@ -158,11 +156,11 @@ export const Settings: React.FC = () => {
   const TabBtn = ({ id, icon: Icon, label }: { id: SettingsTab; icon: React.FC<any>; label: string }) => (
     <button
       onClick={() => setTab(id)}
-      className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold uppercase tracking-widest transition-all"
+      className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all"
       style={{
-        background: tab === id ? 'rgba(142,213,255,0.12)' : 'transparent',
-        color: tab === id ? '#8ed5ff' : MUTED,
-        border: `1px solid ${tab === id ? 'rgba(142,213,255,0.25)' : 'transparent'}`,
+        background: tab === id ? 'rgb(var(--accent-rgb) / 0.12)' : 'transparent',
+        color: tab === id ? 'var(--accent)' : MUTED,
+        border: `1px solid ${tab === id ? 'rgb(var(--accent-rgb) / 0.25)' : 'transparent'}`,
       }}
     >
       <Icon size={14} />
@@ -172,75 +170,13 @@ export const Settings: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-20">
-      <Header title="Settings" subtitle="Preferences & data management" />
+      <Header title="Settings" subtitle="Categories and payees" />
 
       {/* Tab bar */}
       <div className="flex gap-2 flex-wrap">
-        <TabBtn id="appearance" icon={Palette} label="Appearance" />
         <TabBtn id="categories" icon={Tag} label="Categories" />
         <TabBtn id="payees" icon={Users} label="Payees" />
       </div>
-
-      {/* ── APPEARANCE ─────────────────────────────────── */}
-      {tab === 'appearance' && (
-        <div className="space-y-4 max-w-lg">
-          <Card>
-            <h2 className="text-sm font-bold uppercase tracking-widest mb-5" style={{ color: TEXT }}>Theme</h2>
-            <div className="grid grid-cols-2 gap-3">
-              {/* Dark option */}
-              <button
-                onClick={() => setTheme('dark')}
-                className="relative rounded-xl p-4 text-left transition-all"
-                style={{
-                  background: '#0b1326',
-                  border: `2px solid ${theme === 'dark' ? '#8ed5ff' : 'rgba(255,255,255,0.07)'}`,
-                }}
-              >
-                {theme === 'dark' && (
-                  <div className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                    <Check size={11} style={{ color: '#00354a' }} />
-                  </div>
-                )}
-                <Moon size={20} className="mb-3 text-primary" />
-                <p className="text-sm font-semibold text-white">Dark</p>
-                <p className="text-[10px] mt-0.5" style={{ color: MUTED }}>Easy on the eyes</p>
-                {/* Mini preview */}
-                <div className="mt-3 rounded-lg overflow-hidden" style={{ background: '#171f33', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div className="h-1.5 w-1/2 rounded-full my-2 mx-2" style={{ background: '#8ed5ff' }} />
-                  <div className="h-1 w-3/4 rounded-full mb-2 mx-2" style={{ background: 'rgba(255,255,255,0.12)' }} />
-                </div>
-              </button>
-
-              {/* Light option */}
-              <button
-                onClick={() => setTheme('light')}
-                className="relative rounded-xl p-4 text-left transition-all"
-                style={{
-                  background: '#f8fafc',
-                  border: `2px solid ${theme === 'light' ? '#8ed5ff' : 'rgba(0,0,0,0.1)'}`,
-                }}
-              >
-                {theme === 'light' && (
-                  <div className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                    <Check size={11} style={{ color: '#00354a' }} />
-                  </div>
-                )}
-                <Sun size={20} className="mb-3" style={{ color: '#3b82f6' }} />
-                <p className="text-sm font-semibold" style={{ color: '#1e293b' }}>Light</p>
-                <p className="text-[10px] mt-0.5" style={{ color: '#64748b' }}>Bright & clean</p>
-                {/* Mini preview */}
-                <div className="mt-3 rounded-lg overflow-hidden" style={{ background: '#ffffff', border: '1px solid rgba(0,0,0,0.08)' }}>
-                  <div className="h-1.5 w-1/2 rounded-full my-2 mx-2" style={{ background: '#3b82f6' }} />
-                  <div className="h-1 w-3/4 rounded-full mb-2 mx-2" style={{ background: 'rgba(0,0,0,0.1)' }} />
-                </div>
-              </button>
-            </div>
-            <p className="text-[11px] mt-4" style={{ color: MUTED }}>
-              Note: modals and dropdowns are always dark-themed.
-            </p>
-          </Card>
-        </div>
-      )}
 
       {/* ── CATEGORIES ──────────────────────────────────── */}
       {tab === 'categories' && (
@@ -248,13 +184,13 @@ export const Settings: React.FC = () => {
           {/* Inline add/edit form */}
           {showCatForm && (
             <Card>
-              <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: '#8ed5ff' }}>
+              <h3 className="text-xs font-bold mb-4" style={{ color: 'var(--accent)' }}>
                 {editingCat ? 'Edit Category' : 'New Category'}
               </h3>
               <div className="space-y-4">
                 {/* Name */}
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest mb-1.5" style={{ color: MUTED }}>Name</p>
+                  <p className="text-xs mb-1.5" style={{ color: MUTED }}>Name</p>
                   <input
                     autoFocus
                     className="w-full rounded-lg px-3 py-2 text-sm outline-none"
@@ -268,7 +204,7 @@ export const Settings: React.FC = () => {
 
                 {/* Type */}
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest mb-1.5" style={{ color: MUTED }}>Type</p>
+                  <p className="text-xs mb-1.5" style={{ color: MUTED }}>Type</p>
                   <div className="flex gap-2">
                     {TYPE_OPTIONS.map(opt => (
                       <button
@@ -276,7 +212,7 @@ export const Settings: React.FC = () => {
                         onClick={() => setCatForm(f => ({ ...f, type: opt.value }))}
                         className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
                         style={{
-                          background: catForm.type === opt.value ? `${opt.color}22` : DARK_HI,
+                          background: catForm.type === opt.value ? `color-mix(in srgb, ${opt.color} 14%, transparent)` : DARK_HI,
                           color: catForm.type === opt.value ? opt.color : MUTED,
                           border: `1px solid ${catForm.type === opt.value ? opt.color + '55' : BORDER}`,
                         }}
@@ -289,7 +225,7 @@ export const Settings: React.FC = () => {
 
                 {/* Icon */}
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest mb-1.5" style={{ color: MUTED }}>Icon</p>
+                  <p className="text-xs mb-1.5" style={{ color: MUTED }}>Icon</p>
                   <div className="flex flex-wrap gap-1.5">
                     {CAT_ICONS.map(icon => (
                       <button
@@ -297,8 +233,8 @@ export const Settings: React.FC = () => {
                         onClick={() => setCatForm(f => ({ ...f, icon }))}
                         className="w-8 h-8 rounded-lg flex items-center justify-center text-base transition-all"
                         style={{
-                          background: catForm.icon === icon ? 'rgba(142,213,255,0.15)' : DARK_HI,
-                          border: `1px solid ${catForm.icon === icon ? 'rgba(142,213,255,0.4)' : BORDER}`,
+                          background: catForm.icon === icon ? 'rgb(var(--accent-rgb) / 0.15)' : DARK_HI,
+                          border: `1px solid ${catForm.icon === icon ? 'rgb(var(--accent-rgb) / 0.4)' : BORDER}`,
                           fontSize: 16,
                         }}
                       >
@@ -310,7 +246,7 @@ export const Settings: React.FC = () => {
 
                 {/* Color */}
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest mb-1.5" style={{ color: MUTED }}>Color</p>
+                  <p className="text-xs mb-1.5" style={{ color: MUTED }}>Color</p>
                   <div className="flex flex-wrap gap-2">
                     {CAT_COLORS.map(color => (
                       <button
@@ -333,7 +269,7 @@ export const Settings: React.FC = () => {
                     onClick={saveCat}
                     disabled={catSaving || !catForm.name.trim()}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
-                    style={{ background: '#8ed5ff', color: '#00354a' }}
+                    style={{ background: 'var(--accent)', color: 'var(--on-accent)' }}
                   >
                     <Check size={13} />
                     {catSaving ? 'Saving…' : editingCat ? 'Update' : 'Create'}
@@ -357,7 +293,7 @@ export const Settings: React.FC = () => {
 
           <Card>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-bold uppercase tracking-widest" style={{ color: TEXT }}>Categories</h2>
+              <h2 className="text-sm font-bold" style={{ color: TEXT }}>Categories</h2>
               <div className="flex items-center gap-2">
                 <input
                   className="bg-transparent text-xs outline-none px-3 py-1.5 rounded-lg"
@@ -369,7 +305,7 @@ export const Settings: React.FC = () => {
                 <button
                   onClick={openAddCat}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                  style={{ background: 'rgba(142,213,255,0.1)', color: '#8ed5ff', border: '1px solid rgba(142,213,255,0.25)' }}
+                  style={{ background: 'rgb(var(--accent-rgb) / 0.1)', color: 'var(--accent)', border: '1px solid rgb(var(--accent-rgb) / 0.25)' }}
                 >
                   <Plus size={13} /> Add
                 </button>
@@ -394,7 +330,7 @@ export const Settings: React.FC = () => {
                     <div
                       key={cat.id}
                       className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
-                      style={{ background: editingCat?.id === cat.id ? 'rgba(142,213,255,0.05)' : 'rgba(255,255,255,0.02)' }}
+                      style={{ background: editingCat?.id === cat.id ? 'rgb(var(--accent-rgb) / 0.05)' : 'rgba(255,255,255,0.02)' }}
                     >
                       {/* Color swatch */}
                       <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: cat.color }} />
@@ -404,26 +340,26 @@ export const Settings: React.FC = () => {
                       <span className="flex-1 text-sm font-medium" style={{ color: TEXT }}>{cat.name}</span>
                       {/* Type badge */}
                       <span
-                        className="text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider"
-                        style={{ background: `${typeOpt?.color ?? '#6b7280'}18`, color: typeOpt?.color ?? '#6b7280' }}
+                        className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                        style={{ background: `color-mix(in srgb, ${typeOpt?.color ?? 'var(--muted)'} 10%, transparent)`, color: typeOpt?.color ?? 'var(--muted)' }}
                       >
                         {cat.type}
                       </span>
                       {/* Actions */}
                       {isConfirming ? (
                         <div className="flex items-center gap-1">
-                          <span className="text-[10px] mr-1" style={{ color: '#ffb4ab' }}>Delete?</span>
+                          <span className="text-xs mr-1" style={{ color: 'var(--expense)' }}>Delete?</span>
                           <button
                             onClick={() => deleteCat(cat.id)}
                             disabled={isDeleting}
-                            className="px-2 py-1 rounded text-[10px] font-semibold"
-                            style={{ background: 'rgba(255,100,100,0.15)', color: '#ffb4ab' }}
+                            className="px-2 py-1 rounded text-xs font-semibold"
+                            style={{ background: 'rgb(var(--expense-rgb) / 0.15)', color: 'var(--expense)' }}
                           >
                             {isDeleting ? '…' : 'Yes'}
                           </button>
                           <button
                             onClick={() => setConfirmDeleteId(null)}
-                            className="px-2 py-1 rounded text-[10px] font-semibold"
+                            className="px-2 py-1 rounded text-xs font-semibold"
                             style={{ background: DARK_HI, color: MUTED }}
                           >
                             No
@@ -463,7 +399,7 @@ export const Settings: React.FC = () => {
         <div className="space-y-4 max-w-xl">
           {/* Custom payees */}
           <Card>
-            <h2 className="text-sm font-bold uppercase tracking-widest mb-1" style={{ color: TEXT }}>Custom Payees</h2>
+            <h2 className="text-sm font-bold mb-1" style={{ color: TEXT }}>Custom Payees</h2>
             <p className="text-xs mb-4" style={{ color: MUTED }}>
               These payees are always available as autocomplete suggestions when adding transactions.
             </p>
@@ -480,7 +416,7 @@ export const Settings: React.FC = () => {
                 onClick={addCustomPayee}
                 disabled={!newPayee.trim()}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all disabled:opacity-40"
-                style={{ background: 'rgba(142,213,255,0.1)', color: '#8ed5ff', border: '1px solid rgba(142,213,255,0.25)' }}
+                style={{ background: 'rgb(var(--accent-rgb) / 0.1)', color: 'var(--accent)', border: '1px solid rgb(var(--accent-rgb) / 0.25)' }}
               >
                 <Plus size={13} /> Add
               </button>
@@ -516,8 +452,8 @@ export const Settings: React.FC = () => {
           <Card>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-sm font-bold uppercase tracking-widest" style={{ color: TEXT }}>From Transactions</h2>
-                <p className="text-[11px] mt-0.5" style={{ color: MUTED }}>Auto-discovered from your transaction history</p>
+                <h2 className="text-sm font-bold" style={{ color: TEXT }}>From Transactions</h2>
+                <p className="text-xs mt-0.5" style={{ color: MUTED }}>Auto-discovered from your transaction history</p>
               </div>
               <input
                 className="bg-transparent text-xs outline-none px-3 py-1.5 rounded-lg"
@@ -549,7 +485,7 @@ export const Settings: React.FC = () => {
                       <span className="text-sm" style={{ color: TEXT }}>{name}</span>
                     </div>
                     <span
-                      className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                      className="text-xs font-semibold px-2 py-0.5 rounded-full"
                       style={{ background: 'rgba(255,255,255,0.05)', color: MUTED }}
                     >
                       {count} txn{count !== 1 ? 's' : ''}
