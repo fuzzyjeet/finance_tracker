@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle, ChevronDown, Plus, X, ArrowDown, ArrowUp, ArrowLeftRight, Tag as TagIcon, Split, Undo2,
-  CalendarDays, MessageSquare, FolderOpen, CheckCircle2,
+  CalendarDays, MessageSquare, FolderOpen, CheckCircle2, Trash2,
 } from 'lucide-react';
 import { CustomSelect } from '../ui/CustomSelect';
 import { RefundLinkPicker, remainingRefundable } from './RefundLinkPicker';
@@ -185,9 +185,12 @@ interface Props {
   refundOf?: Transaction | null;
   /** Prefills the date of a new transaction (e.g. backfilling a missed day). */
   defaultDate?: string;
+  /** Shown as header actions while editing (the only way to reach them on a phone) */
+  onDelete?: () => void;
+  onRefund?: () => void;
 }
 
-export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved, editing, refundOf, defaultDate }) => {
+export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved, editing, refundOf, defaultDate, onDelete, onRefund }) => {
   const [accounts, setAccounts]     = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags]             = useState<Tag[]>([]);
@@ -575,18 +578,18 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
 
   // ── Render ────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-4">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
       {/* Dialog */}
       <div
-        className="relative w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="relative w-full md:max-w-md rounded-t-2xl md:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[94dvh] md:max-h-[90vh]"
         style={{ background: '#0f1829', border: '1px solid rgba(255,255,255,0.06)' }}
         onKeyDown={onFormKeyDown}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 shrink-0">
+        <div className="flex items-center justify-between gap-2 px-5 md:px-6 pt-4 md:pt-5 pb-3 md:pb-4 shrink-0">
           <div className="min-w-0">
             <h2 className="text-lg font-bold text-white" style={{ letterSpacing: '-0.02em' }}>
               {editing ? 'Edit Transaction' : form.type === 'refund' ? 'New Refund' : 'New Transaction'}
@@ -597,6 +600,28 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               </p>
             )}
           </div>
+          <div className="flex items-center gap-1 shrink-0">
+          {editing && onRefund && (
+            <button
+              type="button"
+              onClick={onRefund}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold"
+              style={{ color: '#c4b5fd', background: 'rgba(196,181,253,0.1)' }}
+            >
+              <Undo2 size={13} /> Refund
+            </button>
+          )}
+          {editing && onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              className="p-2 rounded-lg"
+              style={{ color: '#ffb4ab' }}
+              aria-label="Delete transaction"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg transition-colors"
@@ -606,9 +631,10 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
           >
             <X size={18} />
           </button>
+          </div>
         </div>
 
-        <div className="overflow-y-auto flex-1 px-6 pb-6 space-y-4">
+        <div className="overflow-y-auto overscroll-contain flex-1 px-5 md:px-6 pb-4 space-y-4">
 
           {/* ── 1. Type toggle ──────────────────────────────── */}
           <div className="grid grid-cols-4 gap-1.5">
@@ -993,7 +1019,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                     aria-label="Time (24h)"
                     placeholder="HH:MM"
                     maxLength={5}
-                    className="w-[3.75rem] shrink-0 bg-transparent text-sm font-medium outline-none tabular-nums pl-2"
+                    className="w-[4.5rem] shrink-0 bg-transparent text-sm font-medium outline-none tabular-nums pl-2"
                     style={{ color: timeInvalid ? '#ffb4ab' : '#dae2fd', borderLeft: '1px solid rgba(255,255,255,0.08)' }}
                     value={form.time}
                     onChange={e => setForm(f => ({ ...f, time: formatTimeInput(e.target.value) }))}
@@ -1363,7 +1389,13 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
             </div>
           )}
 
-          {/* ── 7. Action buttons ───────────────────────────── */}
+        </div>
+
+        {/* ── 7. Action buttons: pinned so they stay reachable above the keyboard / home bar ── */}
+        <div
+          className="shrink-0 px-5 md:px-6 pt-3 space-y-3"
+          style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
+        >
           {(saveError || (showErrors && (overAllocated || badLinkAmount || timeInvalid))) && (
             <div
               className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs"
@@ -1376,7 +1408,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                 : 'Each linked transaction needs an amount greater than zero')}
             </div>
           )}
-          <div className="flex gap-2 pt-1">
+          <div className="flex gap-2">
             <button
               type="button"
               onClick={onClose}

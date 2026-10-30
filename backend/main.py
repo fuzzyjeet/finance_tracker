@@ -92,8 +92,14 @@ _static_dir = os.path.join(os.path.dirname(__file__), "../dist")
 if os.path.isdir(_static_dir):
     app.mount("/assets", StaticFiles(directory=os.path.join(_static_dir, "assets")), name="assets")
 
+    _static_root = os.path.realpath(_static_dir)
+
     @app.get("/{full_path:path}", include_in_schema=False)
     def serve_spa(full_path: str):
+        # Real files in dist/ (manifest, icons, favicon) are served as-is; every other path is the SPA
+        candidate = os.path.realpath(os.path.join(_static_root, full_path))
+        if full_path and candidate.startswith(_static_root + os.sep) and os.path.isfile(candidate):
+            return FileResponse(candidate)
         return FileResponse(os.path.join(_static_dir, "index.html"))
 
 

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   Pencil, Trash2, Search, ChevronLeft, ChevronRight,
-  ArrowUpRight, ArrowDownLeft, ArrowLeftRight, ChevronDown, X, Undo2,
+  ArrowUpRight, ArrowDownLeft, ArrowLeftRight, ChevronDown, X, Undo2, SlidersHorizontal,
 } from 'lucide-react';
 import { Header } from '../components/layout/Header';
 import { Button } from '../components/ui/Button';
@@ -104,6 +104,86 @@ function SplitCategoriesCell({
   );
 }
 
+// ── Phone list: one tappable row per transaction ──────────
+const AMOUNT_COLORS: Record<string, string> = {
+  income: '#4edea3', expense: '#ffb4ab', refund: '#c4b5fd', transfer: '#8ed5ff',
+};
+const AMOUNT_SIGN: Record<string, string> = { income: '+', expense: '−', refund: '+', transfer: '' };
+
+function MobileTransactionList({
+  groups,
+  onOpen,
+}: {
+  groups: { date: string; txns: Transaction[] }[];
+  onOpen: (txn: Transaction) => void;
+}) {
+  return (
+    <div className="md:hidden">
+      {groups.map(group => {
+        const net = group.txns.reduce((s, t) =>
+          s + (t.type === 'income' || t.type === 'refund' ? t.amount : t.type === 'expense' ? -t.amount : 0), 0);
+        return (
+          <div key={group.date}>
+            <div
+              className="flex items-center justify-between px-4 py-2"
+              style={{ background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.04)' }}
+            >
+              <span className="text-xs font-semibold" style={{ color: '#9ca3af' }}>{formatDateLabel(group.date)}</span>
+              <span className="text-xs font-semibold tabular-nums" style={{ color: net >= 0 ? '#4edea3' : '#ffb4ab' }}>
+                {net >= 0 ? '+' : '−'}{formatCurrency(Math.abs(net))}
+              </span>
+            </div>
+            {group.txns.map(txn => {
+              const splitCount = txn.splits?.length ?? 0;
+              const what = txn.type === 'transfer'
+                ? `${txn.account_name} → ${txn.to_account_name ?? ''}`
+                : [
+                    splitCount > 0 ? `${splitCount} splits` : txn.category?.name ?? 'No category',
+                    txn.account_name,
+                  ].filter(Boolean).join(' · ');
+              return (
+                <button
+                  key={txn.id}
+                  type="button"
+                  onClick={() => onOpen(txn)}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left active:bg-white/5"
+                  style={{ borderTop: '1px solid rgba(255,255,255,0.03)' }}
+                >
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0"
+                    style={{ background: txn.category ? `${txn.category.color}22` : 'rgba(255,255,255,0.05)' }}
+                  >
+                    {txn.type === 'transfer' ? <ArrowLeftRight size={16} style={{ color: '#8ed5ff' }} />
+                      : splitCount > 0 ? <span className="text-sm">✂️</span>
+                      : txn.category?.icon ?? '💸'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[15px] font-medium truncate" style={{ color: '#dae2fd' }}>{txn.payee}</p>
+                    <p className="text-xs truncate" style={{ color: '#8b95a5' }}>
+                      {what}
+                      {txn.notes ? ` · ${txn.notes}` : ''}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-[15px] font-semibold tabular-nums" style={{ color: AMOUNT_COLORS[txn.type] }}>
+                      {AMOUNT_SIGN[txn.type]}{formatCurrency(txn.amount)}
+                    </p>
+                    <p className="text-[11px] tabular-nums" style={{ color: (txn.refunded_amount ?? 0) > 0 ? '#c4b5fd' : '#6b7280' }}>
+                      {(txn.refunded_amount ?? 0) > 0
+                        ? (txn.is_fully_refunded ? 'refunded' : `−${formatCurrency(txn.refunded_amount!)} refunded`)
+                        : txn.time ?? ''}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Main page ──────────────────────────────────────────────
 export const Transactions: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -132,6 +212,8 @@ export const Transactions: React.FC = () => {
   const [expandedSplits, setExpandedSplits] = useState<Set<string>>(new Set());
 
   const [expandedLinks, setExpandedLinks]   = useState<Set<string>>(new Set());
+  // Phones: filters beyond search fold away behind a button
+  const [filtersOpen, setFiltersOpen]       = useState(false);
 
   const toggleSplits = (id: string) =>
     setExpandedSplits(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
@@ -242,6 +324,23 @@ export const Transactions: React.FC = () => {
             />
           </div>
 
+          <button
+            type="button"
+            onClick={() => setFiltersOpen(o => !o)}
+            className="md:hidden flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium"
+            style={{
+              color: activeFilterCount > (filterSearch ? 1 : 0) ? '#8ed5ff' : '#bdc8d1',
+              background: '#171f33',
+              border: '1px solid rgba(255,255,255,0.08)',
+            }}
+          >
+            <SlidersHorizontal size={14} />
+            Filters{activeFilterCount - (filterSearch ? 1 : 0) > 0 ? ` · ${activeFilterCount - (filterSearch ? 1 : 0)}` : ''}
+          </button>
+
+          {/* On phones the rest only shows when "Filters" is open; on desktop the wrapper disappears */}
+          <div className={`${filtersOpen ? 'flex' : 'hidden'} md:contents w-full flex-wrap gap-2`}>
+
           {/* Account */}
           <CustomSelect
             value={filterAccount}
@@ -298,10 +397,11 @@ export const Transactions: React.FC = () => {
               <X size={12} /> Clear
             </button>
           )}
+          </div>
         </div>
 
         {/* Row 2: type toggle pills */}
-        <div className="flex items-center gap-1.5 mt-2.5">
+        <div className={`${filtersOpen ? 'flex' : 'hidden'} md:flex items-center gap-1.5 mt-2.5 overflow-x-auto`}>
           <span className="text-[10px] uppercase tracking-widest mr-1" style={{ color: '#4b5563' }}>Type</span>
           {TYPE_OPTS.map(opt => {
             const active = filterType === opt.value;
@@ -310,7 +410,7 @@ export const Transactions: React.FC = () => {
                 key={opt.value}
                 type="button"
                 onClick={() => setFilterType(opt.value)}
-                className="px-3 py-1 rounded-full text-xs font-semibold transition-all"
+                className="shrink-0 px-3 py-1 rounded-full text-xs font-semibold transition-all"
                 style={{
                   background: active
                     ? (opt.color ? `${opt.color}22` : 'rgba(255,255,255,0.1)')
@@ -327,7 +427,7 @@ export const Transactions: React.FC = () => {
           })}
           {activeFilterCount > 0 && (
             <span
-              className="ml-auto text-[10px] uppercase tracking-widest"
+              className="hidden md:inline ml-auto text-[10px] uppercase tracking-widest"
               style={{ color: '#4b5563' }}
             >
               {activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''} active
@@ -348,7 +448,9 @@ export const Transactions: React.FC = () => {
         ) : transactions.length === 0 ? (
           <div className="text-center py-12 text-sm" style={{ color: '#4b5563' }}>No transactions found</div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <MobileTransactionList groups={dateGroups} onOpen={openEdit} />
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}>
@@ -653,6 +755,7 @@ export const Transactions: React.FC = () => {
               </tbody>
             </table>
           </div>
+          </>
         )}
 
         {/* Pagination */}
@@ -660,8 +763,8 @@ export const Transactions: React.FC = () => {
           className="flex items-center justify-between px-4 py-3"
           style={{ borderTop: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}
         >
-          <span className="text-xs uppercase tracking-widest" style={{ color: '#4b5563' }}>
-            Showing {offset + 1}–{offset + transactions.length}
+          <span className="text-xs uppercase tracking-widest" style={{ color: '#6b7280' }}>
+            {offset + 1}–{offset + transactions.length}
           </span>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={prevPage} disabled={offset === 0}>
@@ -680,6 +783,9 @@ export const Transactions: React.FC = () => {
         onSaved={handleSaved}
         editing={editing}
         refundOf={refundOf}
+        onDelete={editing ? () => { setModalOpen(false); setDeleteConfirm(editing.id); } : undefined}
+        onRefund={editing && editing.type === 'expense' && !editing.is_fully_refunded
+          ? () => openRefund(editing) : undefined}
       />
 
       {/* Delete confirm */}

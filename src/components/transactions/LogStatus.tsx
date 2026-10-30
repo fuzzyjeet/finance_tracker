@@ -68,20 +68,21 @@ export const LogStatus: React.FC = () => {
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 md:ml-auto">
+      {/* Phones: one horizontally scrolling row instead of wrapping onto many lines */}
+      <div className="flex items-center gap-2 w-full md:w-auto md:ml-auto md:flex-wrap overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
         {missing.length === 0 ? (
           <span className="flex items-center gap-1.5 text-sm text-secondary">
             <CheckCircle2 size={15} /> Every day this week has entries
           </span>
         ) : (
           <>
-            <span className="text-sm text-on-surface-variant">No entries on</span>
+            <span className="shrink-0 text-sm text-on-surface-variant">No entries on</span>
             {missing.map(d => (
               <button
                 key={d}
                 type="button"
                 onClick={() => openAdd({ date: d })}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border border-yellow-500/30 bg-yellow-400/10 text-yellow-400 hover:bg-yellow-400/20 transition-colors"
+                className="shrink-0 whitespace-nowrap flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-yellow-500/30 bg-yellow-400/10 text-yellow-400 hover:bg-yellow-400/20 transition-colors"
                 title={`Add a transaction on ${d}`}
               >
                 <CalendarPlus size={12} /> {dayLabel(d)}

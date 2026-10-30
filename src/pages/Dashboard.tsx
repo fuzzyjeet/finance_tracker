@@ -322,7 +322,7 @@ export const Dashboard: React.FC = () => {
                     <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.min(100, pct)}%` }} />
                   </div>
                 </div>
-                <div className="flex items-end justify-between">
+                <div className="flex flex-wrap items-end justify-between gap-x-2 gap-y-1">
                   <div>
                     <p className="font-headline text-lg font-bold text-white">{fmt(spent)}</p>
                     <p className="text-xs text-slate-500">of {fmt(budget.amount)}</p>

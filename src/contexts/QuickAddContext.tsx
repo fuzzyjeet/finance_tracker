@@ -23,10 +23,10 @@ export const QuickAddProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     <QuickAddContext.Provider value={openAdd}>
       {children}
 
-      {/* Floating add button — bottom-left of the content area, clear of the sidebar */}
+      {/* Floating add button — bottom-left: above the tab bar on phones, clear of the sidebar on desktop */}
       <button
         onClick={() => openAdd()}
-        className="fixed bottom-6 left-6 md:left-[17.5rem] w-14 h-14 bg-primary-container text-on-primary-container rounded-full shadow-lg flex items-center justify-center transition-all hover:brightness-110 active:scale-95 z-40"
+        className="fixed fab-position w-14 h-14 bg-primary-container text-on-primary-container rounded-full shadow-lg flex items-center justify-center transition-all hover:brightness-110 active:scale-95 z-40"
         title="Add transaction"
         aria-label="Add transaction"
       >

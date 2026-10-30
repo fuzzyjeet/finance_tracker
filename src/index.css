@@ -49,6 +49,36 @@
   box-sizing: border-box;
 }
 
+/* ── Phone / installed PWA ─────────────────────────────── */
+html, body {
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Page padding that clears the notch, and the tab bar + floating button */
+.pt-safe-page { padding-top: calc(1.25rem + env(safe-area-inset-top)); }
+.pb-safe-page { padding-bottom: calc(9rem + env(safe-area-inset-bottom)); }
+@media (min-width: 768px) {
+  .pt-safe-page { padding-top: 2rem; }
+  .pb-safe-page { padding-bottom: 2rem; }
+}
+
+/* Floating add button */
+.fab-position {
+  left: 1rem;
+  bottom: calc(4.5rem + env(safe-area-inset-bottom));
+}
+@media (min-width: 768px) {
+  .fab-position { left: 17.5rem; bottom: 1.5rem; }
+}
+
+/* iOS zooms into any field under 16px; keep inputs at 16px on phones (big amount input excepted) */
+@media (max-width: 767px) {
+  input:not(.text-4xl), select, textarea {
+    font-size: 16px !important;
+  }
+}
+
 body {
   font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
