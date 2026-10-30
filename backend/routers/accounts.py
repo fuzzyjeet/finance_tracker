@@ -32,8 +32,8 @@ def recalculate_balance(db: Session, account_id: str) -> float:
             elif txn.to_account_id == account_id:
                 balance += txn.amount
 
-    account.balance = balance
-    return balance
+    account.balance = round(balance, 2) + 0.0  # + 0.0 turns -0.0 into 0.0
+    return account.balance
 
 
 @router.get("", response_model=List[AccountRead])

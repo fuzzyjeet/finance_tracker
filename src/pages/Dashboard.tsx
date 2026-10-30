@@ -230,12 +230,9 @@ export const Dashboard: React.FC = () => {
         ? pieCustomTo
         : format(endOfMonth(pieDate), 'yyyy-MM-dd');
 
-      // Fetch all transactions and filter client-side — avoids relying on
-      // backend type/date query params which can behave inconsistently.
-      const allTxns = await transactionsApi.list({ limit: 1000 });
-      const inRange = allTxns.filter(t =>
-        t.type === 'expense' && t.date >= from && t.date <= to
-      );
+      const inRange = await transactionsApi.list({
+        type: 'expense', date_from: from, date_to: to, limit: 5000,
+      });
 
       const catMap: Record<string, CatSpend> = {};
       for (const t of inRange) {
