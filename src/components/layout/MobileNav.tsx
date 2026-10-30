@@ -4,6 +4,7 @@ import {
   ArrowLeftRight, LayoutDashboard, PieChart, RefreshCw, MoreHorizontal,
   CreditCard, FolderOpen, Settings, X,
 } from 'lucide-react';
+import { emitTabReselected } from '../../lib/events';
 
 const tabs = [
   { to: '/transactions', icon: ArrowLeftRight, label: 'Transactions' },
@@ -74,7 +75,12 @@ export const MobileNav: React.FC = () => {
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         {tabs.map(({ to, icon: Icon, label }) => (
-          <NavLink key={to} to={to} className={({ isActive }) => tabCls(isActive)}>
+          <NavLink
+            key={to}
+            to={to}
+            className={({ isActive }) => tabCls(isActive)}
+            onClick={() => { if (pathname === to) emitTabReselected(to); }}
+          >
             <Icon size={20} /> {label}
           </NavLink>
         ))}

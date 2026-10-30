@@ -1,5 +1,6 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
+import { emitTabReselected } from '../../lib/events';
 import {
   LayoutDashboard,
   CreditCard,
@@ -21,6 +22,7 @@ const navItems = [
 ];
 
 export const Sidebar: React.FC = () => {
+  const { pathname } = useLocation();
   return (
     <aside className="sidebar-themed hidden md:flex flex-col h-full py-8 w-64 border-r shrink-0 transition-all duration-300 ease-in-out" style={{ borderColor: 'var(--sidebar-border)' }}>
       {/* Logo */}
@@ -41,6 +43,7 @@ export const Sidebar: React.FC = () => {
           <NavLink
             key={to}
             to={to}
+            onClick={() => { if (pathname === to) emitTabReselected(to); }}
             className={({ isActive }) =>
               `flex items-center gap-3 py-3 px-6 text-xs font-medium transition-all duration-300 ease-in-out ${
                 isActive

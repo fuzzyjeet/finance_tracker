@@ -15,7 +15,7 @@ import { BulkBar } from '../components/transactions/BulkBar';
 import { UnusualIcon, UnusualExplainer } from '../components/transactions/UnusualSpend';
 import { useHideFab } from '../contexts/QuickAddContext';
 import { useLongPress } from '../lib/useLongPress';
-import { emitDataChanged, onDataChanged } from '../lib/events';
+import { emitDataChanged, onDataChanged, onTabReselected } from '../lib/events';
 import { CustomSelect } from '../components/ui/CustomSelect';
 import { transactionsApi, BulkAction } from '../api/transactions';
 import { accountsApi } from '../api/accounts';
@@ -375,6 +375,17 @@ export const Transactions: React.FC = () => {
   useEffect(() => { load(); }, [load]);
   // Entries added from the global + button or the pending-actions menu
   useEffect(() => onDataChanged(() => { load(true); loadRefs(); }), [load]);
+
+  // Tapping Transactions in the tab bar while already here: clear every filter and
+  // go back to this month, newest first
+  useEffect(() => onTabReselected('/transactions', () => {
+    setFilterAccount(''); setFilterCategory(''); setFilterType('');
+    setFilterFrom(''); setFilterTo(''); setFilterSearch(''); setSearchInput('');
+    setFiltersOpen(false);
+    setSelected(null);
+    setMonth(shiftMonth(new Date(), 0));
+    document.querySelector('main')?.scrollTo({ top: 0, behavior: 'smooth' });
+  }), []);
 
   // Moving to another month starts at its top
   const goMonth = (delta: number) => {
