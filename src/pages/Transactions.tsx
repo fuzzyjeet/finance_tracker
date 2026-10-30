@@ -24,7 +24,8 @@ import { tagsApi } from '../api/tags';
 import { projectsApi } from '../api/projects';
 import { Account, Category, Project, Tag, Transaction, TransactionTotals } from '../types';
 
-const PAGE_SIZE = 20;
+// Searches look across every month; this caps how many results come back
+const SEARCH_LIMIT = 500;
 
 const formatCurrency = (v: number) =>
   new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2 }).format(v);
@@ -206,16 +207,27 @@ function MobileTransactionList({
   );
 }
 
-function currentMonthRange() {
-  const now = new Date();
+/** First and last day of the calendar month `d` is in, plus its name. */
+function monthRange(d: Date) {
   const pad = (n: number) => String(n).padStart(2, '0');
-  const y = now.getFullYear(), m = now.getMonth() + 1;
+  const y = d.getFullYear(), m = d.getMonth() + 1;
   const last = new Date(y, m, 0).getDate();
   return {
     from: `${y}-${pad(m)}-01`,
     to: `${y}-${pad(m)}-${pad(last)}`,
-    name: now.toLocaleDateString('en-GB', { month: 'long' }),
+    name: d.toLocaleDateString('en-GB', { month: 'long' }),
+    long: d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
   };
+}
+
+const shiftMonth = (d: Date, delta: number) => new Date(d.getFullYear(), d.getMonth() + delta, 1);
+
+/** A link with date_from/date_to covering exactly one calendar month opens that month. */
+function monthFromParams(params: URLSearchParams): Date | null {
+  const from = params.get('date_from'), to = params.get('date_to');
+  if (!from || !to || !from.endsWith('-01')) return null;
+  const d = new Date(Number(from.slice(0, 4)), Number(from.slice(5, 7)) - 1, 1);
+  return monthRange(d).to === to ? d : null;
 }
 
 // ── Desktop row checkbox ───────────────────────────────────
@@ -245,18 +257,21 @@ export const Transactions: React.FC = () => {
   const [accounts, setAccounts]         = useState<Account[]>([]);
   const [categories, setCategories]     = useState<Category[]>([]);
   const [loading, setLoading]           = useState(true);
-  const [offset, setOffset]             = useState(0);
-  const [hasMore, setHasMore]           = useState(true);
 
   const location = useLocation();
   const _initParams = new URLSearchParams(location.search);
+  // With a search too (a payee from the dashboard), the dates stay a range so the search keeps to them
+  const _initMonth = _initParams.get('search') ? null : monthFromParams(_initParams);
+  // The list shows one calendar month at a time
+  const [month, setMonth]               = useState<Date>(() => _initMonth ?? shiftMonth(new Date(), 0));
 
   // Filters
   const [filterAccount, setFilterAccount]   = useState(_initParams.get('account_id') ?? '');
   const [filterCategory, setFilterCategory] = useState(_initParams.get('category_id') ?? '');
   const [filterType, setFilterType]         = useState('');
-  const [filterFrom, setFilterFrom]         = useState(_initParams.get('date_from') ?? '');
-  const [filterTo, setFilterTo]             = useState(_initParams.get('date_to') ?? '');
+  // A custom date range replaces the month view; a link for a whole month just opens that month
+  const [filterFrom, setFilterFrom]         = useState(_initMonth ? '' : _initParams.get('date_from') ?? '');
+  const [filterTo, setFilterTo]             = useState(_initMonth ? '' : _initParams.get('date_to') ?? '');
   const [filterSearch, setFilterSearch]     = useState(_initParams.get('search') ?? '');
   const [searchInput, setSearchInput]       = useState(_initParams.get('search') ?? '');
   const [tags, setTags]                     = useState<Tag[]>([]);
@@ -294,31 +309,32 @@ export const Transactions: React.FC = () => {
     setProjects(projs);
   };
 
-  const load = useCallback(async (newOffset = 0) => {
-    setLoading(true);
+  // Month view unless a custom range is picked; a search looks across every month
+  const mode: 'month' | 'range' | 'search' = filterFrom || filterTo ? 'range' : filterSearch ? 'search' : 'month';
+  const range = monthRange(month);
+
+  const load = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
+    const inMonth = mode === 'month';
     const filters = {
       account_id:  filterAccount  || undefined,
       category_id: filterCategory || undefined,
       type:        filterType     || undefined,
-      date_from:   filterFrom     || undefined,
-      date_to:     filterTo       || undefined,
+      date_from:   inMonth ? range.from : filterFrom || undefined,
+      date_to:     inMonth ? range.to   : filterTo   || undefined,
       search:      filterSearch   || undefined,
     };
     try {
-      // With no dates picked, the totals card shows this month rather than all time
-      const month = currentMonthRange();
-      const totalsFilters = filterFrom || filterTo ? filters : { ...filters, date_from: month.from, date_to: month.to };
       const [txns, tot] = await Promise.all([
-        transactionsApi.list({ ...filters, limit: PAGE_SIZE, offset: newOffset }),
-        transactionsApi.totals(totalsFilters).catch(() => null),
+        transactionsApi.list({ ...filters, limit: mode === 'search' ? SEARCH_LIMIT : 5000, offset: 0 }),
+        transactionsApi.totals(filters).catch(() => null),
       ]);
       setTransactions(txns);
       setTotals(tot);
-      setHasMore(txns.length === PAGE_SIZE);
     } finally {
       setLoading(false);
     }
-  }, [filterAccount, filterCategory, filterType, filterFrom, filterTo, filterSearch]);
+  }, [mode, range.from, range.to, filterAccount, filterCategory, filterType, filterFrom, filterTo, filterSearch]);
 
   // Search as you type, without a request per keystroke
   useEffect(() => {
@@ -355,9 +371,28 @@ export const Transactions: React.FC = () => {
   };
 
   useEffect(() => { loadRefs(); }, []);
-  useEffect(() => { setOffset(0); load(0); }, [load]);
+  useEffect(() => { load(); }, [load]);
   // Entries added from the global + button or the pending-actions menu
-  useEffect(() => onDataChanged(() => { load(offset); loadRefs(); }), [load, offset]);
+  useEffect(() => onDataChanged(() => { load(true); loadRefs(); }), [load]);
+
+  // Moving to another month starts at its top
+  const goMonth = (delta: number) => {
+    setMonth(m => shiftMonth(m, delta));
+    document.querySelector('main')?.scrollTo({ top: 0 });
+  };
+  // Phones: swipe sideways on the list to change month
+  const swipe = React.useRef<{ x: number; y: number } | null>(null);
+  const swipeProps = mode === 'month' ? {
+    onTouchStart: (e: React.TouchEvent) => { swipe.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; },
+    onTouchEnd: (e: React.TouchEvent) => {
+      const start = swipe.current;
+      swipe.current = null;
+      if (!start || selected) return;
+      const dx = e.changedTouches[0].clientX - start.x;
+      const dy = e.changedTouches[0].clientY - start.y;
+      if (Math.abs(dx) > 70 && Math.abs(dx) > 2 * Math.abs(dy)) goMonth(dx < 0 ? 1 : -1);
+    },
+  } : {};
 
   const openEdit   = (txn: Transaction) => { setEditing(txn); setRefundOf(null); setModalOpen(true); };
   // Phone rows: tap opens (or toggles while selecting), long-press starts selecting
@@ -375,8 +410,6 @@ export const Transactions: React.FC = () => {
     emitDataChanged();
   };
 
-  const prevPage = () => { const n = Math.max(0, offset - PAGE_SIZE); setOffset(n); load(n); };
-  const nextPage = () => { const n = offset + PAGE_SIZE; setOffset(n); load(n); };
 
   const clearFilters = () => {
     setFilterAccount(''); setFilterCategory(''); setFilterType('');
@@ -551,9 +584,60 @@ export const Transactions: React.FC = () => {
         </div>
       </div>
 
+      {mode === 'month' ? (
+        <div
+          className="sticky top-0 z-20 -mx-4 px-4 md:mx-0 md:px-0 mb-3 flex items-center justify-between gap-2"
+          style={{ background: 'var(--bg)', paddingTop: 'max(0.25rem, env(safe-area-inset-top))', paddingBottom: '0.25rem' }}
+        >
+          <button
+            type="button"
+            onClick={() => goMonth(-1)}
+            className="w-10 h-10 flex items-center justify-center rounded-xl"
+            style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-2)' }}
+            aria-label="Previous month"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMonth(shiftMonth(new Date(), 0)); document.querySelector('main')?.scrollTo({ top: 0 }); }}
+            className="h-10 px-3 font-headline text-base font-semibold"
+            style={{ color: 'var(--text)' }}
+            title="Back to this month"
+          >
+            {range.long}
+          </button>
+          <button
+            type="button"
+            onClick={() => goMonth(1)}
+            className="w-10 h-10 flex items-center justify-center rounded-xl"
+            style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-2)' }}
+            aria-label="Next month"
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      ) : (
+        <div className="mb-3 flex items-center justify-between gap-2 min-h-10">
+          <p className="text-sm" style={{ color: 'var(--text-2)' }}>
+            {mode === 'search'
+              ? <>Searching every month{transactions.length >= SEARCH_LIMIT ? ` · first ${SEARCH_LIMIT}` : ''}</>
+              : 'Custom dates'}
+          </p>
+          <button
+            type="button"
+            onClick={() => { setFilterFrom(''); setFilterTo(''); setFilterSearch(''); setSearchInput(''); }}
+            className="h-10 px-3 text-sm font-semibold"
+            style={{ color: 'var(--accent)' }}
+          >
+            Back to {range.name}
+          </button>
+        </div>
+      )}
+
       <TotalsCard
         totals={totals}
-        label={filterFrom || filterTo ? periodLabel(filterFrom, filterTo) : `This month · ${currentMonthRange().name}`}
+        label={mode === 'month' ? range.long : mode === 'range' ? periodLabel(filterFrom, filterTo) : 'All months'}
         filtered={!!(filterAccount || filterCategory || filterType || filterSearch)}
         onSelect={selected ? undefined : () => setSelected(new Set())}
       />
@@ -569,13 +653,16 @@ export const Transactions: React.FC = () => {
       <div
         className={`rounded-xl overflow-hidden ${selected ? 'mb-40 md:mb-28' : ''}`}
         style={{ background: 'var(--surface-low)', border: '1px solid rgba(255,255,255,0.05)' }}
+        {...swipeProps}
       >
         {loading ? (
           <div className="flex items-center justify-center h-40">
             <div className="animate-spin w-8 h-8 border-4 border-[var(--accent)] border-t-transparent rounded-full" />
           </div>
         ) : transactions.length === 0 ? (
-          <div className="text-center py-12 text-sm" style={{ color: 'var(--faint)' }}>No transactions found</div>
+          <div className="text-center py-12 text-sm" style={{ color: 'var(--faint)' }}>
+            {mode === 'month' ? `Nothing logged in ${range.name}` : 'No transactions found'}
+          </div>
         ) : (
           <>
           <MobileTransactionList groups={dateGroups} rowProps={rowProps} selected={selected} onExplain={setExplain} />
@@ -584,7 +671,7 @@ export const Transactions: React.FC = () => {
               <thead>
                 <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}>
                   <th className="pl-4 py-3 w-8">
-                    <SelectBox checked={allSelected} onChange={() => selected ? toggleAll() : setSelected(new Set(transactions.map(t => t.id)))} label="Select all on this page" />
+                    <SelectBox checked={allSelected} onChange={() => selected ? toggleAll() : setSelected(new Set(transactions.map(t => t.id)))} label="Select all" />
                   </th>
                   {['#', 'Payee', 'Category', 'Account', 'Tags', 'Amount', ''].map((h, i) => (
                     <th
@@ -895,23 +982,30 @@ export const Transactions: React.FC = () => {
           </>
         )}
 
-        {/* Pagination */}
-        <div
-          className="flex items-center justify-between px-4 py-3"
-          style={{ borderTop: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}
-        >
-          <span className="text-xs" style={{ color: 'var(--muted)' }}>
-            {offset + 1}–{offset + transactions.length}
-          </span>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={prevPage} disabled={offset === 0}>
-              <ChevronLeft size={16} /> Prev
-            </Button>
-            <Button variant="ghost" size="sm" onClick={nextPage} disabled={!hasMore}>
-              Next <ChevronRight size={16} />
-            </Button>
+        {/* End of the month: carry on into the one before or after */}
+        {mode === 'month' && !loading && (
+          <div
+            className="grid grid-cols-2 gap-2 p-3"
+            style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
+          >
+            <button
+              type="button"
+              onClick={() => goMonth(-1)}
+              className="h-11 rounded-xl flex items-center justify-center gap-1 text-sm font-semibold"
+              style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text)' }}
+            >
+              <ChevronLeft size={16} /> {monthRange(shiftMonth(month, -1)).name}
+            </button>
+            <button
+              type="button"
+              onClick={() => goMonth(1)}
+              className="h-11 rounded-xl flex items-center justify-center gap-1 text-sm font-semibold"
+              style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text)' }}
+            >
+              {monthRange(shiftMonth(month, 1)).name} <ChevronRight size={16} />
+            </button>
           </div>
-        </div>
+        )}
       </div>
 
       <TransactionFormModal
