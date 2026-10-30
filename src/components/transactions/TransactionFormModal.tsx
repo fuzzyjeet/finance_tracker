@@ -1,5 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AlertCircle, ChevronDown, Plus, X, ArrowDown, ArrowUp, ArrowLeftRight, Tag as TagIcon, Split, Undo2 } from 'lucide-react';
+import {
+  AlertCircle, ChevronDown, Plus, X, ArrowDown, ArrowUp, ArrowLeftRight, Tag as TagIcon, Split, Undo2,
+  CalendarDays, MessageSquare, FolderOpen, CheckCircle2,
+} from 'lucide-react';
 import { CustomSelect } from '../ui/CustomSelect';
 import { RefundLinkPicker, remainingRefundable } from './RefundLinkPicker';
 import { transactionsApi, TransactionPayload, SplitPayload } from '../../api/transactions';
@@ -48,9 +51,11 @@ interface FieldRowProps {
   select?: React.ReactNode;
   noBorder?: boolean;
   error?: boolean;
+  /** Small note beside the label, e.g. where a prefilled value came from */
+  hint?: string;
 }
 
-const FieldRow: React.FC<FieldRowProps> = ({ icon, label, value, placeholder, extra, select, noBorder, error }) => (
+const FieldRow: React.FC<FieldRowProps> = ({ icon, label, value, placeholder, extra, select, noBorder, error, hint }) => (
   <div
     className="relative flex items-center justify-between px-4 py-3 group cursor-pointer transition-colors hover:bg-white/[0.03]"
     style={{
@@ -67,7 +72,10 @@ const FieldRow: React.FC<FieldRowProps> = ({ icon, label, value, placeholder, ex
       </div>
       <div className="min-w-0">
         <p className="text-[10px] uppercase tracking-widest leading-none mb-0.5"
-          style={{ color: error ? '#ffb4ab' : '#6b7280' }}>{label}</p>
+          style={{ color: error ? '#ffb4ab' : '#6b7280' }}>
+          {label}
+          {hint && <span className="normal-case tracking-normal" style={{ color: '#8ed5ff' }}> · {hint}</span>}
+        </p>
         <p className="text-sm font-medium truncate" style={{ color: value ? '#dae2fd' : error ? '#ff8a80' : '#4b5563' }}>
           {value || (error ? 'Required' : placeholder)}
         </p>
@@ -132,8 +140,30 @@ const formatTimeInput = (raw: string) => {
   return digits.length > 2 ? `${digits.slice(0, 2)}:${digits.slice(2)}` : digits;
 };
 
+// Amounts are typed as text so "12,50" (comma) works: keep digits and one separator, max 2 decimals.
+const cleanAmountInput = (raw: string) => {
+  const s = raw.replace(/[^\d.,]/g, '');
+  const i = s.search(/[.,]/);
+  return i === -1 ? s : s.slice(0, i + 1) + s.slice(i + 1).replace(/[.,]/g, '').slice(0, 2);
+};
+
+const parseAmount = (s: string) => parseFloat(s.replace(',', '.')) || 0;
+
+const todayISO = () => new Date().toISOString().split('T')[0];
+
+// The account used for the previous new transaction is the default for the next one
+const LAST_ACCOUNT_KEY = 'last_account_id';
+const readLastAccount = () => {
+  try { return localStorage.getItem(LAST_ACCOUNT_KEY) ?? ''; } catch { return ''; }
+};
+const rememberAccount = (id: string) => {
+  try { localStorage.setItem(LAST_ACCOUNT_KEY, id); } catch { /* storage unavailable */ }
+};
+
+type DetailPanel = 'note' | 'tags' | 'projects';
+
 const emptyForm = (): TxnForm => ({
-  date: new Date().toISOString().split('T')[0],
+  date: todayISO(),
   time: nowHHMM(),
   billing_date: '',
   amount: '',
@@ -176,9 +206,16 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
   const [newCatIcon, setNewCatIcon]   = useState(CATEGORY_ICONS[0]);
   const [newCatColor, setNewCatColor] = useState(CATEGORY_COLORS[0]);
 
-  // Collapsible sections
-  const [tagsOpen, setTagsOpen]   = useState(false);
+  // Optional details: which one is expanded, and whether split mode is on
+  const [openPanel, setOpenPanel] = useState<DetailPanel | null>(null);
   const [splitOpen, setSplitOpen] = useState(false);
+
+  // Category/account prefilled from the payee's last transaction, until the user picks one
+  const [autoFilled, setAutoFilled] = useState({ category: false, account: false });
+  const [touched, setTouched]       = useState({ category: false, account: false });
+
+  // "Add & next" confirmation, e.g. "REWE · 12,40"
+  const [lastSaved, setLastSaved] = useState('');
 
   // Validation
   const [showErrors, setShowErrors] = useState(false);
@@ -193,7 +230,12 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
   const [pickerOpen, setPickerOpen] = useState(false);
   const [saveError, setSaveError]   = useState('');
 
-  const amountRef = useRef<HTMLInputElement>(null);
+  const amountRef      = useRef<HTMLInputElement>(null);
+  const payeeInputRef  = useRef<HTMLInputElement>(null);
+  const formRef        = useRef(form);
+  formRef.current      = form;
+  // Payee confirmed with Enter; a second Enter on the same payee saves
+  const confirmedPayee = useRef('');
 
   // ── Payee autocomplete ─────────────────────────────────
   const [payeeSuggestions, setPayeeSuggestions] = useState<string[]>([]);
@@ -220,9 +262,19 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
     setForm(f => ({ ...f, payee: name }));
     setShowPayeeSug(false);
     setPayeeHighlight(-1);
+    confirmedPayee.current = name;
+    autofillFromPayee(name);
   };
 
   const onPayeeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Enter on a new payee confirms it (and fills the rest) instead of saving straight away
+    if (e.key === 'Enter' && payeeHighlight < 0 && form.payee.trim() && confirmedPayee.current !== form.payee) {
+      e.preventDefault();
+      setShowPayeeSug(false);
+      confirmedPayee.current = form.payee;
+      autofillFromPayee(form.payee);
+      return;
+    }
     if (!showPayeeSug || filteredPayees.length === 0) return;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -292,14 +344,27 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
       setSplits([{ amount: 0, category_id: '', notes: '', project_ids: [] }]);
     } else {
       // A backfilled day has no meaningful "now" time, so leave it blank
-      setForm(defaultDate ? { ...emptyForm(), date: defaultDate, time: '' } : emptyForm());
+      const base = { ...emptyForm(), account_id: readLastAccount() };
+      setForm(defaultDate ? { ...base, date: defaultDate, time: '' } : base);
       setLinks([]);
       setSplitOpen(false);
       setSplits([{ amount: 0, category_id: '', notes: '', project_ids: [] }]);
     }
     setShowErrors(false);
     setSaveError('');
+    setOpenPanel(null);
+    setAutoFilled({ category: false, account: false });
+    setTouched({ category: false, account: false });
+    setLastSaved('');
+    confirmedPayee.current = '';
   }, [editing, isOpen, refundOf, defaultDate]);
+
+  // Amount comes first: focus it (and raise the number keypad) when adding
+  useEffect(() => {
+    if (!isOpen || editing) return;
+    const id = setTimeout(() => amountRef.current?.focus(), 50);
+    return () => clearTimeout(id);
+  }, [isOpen, editing]);
 
   // Lock body scroll
   useEffect(() => {
@@ -310,7 +375,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
   if (!isOpen) return null;
 
   // ── Derived ───────────────────────────────────────────────
-  const totalAmount     = parseFloat(form.amount) || 0;
+  const totalAmount     = parseAmount(form.amount);
   const allocatedAmount = splits.reduce((s, r) => s + (parseFloat(String(r.amount)) || 0), 0);
   const remaining       = totalAmount - allocatedAmount;
   const splitBalanced   = Math.abs(remaining) < 0.005;
@@ -320,6 +385,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
   const selectedCategory  = categories.find(c => c.id === form.category_id);
   const selectedToAccount = accounts.find(a => a.id === form.to_account_id);
   const selectedTags      = tags.filter(t => form.tag_ids.includes(t.id));
+  const selectedProjects  = projects.filter(p => form.project_ids.includes(p.id));
 
   const filteredCategories = (type?: string) => {
     const t = type ?? form.type;
@@ -340,7 +406,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
 
   const timeInvalid = !!form.time && !TIME_RE.test(form.time);
 
-  const canSave = !!form.amount && !!form.account_id && !!form.payee && !timeInvalid &&
+  const canSave = totalAmount > 0 && !!selectedAccount && !!form.payee && !timeInvalid &&
     (!splitOpen || splitBalanced) && !overAllocated && !badLinkAmount;
 
   const addLinks = (txns: Transaction[]) => {
@@ -351,9 +417,49 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
     setLinks(prev => prev.map(l => l.id === id ? { ...l, amount } : l));
   const removeLink = (id: string) => setLinks(prev => prev.filter(l => l.id !== id));
 
+  // Fill category and account from this payee's most recent transaction,
+  // without overriding anything the user picked themselves.
+  async function autofillFromPayee(name: string) {
+    const payee = name.trim().toLowerCase();
+    if (editing || !payee) return;
+    let last: Transaction | undefined;
+    try {
+      const matches = await transactionsApi.list({ search: name.trim(), limit: 20 });
+      last = matches.find(t => t.payee.trim().toLowerCase() === payee && t.type !== 'transfer');
+    } catch {
+      return;
+    }
+    const f = formRef.current;
+    if (!last || f.payee.trim().toLowerCase() !== payee) return;
+
+    const fitsType = filteredCategories(f.type).some(c => c.id === last!.category_id);
+    const fillCategory = !touched.category && !splitOpen && fitsType && !!last.category_id;
+    const fillAccount  = !touched.account && f.type !== 'transfer' && !!last.account_id;
+    setForm(cur => ({
+      ...cur,
+      category_id: fillCategory ? last!.category_id! : cur.category_id,
+      account_id:  fillAccount  ? last!.account_id   : cur.account_id,
+    }));
+    setAutoFilled(a => ({ category: fillCategory || a.category, account: fillAccount || a.account }));
+  }
+
+  const focusFirstMissing = () => {
+    if (!totalAmount) amountRef.current?.focus();
+    else if (!form.payee) payeeInputRef.current?.focus();
+  };
+
+  // Enter in any field saves once the required fields are filled; otherwise it jumps to
+  // the first missing one. Shift+Enter is "Add & next".
+  const onFormKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== 'Enter' || e.defaultPrevented || (e.target as HTMLElement).tagName !== 'INPUT') return;
+    e.preventDefault();
+    if (!canSave) { focusFirstMissing(); if (totalAmount && form.payee) setShowErrors(true); return; }
+    handleSave(e.shiftKey && !editing);
+  };
+
   // ── Actions ───────────────────────────────────────────────
-  const handleSave = async () => {
-    if (!canSave) { setShowErrors(true); return; }
+  const handleSave = async (andNext = false) => {
+    if (!canSave) { setShowErrors(true); focusFirstMissing(); return; }
     if (splitOpen && !splitBalanced) return;
     setSaving(true);
     setSaveError('');
@@ -387,14 +493,40 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
         await transactionsApi.update(editing.id, payload);
       } else {
         await transactionsApi.create(payload);
+        rememberAccount(form.account_id);
       }
       onSaved();
-      onClose();
+      if (andNext && !editing) {
+        startNext();
+      } else {
+        onClose();
+      }
     } catch (err: any) {
       setSaveError(err?.response?.data?.detail ?? 'Could not save the transaction');
     } finally {
       setSaving(false);
     }
+  };
+
+  // Clear the entry for the next one, keeping account, date and type (handy for backfilling a day)
+  const startNext = () => {
+    setLastSaved(`${form.payee} · ${new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2 }).format(totalAmount)}`);
+    setForm(f => ({
+      ...emptyForm(),
+      type: f.type === 'refund' ? 'expense' : f.type,
+      account_id: f.account_id,
+      date: f.date,
+      time: f.date === todayISO() ? nowHHMM() : '',
+    }));
+    setLinks([]);
+    setSplitOpen(false);
+    setSplits([{ amount: 0, category_id: '', notes: '', project_ids: [] }]);
+    setOpenPanel(null);
+    setAutoFilled({ category: false, account: false });
+    setTouched(t => ({ ...t, category: false }));
+    setShowErrors(false);
+    confirmedPayee.current = '';
+    amountRef.current?.focus();
   };
 
   const handleCreateTag = async () => {
@@ -451,12 +583,20 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
       <div
         className="relative w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
         style={{ background: '#0f1829', border: '1px solid rgba(255,255,255,0.06)' }}
+        onKeyDown={onFormKeyDown}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-4 shrink-0">
-          <h2 className="text-lg font-bold text-white" style={{ letterSpacing: '-0.02em' }}>
-            {editing ? 'Edit Transaction' : form.type === 'refund' ? 'New Refund' : 'New Transaction'}
-          </h2>
+          <div className="min-w-0">
+            <h2 className="text-lg font-bold text-white" style={{ letterSpacing: '-0.02em' }}>
+              {editing ? 'Edit Transaction' : form.type === 'refund' ? 'New Refund' : 'New Transaction'}
+            </h2>
+            {lastSaved && (
+              <p className="flex items-center gap-1 text-xs mt-0.5 truncate" style={{ color: '#4edea3' }}>
+                <CheckCircle2 size={12} className="shrink-0" /> Saved {lastSaved}
+              </p>
+            )}
+          </div>
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg transition-colors"
@@ -471,8 +611,8 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
         <div className="overflow-y-auto flex-1 px-6 pb-6 space-y-4">
 
           {/* ── 1. Type toggle ──────────────────────────────── */}
-          <div className="grid grid-cols-2 gap-2">
-            {(['income', 'expense', 'transfer', 'refund'] as const).map(t => {
+          <div className="grid grid-cols-4 gap-1.5">
+            {(['expense', 'income', 'transfer', 'refund'] as const).map(t => {
               const c = TYPE_COLORS[t];
               const active = form.type === t;
               const icons = {
@@ -488,11 +628,14 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                 <button
                   key={t}
                   type="button"
-                  onClick={() => setForm(f => ({ ...f, type: t, category_id: '', to_account_id: '' }))}
-                  className="rounded-xl border py-2.5 text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all"
+                  onClick={() => {
+                    setForm(f => ({ ...f, type: t, category_id: '', to_account_id: '' }));
+                    setAutoFilled(a => ({ ...a, category: false }));
+                  }}
+                  className="rounded-lg border py-2 text-xs font-semibold flex items-center justify-center gap-1 transition-all"
                   style={{
                     background:  active ? c.bg    : 'transparent',
-                    color:       active ? c.text  : '#4b5563',
+                    color:       active ? c.text  : '#6b7280',
                     borderColor: active ? c.border : 'rgba(255,255,255,0.07)',
                   }}
                 >
@@ -505,7 +648,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
 
           {/* ── 2. Hero amount ──────────────────────────────── */}
           {(() => {
-            const amtError = showErrors && !form.amount;
+            const amtError = showErrors && !totalAmount;
             return (
               <div
                 className="rounded-xl px-6 py-4 text-center relative transition-all"
@@ -524,13 +667,15 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                 <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: amtError ? '#ffb4ab' : '#6b7280' }}>Amount</p>
                 <div className="flex items-center justify-center gap-2">
                   <span className="text-3xl font-bold" style={{ color: '#374151' }}>€</span>
+                  {/* Text + inputMode so phones show the decimal keypad and "12,50" works */}
                   <input
                     ref={amountRef}
-                    type="number"
-                    min={0}
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
+                    enterKeyHint="next"
+                    autoComplete="off"
                     value={form.amount}
-                    onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+                    onChange={e => setForm(f => ({ ...f, amount: cleanAmountInput(e.target.value) }))}
                     placeholder="0.00"
                     className="bg-transparent border-none outline-none text-4xl font-bold text-center w-40"
                     style={{ color: typeColor.text, caretColor: typeColor.text }}
@@ -553,97 +698,6 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               </div>
             );
           })()}
-
-          {/* ── 3. Payee + Date ─────────────────────────────── */}
-          <div className="grid grid-cols-2 gap-3">
-            {(() => {
-              const payeeError = showErrors && !form.payee;
-              return (
-                <div ref={payeeRef} className="relative">
-                  <div
-                    className="rounded-xl px-3 py-2.5 transition-all"
-                    style={{
-                      background: SURFACE,
-                      border: payeeError ? '1px solid rgba(255,100,100,0.45)' : '1px solid transparent',
-                      boxShadow: payeeError ? '0 0 0 3px rgba(255,100,100,0.08)' : 'none',
-                    }}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="text-[10px] uppercase tracking-widest" style={{ color: payeeError ? '#ffb4ab' : '#6b7280' }}>Payee</p>
-                      {payeeError && <AlertCircle size={12} style={{ color: '#ffb4ab' }} />}
-                    </div>
-                    <input
-                      className="w-full bg-transparent text-sm outline-none"
-                      style={{ color: '#dae2fd' }}
-                      placeholder={payeeError ? 'Required' : 'e.g. REWE'}
-                      value={form.payee}
-                      onChange={e => {
-                        setForm(f => ({ ...f, payee: e.target.value }));
-                        setShowPayeeSug(true);
-                        setPayeeHighlight(-1);
-                      }}
-                      onFocus={() => setShowPayeeSug(true)}
-                      onBlur={() => setTimeout(() => setShowPayeeSug(false), 120)}
-                      onKeyDown={onPayeeKeyDown}
-                    />
-                  </div>
-                  {/* Suggestions dropdown */}
-                  {showPayeeSug && filteredPayees.length > 0 && (
-                    <div
-                      className="absolute left-0 right-0 z-50 rounded-xl overflow-hidden mt-1"
-                      style={{ background: '#131c30', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}
-                    >
-                      {filteredPayees.map((name, i) => (
-                        <button
-                          key={name}
-                          type="button"
-                          onMouseDown={e => { e.preventDefault(); selectPayee(name); }}
-                          className="w-full text-left px-3 py-2 text-sm transition-colors"
-                          style={{
-                            color: '#dae2fd',
-                            background: i === payeeHighlight ? 'rgba(142,213,255,0.1)' : 'transparent',
-                            borderBottom: i < filteredPayees.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-                          }}
-                        >
-                          {name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-            <div
-              className="rounded-xl px-3 py-2.5 transition-all"
-              style={{
-                background: SURFACE,
-                border: timeInvalid && showErrors ? '1px solid rgba(255,100,100,0.45)' : '1px solid transparent',
-              }}
-            >
-              <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: timeInvalid && showErrors ? '#ffb4ab' : '#6b7280' }}>
-                Date &amp; time
-              </p>
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  className="flex-1 min-w-0 bg-transparent text-sm outline-none"
-                  style={{ color: '#dae2fd', colorScheme: 'dark' }}
-                  value={form.date}
-                  onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-                />
-                <input
-                  inputMode="numeric"
-                  aria-label="Time (24h)"
-                  placeholder="HH:MM"
-                  maxLength={5}
-                  className="w-[3.25rem] shrink-0 bg-transparent text-sm outline-none tabular-nums pl-2"
-                  style={{ color: timeInvalid ? '#ffb4ab' : '#dae2fd', borderLeft: '1px solid rgba(255,255,255,0.08)' }}
-                  value={form.time}
-                  onChange={e => setForm(f => ({ ...f, time: formatTimeInput(e.target.value) }))}
-                />
-              </div>
-            </div>
-          </div>
 
           {/* ── 3b. Covered transactions (refund only) ──────── */}
           {isRefund && (
@@ -704,7 +758,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                         >
                           <span className="text-xs mr-1" style={{ color: '#4b5563' }}>€</span>
                           <input
-                            type="number" min={0} step="0.01"
+                            type="number" inputMode="decimal" min={0} step="0.01"
                             value={l.amount}
                             onChange={e => updateLinkAmount(l.id, e.target.value)}
                             className="w-16 bg-transparent text-sm text-right outline-none tabular-nums"
@@ -756,51 +810,78 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
             </div>
           )}
 
+          {/* ── 3. Payee ────────────────────────────────────── */}
+          {(() => {
+            const payeeError = showErrors && !form.payee;
+            return (
+              <div ref={payeeRef} className="relative">
+                <div
+                  className="rounded-xl px-4 py-2.5 transition-all"
+                  style={{
+                    background: SURFACE,
+                    border: payeeError ? '1px solid rgba(255,100,100,0.45)' : '1px solid transparent',
+                    boxShadow: payeeError ? '0 0 0 3px rgba(255,100,100,0.08)' : 'none',
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-[10px] uppercase tracking-widest" style={{ color: payeeError ? '#ffb4ab' : '#6b7280' }}>Payee</p>
+                    {payeeError && <AlertCircle size={12} style={{ color: '#ffb4ab' }} />}
+                  </div>
+                  <input
+                    ref={payeeInputRef}
+                    className="w-full bg-transparent text-sm outline-none"
+                    style={{ color: '#dae2fd' }}
+                    placeholder={payeeError ? 'Required' : 'e.g. REWE'}
+                    autoCapitalize="words"
+                    autoComplete="off"
+                    enterKeyHint="next"
+                    value={form.payee}
+                    onChange={e => {
+                      setForm(f => ({ ...f, payee: e.target.value }));
+                      setShowPayeeSug(true);
+                      setPayeeHighlight(-1);
+                    }}
+                    onFocus={() => setShowPayeeSug(true)}
+                    onBlur={() => setTimeout(() => {
+                      setShowPayeeSug(false);
+                      autofillFromPayee(formRef.current.payee);
+                    }, 120)}
+                    onKeyDown={onPayeeKeyDown}
+                  />
+                </div>
+                {/* Suggestions dropdown */}
+                {showPayeeSug && filteredPayees.length > 0 && (
+                  <div
+                    className="absolute left-0 right-0 z-50 rounded-xl overflow-hidden mt-1"
+                    style={{ background: '#131c30', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}
+                  >
+                    {filteredPayees.map((name, i) => (
+                      <button
+                        key={name}
+                        type="button"
+                        onMouseDown={e => { e.preventDefault(); selectPayee(name); }}
+                        className="w-full text-left px-3 py-2 text-sm transition-colors"
+                        style={{
+                          color: '#dae2fd',
+                          background: i === payeeHighlight ? 'rgba(142,213,255,0.1)' : 'transparent',
+                          borderBottom: i < filteredPayees.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                        }}
+                      >
+                        {name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           {/* ── 4. Field rows card ──────────────────────────── */}
           <div className="rounded-xl overflow-hidden" style={{ background: SURFACE }}>
 
-            {/* Account row */}
-            <FieldRow
-              icon={<span>{accountIcon(selectedAccount?.type)}</span>}
-              label="Account"
-              value={selectedAccount ? `${selectedAccount.name} (${selectedAccount.currency})` : ''}
-              placeholder="Select account"
-              error={showErrors && !form.account_id}
-              select={
-                <CustomSelect
-                  invisible
-                  value={form.account_id}
-                  onChange={v => setForm(f => ({ ...f, account_id: v }))}
-                  options={[
-                    { value: '', label: 'Select account' },
-                    ...accounts.map(a => ({ value: a.id, label: `${a.name} (${a.currency})` })),
-                  ]}
-                />
-              }
-            />
-
-            {/* Category / To Account row */}
-            {form.type === 'transfer' ? (
-              <FieldRow
-                icon={<ArrowLeftRight size={14} style={{ color: '#8ed5ff' }} />}
-                label="To Account"
-                value={selectedToAccount?.name ?? ''}
-                placeholder="Select destination"
-                noBorder
-                select={
-                  <CustomSelect
-                    invisible
-                    value={form.to_account_id}
-                    onChange={v => setForm(f => ({ ...f, to_account_id: v }))}
-                    options={[
-                      { value: '', label: 'Select account' },
-                      ...accounts.filter(a => a.id !== form.account_id).map(a => ({ value: a.id, label: a.name })),
-                    ]}
-                  />
-                }
-              />
-            ) : splitOpen ? (
-              <div className="flex items-center gap-3 px-4 py-3">
+            {/* Category (or split notice), skipped for transfers */}
+            {form.type === 'transfer' ? null : splitOpen ? (
+              <div className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: `1px solid ${BORDER}` }}>
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
                   style={{ background: 'rgba(142,213,255,0.08)' }}>
                   <Split size={13} style={{ color: '#8ed5ff' }} />
@@ -811,9 +892,9 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               <FieldRow
                 icon={<span>{selectedCategory?.icon ?? '🗂️'}</span>}
                 label="Category"
+                hint={autoFilled.category ? 'from last time' : undefined}
                 value={selectedCategory ? `${selectedCategory.icon} ${selectedCategory.name}` : ''}
                 placeholder="Select category"
-                noBorder
                 extra={
                   <button
                     type="button"
@@ -828,7 +909,11 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                   <CustomSelect
                     invisible
                     value={form.category_id}
-                    onChange={v => setForm(f => ({ ...f, category_id: v }))}
+                    onChange={v => {
+                      setForm(f => ({ ...f, category_id: v }));
+                      setTouched(t => ({ ...t, category: true }));
+                      setAutoFilled(a => ({ ...a, category: false }));
+                    }}
                     options={[
                       { value: '', label: 'No category' },
                       ...filteredCategories().map(c => ({ value: c.id, label: `${c.icon} ${c.name}` })),
@@ -838,21 +923,83 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               />
             )}
 
-            {/* Notes row */}
-            <div className="flex items-center gap-3 px-4 py-3" style={{ borderTop: `1px solid ${BORDER}` }}>
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                style={{ background: 'rgba(255,255,255,0.04)' }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2">
-                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-                </svg>
-              </div>
-              <input
-                className="flex-1 bg-transparent text-sm outline-none"
-                style={{ color: '#bdc8d1' }}
-                placeholder="Add a note…"
-                value={form.notes}
-                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+            {/* Account row */}
+            <FieldRow
+              icon={<span>{accountIcon(selectedAccount?.type)}</span>}
+              label={form.type === 'transfer' ? 'From account' : 'Account'}
+              hint={autoFilled.account ? 'from last time' : undefined}
+              value={selectedAccount ? `${selectedAccount.name} (${selectedAccount.currency})` : ''}
+              placeholder="Select account"
+              error={showErrors && !selectedAccount}
+              select={
+                <CustomSelect
+                  invisible
+                  value={form.account_id}
+                  onChange={v => {
+                    setForm(f => ({ ...f, account_id: v }));
+                    setTouched(t => ({ ...t, account: true }));
+                    setAutoFilled(a => ({ ...a, account: false }));
+                  }}
+                  options={[
+                    { value: '', label: 'Select account' },
+                    ...accounts.map(a => ({ value: a.id, label: `${a.name} (${a.currency})` })),
+                  ]}
+                />
+              }
+            />
+
+            {/* To account (transfers only) */}
+            {form.type === 'transfer' && (
+              <FieldRow
+                icon={<ArrowLeftRight size={14} style={{ color: '#8ed5ff' }} />}
+                label="To Account"
+                value={selectedToAccount?.name ?? ''}
+                placeholder="Select destination"
+                select={
+                  <CustomSelect
+                    invisible
+                    value={form.to_account_id}
+                    onChange={v => setForm(f => ({ ...f, to_account_id: v }))}
+                    options={[
+                      { value: '', label: 'Select account' },
+                      ...accounts.filter(a => a.id !== form.account_id).map(a => ({ value: a.id, label: a.name })),
+                    ]}
+                  />
+                }
               />
+            )}
+
+            {/* Date & time */}
+            <div className="flex items-center gap-3 px-4 py-3">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                style={{ background: timeInvalid && showErrors ? 'rgba(255,100,100,0.12)' : 'rgba(255,255,255,0.04)' }}>
+                <CalendarDays size={14} style={{ color: timeInvalid && showErrors ? '#ffb4ab' : '#6b7280' }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] uppercase tracking-widest leading-none mb-1" style={{ color: timeInvalid && showErrors ? '#ffb4ab' : '#6b7280' }}>
+                  Date &amp; time
+                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    className="flex-1 min-w-0 bg-transparent text-sm font-medium outline-none"
+                    style={{ color: '#dae2fd', colorScheme: 'dark' }}
+                    value={form.date}
+                    onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                  />
+                  <input
+                    inputMode="numeric"
+                    enterKeyHint="done"
+                    aria-label="Time (24h)"
+                    placeholder="HH:MM"
+                    maxLength={5}
+                    className="w-[3.75rem] shrink-0 bg-transparent text-sm font-medium outline-none tabular-nums pl-2"
+                    style={{ color: timeInvalid ? '#ffb4ab' : '#dae2fd', borderLeft: '1px solid rgba(255,255,255,0.08)' }}
+                    value={form.time}
+                    onChange={e => setForm(f => ({ ...f, time: formatTimeInput(e.target.value) }))}
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Billing date (credit card only) */}
@@ -860,7 +1007,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               <div className="flex items-center gap-3 px-4 py-3" style={{ borderTop: `1px solid ${BORDER}` }}>
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-sm"
                   style={{ background: 'rgba(255,255,255,0.04)' }}>
-                  📅
+                  🧾
                 </div>
                 <div className="flex-1">
                   <p className="text-[10px] uppercase tracking-widest mb-0.5" style={{ color: '#6b7280' }}>Billing Date (optional)</p>
@@ -883,7 +1030,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                 <input
                   value={newCatName}
                   onChange={e => setNewCatName(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleCreateCategory()}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleCreateCategory(); } }}
                   placeholder="Category name"
                   autoFocus
                   className="flex-1 text-sm px-2 py-1.5 rounded-lg outline-none"
@@ -934,180 +1081,194 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
             </div>
           )}
 
-          {/* ── 5. Tags collapsible ─────────────────────────── */}
-          <div className="rounded-xl overflow-hidden" style={{ background: SURFACE }}>
-            <button
-              type="button"
-              className="w-full flex items-center justify-between px-4 py-3 transition-colors hover:bg-white/[0.03]"
-              onClick={() => setTagsOpen(v => !v)}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                  style={{ background: 'rgba(255,255,255,0.04)' }}>
-                  <TagIcon size={13} style={{ color: '#6b7280' }} />
-                </div>
-                <p className="text-sm" style={{ color: '#6b7280' }}>Tags</p>
+          {/* ── 5. Optional details: one line that shows what's set ── */}
+          {(() => {
+            const chip = (key: string, icon: React.ReactNode, text: string, set: boolean, active: boolean, onClick: () => void) => (
+              <button
+                key={key}
+                type="button"
+                onClick={onClick}
+                className="flex items-center gap-1.5 max-w-full px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors"
+                style={{
+                  background:  set ? 'rgba(142,213,255,0.08)' : 'transparent',
+                  color:       set ? '#dae2fd' : '#6b7280',
+                  borderColor: active ? 'rgba(142,213,255,0.6)' : set ? 'rgba(142,213,255,0.25)' : 'rgba(255,255,255,0.1)',
+                  borderStyle: set || active ? 'solid' : 'dashed',
+                }}
+              >
+                <span className="shrink-0" style={{ color: set ? '#8ed5ff' : '#6b7280' }}>{icon}</span>
+                <span className="truncate">{text}</span>
+              </button>
+            );
+            const togglePanel = (p: DetailPanel) => setOpenPanel(cur => cur === p ? null : p);
+            const showProjects = form.type !== 'transfer' && !splitOpen && projects.length > 0;
+            const showSplit    = form.type === 'expense' || form.type === 'income';
+            return (
+              <div className="flex flex-wrap gap-2">
+                {chip('note', <MessageSquare size={12} />, form.notes || '+ Note', !!form.notes, openPanel === 'note', () => togglePanel('note'))}
+                {chip('tags', <TagIcon size={12} />,
+                  selectedTags.length ? selectedTags.map(t => t.name).join(', ') : '+ Tags',
+                  selectedTags.length > 0, openPanel === 'tags', () => togglePanel('tags'))}
+                {showProjects && chip('projects', <FolderOpen size={12} />,
+                  selectedProjects.length ? selectedProjects.map(p => `${p.icon} ${p.name}`).join(', ') : '+ Project',
+                  selectedProjects.length > 0, openPanel === 'projects', () => togglePanel('projects'))}
+                {showSplit && chip('split', <Split size={12} />,
+                  splitOpen ? `Split · ${splits.length} parts` : '+ Split',
+                  splitOpen, false, toggleSplitOpen)}
               </div>
-              <div className="flex items-center gap-2">
-                {selectedTags.length > 0 ? (
-                  <div className="flex gap-1 items-center">
-                    {selectedTags.slice(0, 3).map(t => (
-                      <span key={t.id} className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: t.color }} />
-                    ))}
-                    {selectedTags.length > 3 && (
-                      <span className="text-[10px]" style={{ color: '#6b7280' }}>+{selectedTags.length - 3}</span>
-                    )}
-                  </div>
-                ) : (
-                  <span className="text-[10px] uppercase tracking-widest" style={{ color: '#4b5563' }}>None</span>
-                )}
-                <ChevronDown
-                  size={15}
-                  style={{ color: '#4b5563', transform: tagsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}
-                />
-              </div>
-            </button>
+            );
+          })()}
 
-            {tagsOpen && (
-              <div className="px-4 pb-4 pt-1" style={{ borderTop: `1px solid ${BORDER}` }}>
-                <div className="flex items-center justify-end mb-2 mt-1">
+          {openPanel === 'note' && (
+            <div className="rounded-xl px-4 py-3" style={{ background: SURFACE }}>
+              <input
+                autoFocus
+                enterKeyHint="done"
+                className="w-full bg-transparent text-sm outline-none"
+                style={{ color: '#dae2fd' }}
+                placeholder="Add a note…"
+                value={form.notes}
+                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+              />
+            </div>
+          )}
+
+          {openPanel === 'tags' && (
+            <div className="rounded-xl px-4 pb-4 pt-1" style={{ background: SURFACE }}>
+              <div className="flex items-center justify-end mb-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowTagInput(v => !v)}
+                  className="text-[10px] font-bold uppercase tracking-tight px-2 py-0.5 rounded-full transition-colors"
+                  style={{ color: '#8ed5ff', border: '1px solid rgba(142,213,255,0.3)', background: 'rgba(142,213,255,0.08)' }}
+                >
+                  + New tag
+                </button>
+              </div>
+              {showTagInput && (
+                <div className="flex items-center gap-2 mb-3 p-2 rounded-lg" style={{ background: SURFACE_HI }}>
+                  <input
+                    value={newTagName}
+                    onChange={e => setNewTagName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleCreateTag(); } }}
+                    placeholder="Tag name"
+                    autoFocus
+                    className="flex-1 text-sm border rounded px-2 py-1 outline-none bg-transparent"
+                    style={{ color: '#dae2fd', borderColor: 'rgba(255,255,255,0.12)' }}
+                  />
+                  <div className="flex gap-1">
+                    {TAG_COLORS.map(c => (
+                      <button key={c} type="button" onClick={() => setNewTagColor(c)}
+                        className="w-4 h-4 rounded-full border-2 transition-all"
+                        style={{ background: c, borderColor: newTagColor === c ? '#fff' : 'transparent' }}
+                      />
+                    ))}
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setShowTagInput(v => !v)}
-                    className="text-[10px] font-bold uppercase tracking-tight px-2 py-0.5 rounded-full transition-colors"
-                    style={{ color: '#8ed5ff', border: '1px solid rgba(142,213,255,0.3)', background: 'rgba(142,213,255,0.08)' }}
+                    onClick={handleCreateTag}
+                    disabled={!newTagName.trim()}
+                    className="text-xs px-2 py-1 rounded disabled:opacity-40"
+                    style={{ background: '#38bdf8', color: '#004965', fontWeight: 700 }}
                   >
-                    + New tag
+                    Add
+                  </button>
+                  <button type="button" onClick={() => setShowTagInput(false)}>
+                    <X size={13} style={{ color: '#6b7280' }} />
                   </button>
                 </div>
-                {showTagInput && (
-                  <div className="flex items-center gap-2 mb-3 p-2 rounded-lg" style={{ background: SURFACE_HI }}>
-                    <input
-                      value={newTagName}
-                      onChange={e => setNewTagName(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleCreateTag()}
-                      placeholder="Tag name"
-                      autoFocus
-                      className="flex-1 text-sm border rounded px-2 py-1 outline-none bg-transparent"
-                      style={{ color: '#dae2fd', borderColor: 'rgba(255,255,255,0.12)' }}
-                    />
-                    <div className="flex gap-1">
-                      {TAG_COLORS.map(c => (
-                        <button key={c} type="button" onClick={() => setNewTagColor(c)}
-                          className="w-4 h-4 rounded-full border-2 transition-all"
-                          style={{ background: c, borderColor: newTagColor === c ? '#fff' : 'transparent' }}
-                        />
-                      ))}
-                    </div>
+              )}
+              <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+                {tags.length === 0 && !showTagInput && (
+                  <span className="text-xs self-center" style={{ color: '#4b5563' }}>No tags yet</span>
+                )}
+                {tags.map(tag => {
+                  const active = form.tag_ids.includes(tag.id);
+                  return (
                     <button
+                      key={tag.id}
                       type="button"
-                      onClick={handleCreateTag}
-                      disabled={!newTagName.trim()}
-                      className="text-xs px-2 py-1 rounded disabled:opacity-40"
-                      style={{ background: '#38bdf8', color: '#004965', fontWeight: 700 }}
+                      onClick={() => setForm(f => ({
+                        ...f,
+                        tag_ids: active
+                          ? f.tag_ids.filter(id => id !== tag.id)
+                          : [...f.tag_ids, tag.id],
+                      }))}
+                      className="px-2.5 py-1 rounded-full text-xs font-medium border-2 transition-all"
+                      style={{
+                        background: `${tag.color}22`,
+                        color: tag.color,
+                        borderColor: active ? tag.color : 'transparent',
+                        opacity: active ? 1 : 0.45,
+                      }}
                     >
-                      Add
+                      {tag.name}
                     </button>
-                    <button type="button" onClick={() => setShowTagInput(false)}>
-                      <X size={13} style={{ color: '#6b7280' }} />
-                    </button>
-                  </div>
-                )}
-                <div className="flex flex-wrap gap-1.5 min-h-[28px]">
-                  {tags.length === 0 && !showTagInput && (
-                    <span className="text-xs self-center" style={{ color: '#4b5563' }}>No tags yet</span>
-                  )}
-                  {tags.map(tag => {
-                    const active = form.tag_ids.includes(tag.id);
-                    return (
-                      <button
-                        key={tag.id}
-                        type="button"
-                        onClick={() => setForm(f => ({
-                          ...f,
-                          tag_ids: active
-                            ? f.tag_ids.filter(id => id !== tag.id)
-                            : [...f.tag_ids, tag.id],
-                        }))}
-                        className="px-2.5 py-1 rounded-full text-xs font-medium border-2 transition-all"
-                        style={{
-                          background: `${tag.color}22`,
-                          color: tag.color,
-                          borderColor: active ? tag.color : 'transparent',
-                          opacity: active ? 1 : 0.45,
-                        }}
-                      >
-                        {tag.name}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Projects (non-split) */}
-                {form.type !== 'transfer' && projects.length > 0 && (
-                  <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
-                    <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: '#6b7280' }}>Projects</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {projects.map(p => {
-                        const active = form.project_ids.includes(p.id);
-                        return (
-                          <button
-                            key={p.id}
-                            type="button"
-                            onClick={() => setForm(f => ({
-                              ...f,
-                              project_ids: active
-                                ? f.project_ids.filter(id => id !== p.id)
-                                : [...f.project_ids, p.id],
-                            }))}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border-2 transition-all"
-                            style={{
-                              background: `${p.color}22`,
-                              color: p.color,
-                              borderColor: active ? p.color : 'transparent',
-                              opacity: active ? 1 : 0.45,
-                            }}
-                          >
-                            {p.icon} {p.name}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                  );
+                })}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* ── 6. Split collapsible ────────────────────────── */}
-          {form.type !== 'transfer' && form.type !== 'refund' && (
+          {openPanel === 'projects' && form.type !== 'transfer' && !splitOpen && (
+            <div className="rounded-xl px-4 py-3" style={{ background: SURFACE }}>
+              <div className="flex flex-wrap gap-1.5">
+                {projects.map(p => {
+                  const active = form.project_ids.includes(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setForm(f => ({
+                        ...f,
+                        project_ids: active
+                          ? f.project_ids.filter(id => id !== p.id)
+                          : [...f.project_ids, p.id],
+                      }))}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border-2 transition-all"
+                      style={{
+                        background: `${p.color}22`,
+                        color: p.color,
+                        borderColor: active ? p.color : 'transparent',
+                        opacity: active ? 1 : 0.45,
+                      }}
+                    >
+                      {p.icon} {p.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── 6. Split editor (when split is on) ──────────── */}
+          {splitOpen && form.type !== 'transfer' && form.type !== 'refund' && (
             <div className="rounded-xl overflow-hidden" style={{ background: SURFACE }}>
-              <button
-                type="button"
-                className="w-full flex items-center justify-between px-4 py-3 transition-colors hover:bg-white/[0.03]"
-                onClick={toggleSplitOpen}
-              >
+              <div className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-3">
                   <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                    style={{ background: splitOpen ? 'rgba(142,213,255,0.08)' : 'rgba(255,255,255,0.04)' }}>
-                    <Split size={13} style={{ color: splitOpen ? '#8ed5ff' : '#6b7280' }} />
+                    style={{ background: 'rgba(142,213,255,0.08)' }}>
+                    <Split size={13} style={{ color: '#8ed5ff' }} />
                   </div>
-                  <p className="text-sm" style={{ color: splitOpen ? '#8ed5ff' : '#6b7280' }}>Split transaction</p>
+                  <p className="text-sm" style={{ color: '#8ed5ff' }}>Split transaction</p>
                 </div>
-                <ChevronDown
-                  size={15}
-                  style={{ color: '#4b5563', transform: splitOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}
-                />
-              </button>
-
-              {splitOpen && (
-                <div className="px-4 pb-4 pt-2 space-y-3" style={{ borderTop: `1px solid ${BORDER}` }}>
+                <button
+                  type="button"
+                  onClick={toggleSplitOpen}
+                  className="text-xs font-semibold"
+                  style={{ color: '#6b7280' }}
+                >
+                  Remove split
+                </button>
+              </div>
+              <div className="px-4 pb-4 pt-2 space-y-3" style={{ borderTop: `1px solid ${BORDER}` }}>
                   {splits.map((split, i) => (
                     <div key={i} className="space-y-1.5 pb-3"
                       style={{ borderBottom: i < splits.length - 1 ? `1px solid ${BORDER}` : 'none' }}>
                       <div className="flex items-start gap-2">
                         <input
                           type="number"
+                          inputMode="decimal"
                           min={0}
                           step="0.01"
                           value={split.amount || ''}
@@ -1198,8 +1359,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                         : `Over by ${Math.abs(remaining).toFixed(2)}`}
                     </span>
                   </div>
-                </div>
-              )}
+              </div>
             </div>
           )}
 
@@ -1216,21 +1376,39 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                 : 'Each linked transaction needs an amount greater than zero')}
             </div>
           )}
-          <div className="flex gap-3 pt-1">
+          <div className="flex gap-2 pt-1">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-3 rounded-xl text-sm font-bold transition-colors"
+              className="px-4 py-3 rounded-xl text-sm font-bold transition-colors"
               style={{ border: '1px solid rgba(255,255,255,0.1)', color: '#bdc8d1', background: 'transparent' }}
               onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
               Cancel
             </button>
+            {!editing && (
+              <button
+                type="button"
+                onClick={() => handleSave(true)}
+                disabled={saving}
+                title="Save and start another (Shift+Enter)"
+                className="flex-1 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50"
+                style={{
+                  border: '1px solid rgba(56,189,248,0.5)',
+                  color: '#8ed5ff',
+                  background: 'rgba(56,189,248,0.08)',
+                  opacity: (!canSave && !showErrors) ? 0.4 : 1,
+                }}
+              >
+                Add &amp; next
+              </button>
+            )}
             <button
               type="button"
-              onClick={handleSave}
+              onClick={() => handleSave()}
               disabled={saving}
+              title="Save (Enter)"
               className="flex-1 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50"
               style={{
                 background: '#38bdf8',
@@ -1238,7 +1416,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                 opacity: (!canSave && !showErrors) ? 0.4 : 1,
               }}
             >
-              {saving ? 'Saving…' : editing ? 'Save Changes' : 'Add Transaction'}
+              {saving ? 'Saving…' : editing ? 'Save Changes' : 'Add'}
             </button>
           </div>
 
