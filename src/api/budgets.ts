@@ -1,4 +1,5 @@
 import api from './client';
+import { localISODate } from '../lib/dates';
 import { Budget, BudgetOverview, BudgetSuggestion, Provision } from '../types';
 
 export interface BudgetPayload {
@@ -15,7 +16,7 @@ export const budgetsApi = {
         ...(excludeProjectIds && excludeProjectIds.length > 0 ? { exclude_project_ids: excludeProjectIds.join(',') } : {}),
       },
     }).then(r => r.data),
-  overview: (month: string) => api.get<BudgetOverview>('/budgets/overview', { params: { month } }).then(r => r.data),
+  overview: (month: string) => api.get<BudgetOverview>('/budgets/overview', { params: { month, today: localISODate() } }).then(r => r.data),
   suggestions: (month: string) =>
     api.get<BudgetSuggestion[]>('/budgets/suggestions', { params: { month } }).then(r => r.data),
   copy: (month: string, source: string) =>

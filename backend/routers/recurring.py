@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 import uuid
 from datetime import date
+from clock import local_today
 from database import get_db
 from models import RecurringTransaction, Transaction, Tag
 from schemas import RecurringTransactionCreate, RecurringTransactionUpdate, RecurringTransactionRead
@@ -38,8 +39,8 @@ def build_recurring_read(r: RecurringTransaction) -> dict:
 
 
 @router.get("/pending", response_model=List[RecurringTransactionRead])
-def get_pending(db: Session = Depends(get_db)):
-    today = date.today().isoformat()
+def get_pending(today: Optional[str] = Query(None, description="The phone's date, YYYY-MM-DD"), db: Session = Depends(get_db)):
+    today = local_today(today).isoformat()
     items = db.query(RecurringTransaction).filter(
         RecurringTransaction.is_active == True,
         RecurringTransaction.auto_post == False,
@@ -110,7 +111,7 @@ def create_recurring(data: RecurringTransactionCreate, db: Session = Depends(get
     db.commit()
     db.refresh(r)
     # If auto_post and due today or in the past, post immediately
-    if r.auto_post and r.is_active and r.next_due_date <= date.today().isoformat():
+    if r.auto_post and r.is_active and r.next_due_date <= local_today().isoformat():
         _post_recurring_now(db, r)
         db.refresh(r)
     return RecurringTransactionRead.model_validate(build_recurring_read(r))

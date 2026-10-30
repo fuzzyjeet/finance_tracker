@@ -3,10 +3,10 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from calendar import monthrange
 from collections import defaultdict
-from datetime import date
 import math
 import uuid
 from database import get_db
+from clock import local_today
 from models import Budget, BudgetMonth, Project, ProjectProvision, Transaction
 from schemas import (
     BudgetCreate, BudgetUpdate, BudgetRead, BudgetOverview, BudgetSuggestion,
@@ -143,8 +143,12 @@ def list_budgets(
 
 
 @router.get("/overview", response_model=BudgetOverview)
-def overview(month: str = Query(..., description="YYYY-MM"), db: Session = Depends(get_db)):
-    today = date.today()
+def overview(
+    month: str = Query(..., description="YYYY-MM"),
+    today: Optional[str] = Query(None, description="The phone's date, YYYY-MM-DD"),
+    db: Session = Depends(get_db),
+):
+    today = local_today(today)
     this_month = today.strftime("%Y-%m")
     # Budgets carry over on their own into the current month; other months offer a copy
     carried = carry_over(db, month) if month == this_month else None

@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from typing import Optional
 from collections import defaultdict
-from datetime import date
 from database import get_db
+from clock import local_today
 from models import Transaction
 from routers.budgets import month_bounds, my_cost_factor, shift_month
 from routers.transactions import refund_surplus
@@ -19,11 +19,12 @@ def trends(
     end: Optional[str] = Query(None, description="Last month, YYYY-MM (default: this month)"),
     category_id: Optional[str] = Query(None, description=f"Only this category ('{NO_CATEGORY}' = uncategorised)"),
     payee: Optional[str] = Query(None, description="Only this payee (case-insensitive)"),
+    today: Optional[str] = Query(None, description="The phone's date, YYYY-MM-DD"),
     db: Session = Depends(get_db),
 ):
     """Monthly figures for the dashboard. Spending is my share after refunds, counted in
     the month of the original expense; split entries count each part in its category."""
-    today = date.today()
+    today = local_today(today)
     this_month = today.strftime("%Y-%m")
     end = end or this_month
     month_list = [shift_month(end, i - months + 1) for i in range(months)]

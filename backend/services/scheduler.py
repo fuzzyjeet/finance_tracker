@@ -1,5 +1,6 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from database import SessionLocal
+from clock import local_today
 from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
 
@@ -24,7 +25,7 @@ def post_due_recurring():
     try:
         from models import RecurringTransaction, Transaction
         import uuid
-        today = date.today().isoformat()
+        today = local_today().isoformat()
         due = db.query(RecurringTransaction).filter(
             RecurringTransaction.is_active == True,
             RecurringTransaction.auto_post == True,

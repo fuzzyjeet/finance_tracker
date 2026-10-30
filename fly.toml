@@ -5,6 +5,8 @@ primary_region = "fra"  # Frankfurt — change to nearest: ams, lhr, cdg, sin, n
 
 [env]
   DATABASE_PATH = "/data/finance.db"
+  # "Today" for budgets, the dashboard and recurring entries (the server itself runs on UTC)
+  APP_TIMEZONE = "Europe/Berlin"
 
 [http_service]
   internal_port = 8080

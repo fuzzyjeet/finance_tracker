@@ -1,4 +1,5 @@
 import api from './client';
+import { localISODate } from '../lib/dates';
 import { RecurringTransaction } from '../types';
 
 export interface RecurringPayload {
@@ -22,7 +23,7 @@ export interface RecurringPayload {
 
 export const recurringApi = {
   list: () => api.get<RecurringTransaction[]>('/recurring').then(r => r.data),
-  pending: () => api.get<RecurringTransaction[]>('/recurring/pending').then(r => r.data),
+  pending: () => api.get<RecurringTransaction[]>('/recurring/pending', { params: { today: localISODate() } }).then(r => r.data),
   get: (id: string) => api.get<RecurringTransaction>(`/recurring/${id}`).then(r => r.data),
   create: (data: RecurringPayload) =>
     api.post<RecurringTransaction>('/recurring', data).then(r => r.data),

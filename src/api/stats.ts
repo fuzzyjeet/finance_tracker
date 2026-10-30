@@ -1,4 +1,5 @@
 import api from './client';
+import { localISODate } from '../lib/dates';
 
 export interface TrendSeries {
   id: string;
@@ -24,5 +25,5 @@ export interface Trends {
 
 export const statsApi = {
   trends: (params: { months: number; category_id?: string; payee?: string }) =>
-    api.get<Trends>('/stats/trends', { params }).then(r => r.data),
+    api.get<Trends>('/stats/trends', { params: { ...params, today: localISODate() } }).then(r => r.data),
 };
