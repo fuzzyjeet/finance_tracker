@@ -5,8 +5,8 @@ import { transactionsApi } from '../../api/transactions';
 import { onDataChanged } from '../../lib/events';
 import { useQuickAdd } from '../../contexts/QuickAddContext';
 
-// How many past days (not counting today) to check for gaps
-const GAP_WINDOW = 7;
+// The last 7 days counting today; today itself isn't flagged since it isn't over
+const GAP_WINDOW = 6;
 
 const dayLabel = (date: string) => {
   const d = parseISO(date);
