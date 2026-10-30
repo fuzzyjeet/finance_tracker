@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle, ChevronDown, Plus, X, ArrowDown, ArrowUp, ArrowLeftRight, Tag as TagIcon, Split, Undo2,
-  CalendarDays, MessageSquare, FolderOpen, CheckCircle2, Trash2,
+  CalendarDays, MessageSquare, FolderOpen, CheckCircle2, Trash2, Users, HandCoins,
 } from 'lucide-react';
 import { CustomSelect } from '../ui/CustomSelect';
 import { RefundLinkPicker, remainingRefundable } from './RefundLinkPicker';
@@ -108,6 +108,8 @@ interface TxnForm {
   notes: string;
   tag_ids: string[];
   project_ids: string[];
+  for_others: string;   // expense: the part spent on other people
+  paid_back: boolean;   // income: someone paying me back
 }
 
 interface LinkDraft {
@@ -149,6 +151,7 @@ const cleanAmountInput = (raw: string) => {
 };
 
 const parseAmount = (s: string) => parseFloat(s.replace(',', '.')) || 0;
+const fmtAmount = (v: number) => new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
 
 const todayISO = () => new Date().toISOString().split('T')[0];
 
@@ -161,7 +164,7 @@ const rememberAccount = (id: string) => {
   try { localStorage.setItem(LAST_ACCOUNT_KEY, id); } catch { /* storage unavailable */ }
 };
 
-type DetailPanel = 'note' | 'tags' | 'projects';
+type DetailPanel = 'note' | 'tags' | 'projects' | 'others';
 
 const emptyForm = (): TxnForm => ({
   date: todayISO(),
@@ -176,6 +179,8 @@ const emptyForm = (): TxnForm => ({
   notes: '',
   tag_ids: [],
   project_ids: [],
+  for_others: '',
+  paid_back: false,
 });
 
 interface Props {
@@ -319,6 +324,8 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
         notes: editing.notes ?? '',
         tag_ids: editing.tags?.map(t => t.id) ?? [],
         project_ids: editing.projects?.map(p => p.id) ?? [],
+        for_others: editing.for_others ? editing.for_others.toFixed(2).replace('.', ',') : '',
+        paid_back: !!editing.paid_back,
       });
       setLinks((editing.refund_for ?? []).map(l => ({
         id: l.transaction_id, payee: l.payee, date: l.date, total: l.transaction_amount,
@@ -383,6 +390,8 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
   const allocatedAmount = splits.reduce((s, r) => s + (parseFloat(String(r.amount)) || 0), 0);
   const remaining       = totalAmount - allocatedAmount;
   const splitBalanced   = Math.abs(remaining) < 0.005;
+  const othersAmount    = form.type === 'expense' ? parseAmount(form.for_others) : 0;
+  const othersTooBig    = othersAmount > totalAmount + 0.005;
 
   const typeColor         = TYPE_COLORS[form.type as keyof typeof TYPE_COLORS] ?? TYPE_COLORS.expense;
   const selectedAccount   = accounts.find(a => a.id === form.account_id);
@@ -411,7 +420,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
   const timeInvalid = !!form.time && !TIME_RE.test(form.time);
 
   const canSave = totalAmount > 0 && !!selectedAccount && !!form.payee && !timeInvalid &&
-    (!splitOpen || splitBalanced) && !overAllocated && !badLinkAmount;
+    (!splitOpen || splitBalanced) && !overAllocated && !badLinkAmount && !othersTooBig;
 
   const addLinks = (txns: Transaction[]) => {
     setLinks(prev => [...prev, ...txns.filter(t => !prev.some(l => l.id === t.id)).map(draftFromTxn)]);
@@ -492,6 +501,8 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
         refund_links: isRefund
           ? links.map(l => ({ original_id: l.id, amount: parseFloat(l.amount) || 0 }))
           : editing ? [] : undefined,
+        for_others: form.type === 'expense' ? Math.min(parseAmount(form.for_others), totalAmount) : 0,
+        paid_back: form.type === 'income' && form.paid_back,
       };
       let queued = false;
       if (editing) {
@@ -1145,9 +1156,76 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                 {showSplit && chip('split', <Split size={12} />,
                   splitOpen ? `Split · ${splits.length} parts` : '+ Split',
                   splitOpen, false, toggleSplitOpen)}
+                {form.type === 'expense' && chip('others', <Users size={12} />,
+                  othersAmount > 0 ? `For others · ${fmtAmount(othersAmount)}` : '+ For others',
+                  othersAmount > 0, openPanel === 'others', () => togglePanel('others'))}
+                {form.type === 'income' && chip('paidback', <HandCoins size={12} />,
+                  form.paid_back ? 'Paid back to me' : '+ Paid back',
+                  form.paid_back, false, () => setForm(f => ({ ...f, paid_back: !f.paid_back })))}
               </div>
             );
           })()}
+
+          {form.type === 'income' && form.paid_back && (
+            <p className="text-xs -mt-1 px-1" style={{ color: 'var(--muted)' }}>
+              Money someone paid you back: it lowers what you're still owed and doesn't count as income.
+            </p>
+          )}
+
+          {openPanel === 'others' && form.type === 'expense' && (
+            <div className="rounded-xl px-4 py-3 space-y-3" style={{ background: SURFACE }}>
+              <p className="text-sm" style={{ color: 'var(--text-2)' }}>How much of this was for other people?</p>
+              <div className="flex flex-wrap gap-2">
+                {[{ label: '½', f: 1 / 2 }, { label: '⅓', f: 2 / 3 }, { label: '¼', f: 3 / 4 }].map(o => {
+                  // ½ = I paid for two; ⅓ = for three (my share is a third); ¼ = for four
+                  const value = Math.round(totalAmount * o.f * 100) / 100;
+                  const active = totalAmount > 0 && Math.abs(value - othersAmount) < 0.005;
+                  return (
+                    <button
+                      key={o.label}
+                      type="button"
+                      disabled={!totalAmount}
+                      onClick={() => setForm(f => ({ ...f, for_others: value.toFixed(2).replace('.', ',') }))}
+                      className="h-10 min-w-[3.5rem] px-3 rounded-lg text-sm font-semibold disabled:opacity-40"
+                      style={{
+                        background: active ? 'rgb(var(--accent-rgb) / 0.15)' : 'rgba(255,255,255,0.05)',
+                        color: active ? 'var(--accent)' : 'var(--text)',
+                        border: `1px solid ${active ? 'rgb(var(--accent-rgb) / 0.5)' : 'transparent'}`,
+                      }}
+                    >
+                      Mine {o.label}
+                    </button>
+                  );
+                })}
+                <div className="flex items-center gap-1 h-10 px-3 rounded-lg flex-1 min-w-[7rem]" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                  <span className="text-xs shrink-0" style={{ color: 'var(--muted)' }}>For others</span>
+                  <input
+                    inputMode="decimal"
+                    enterKeyHint="done"
+                    className="w-full min-w-0 bg-transparent text-sm text-right outline-none tabular-nums"
+                    style={{ color: 'var(--text)' }}
+                    placeholder="0,00"
+                    value={form.for_others}
+                    onChange={e => setForm(f => ({ ...f, for_others: cleanAmountInput(e.target.value) }))}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span style={{ color: othersTooBig ? 'var(--expense)' : 'var(--muted)' }}>
+                  {othersTooBig ? 'More than the amount' : <>Your share: <span className="font-semibold tabular-nums" style={{ color: 'var(--text)' }}>{fmtAmount(Math.max(0, totalAmount - othersAmount))}</span></>}
+                </span>
+                {othersAmount > 0 && (
+                  <button type="button" className="text-xs font-semibold h-8 px-2" style={{ color: 'var(--muted)' }}
+                    onClick={() => setForm(f => ({ ...f, for_others: '' }))}>
+                    Clear
+                  </button>
+                )}
+              </div>
+              <p className="text-xs" style={{ color: 'var(--faint)' }}>
+                Only your share counts as spending and against budgets. Add their names as tags if you want to keep track.
+              </p>
+            </div>
+          )}
 
           {openPanel === 'note' && (
             <div className="rounded-xl px-4 py-3" style={{ background: SURFACE }}>

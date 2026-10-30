@@ -191,6 +191,8 @@ function MobileTransactionList({
                     <p className="text-xs tabular-nums" style={{ color: (txn.refunded_amount ?? 0) > 0 ? 'var(--refund)' : 'var(--muted)' }}>
                       {(txn.refunded_amount ?? 0) > 0
                         ? (txn.is_fully_refunded ? 'refunded' : `−${formatCurrency(txn.refunded_amount!)} refunded`)
+                        : (txn.for_others ?? 0) > 0 ? `yours ${formatCurrency(txn.amount - txn.for_others!)}`
+                        : txn.paid_back ? 'paid back'
                         : txn.time ?? ''}
                     </p>
                   </div>
@@ -202,6 +204,18 @@ function MobileTransactionList({
       })}
     </div>
   );
+}
+
+function currentMonthRange() {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const y = now.getFullYear(), m = now.getMonth() + 1;
+  const last = new Date(y, m, 0).getDate();
+  return {
+    from: `${y}-${pad(m)}-01`,
+    to: `${y}-${pad(m)}-${pad(last)}`,
+    name: now.toLocaleDateString('en-GB', { month: 'long' }),
+  };
 }
 
 // ── Desktop row checkbox ───────────────────────────────────
@@ -291,9 +305,12 @@ export const Transactions: React.FC = () => {
       search:      filterSearch   || undefined,
     };
     try {
+      // With no dates picked, the totals card shows this month rather than all time
+      const month = currentMonthRange();
+      const totalsFilters = filterFrom || filterTo ? filters : { ...filters, date_from: month.from, date_to: month.to };
       const [txns, tot] = await Promise.all([
         transactionsApi.list({ ...filters, limit: PAGE_SIZE, offset: newOffset }),
-        transactionsApi.totals(filters).catch(() => null),
+        transactionsApi.totals(totalsFilters).catch(() => null),
       ]);
       setTransactions(txns);
       setTotals(tot);
@@ -536,7 +553,7 @@ export const Transactions: React.FC = () => {
 
       <TotalsCard
         totals={totals}
-        label={periodLabel(filterFrom, filterTo)}
+        label={filterFrom || filterTo ? periodLabel(filterFrom, filterTo) : `This month · ${currentMonthRange().name}`}
         filtered={!!(filterAccount || filterCategory || filterType || filterSearch)}
         onSelect={selected ? undefined : () => setSelected(new Set())}
       />
@@ -753,6 +770,14 @@ export const Transactions: React.FC = () => {
                                       ? `+${formatCurrency(txn.refund_surplus!)} as income`
                                       : 'booked as income'}
                                   </div>
+                                )}
+                                {(txn.for_others ?? 0) > 0 && (
+                                  <div className="text-xs text-right tabular-nums" style={{ color: 'var(--muted)' }}>
+                                    yours {formatCurrency(txn.amount - txn.for_others!)}
+                                  </div>
+                                )}
+                                {txn.paid_back && (
+                                  <div className="text-xs text-right" style={{ color: 'var(--muted)' }}>paid back</div>
                                 )}
                                 {txn.type === 'expense' && (txn.refunded_amount ?? 0) > 0 && (
                                   <div className="text-xs text-right" style={{ color: 'var(--refund)' }}>

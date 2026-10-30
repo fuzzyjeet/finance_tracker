@@ -49,6 +49,8 @@ def build_transaction_read(txn: Transaction, typical: Optional[float] = None) ->
         "to_account_id": txn.to_account_id,
         "payee": txn.payee,
         "notes": txn.notes,
+        "for_others": txn.for_others or 0.0,
+        "paid_back": bool(txn.paid_back),
         "recurring_id": txn.recurring_id,
         "created_at": txn.created_at,
         "category": txn.category,
@@ -180,6 +182,15 @@ def filtered_query(
     return q
 
 
+def apply_true_cost(txn: Transaction, for_others: Optional[float], paid_back: Optional[bool]) -> None:
+    """'For others' only applies to expenses and 'paid back' only to income."""
+    others = round(for_others or 0, 2) if txn.type == "expense" else 0.0
+    if others < 0 or others > txn.amount + 0.005:
+        raise HTTPException(400, "The part for others must be between 0 and the amount")
+    txn.for_others = others
+    txn.paid_back = bool(paid_back) and txn.type == "income"
+
+
 def apply_refund_links(db: Session, txn: Transaction, links) -> None:
     """Replace the originals this refund covers. Validates before mutating."""
     links = links or []
@@ -256,14 +267,17 @@ def get_summary(
     # A refund's linked portion offsets expenses; any unallocated remainder is income.
     refund_txns = [t for t in transactions if t.type == "refund"]
     surplus = sum(refund_surplus(t) for t in refund_txns)
-    total_income = sum(t.amount for t in transactions if t.type == "income") + surplus
-    total_expenses = sum(t.amount for t in transactions if t.type == "expense")
+    # True cost: expenses count my share; money paid back is not income
+    total_income = sum(t.amount for t in transactions if t.type == "income" and not t.paid_back) + surplus
+    total_expenses = sum(t.amount * t.own_ratio for t in transactions if t.type == "expense")
     total_refunds = sum(t.amount for t in refund_txns) - surplus
     return {
         "total_income": total_income,
         "total_expenses": total_expenses,
         "total_refunds": total_refunds,
         "net": total_income - total_expenses + total_refunds,
+        "for_others": sum(t.for_others or 0 for t in transactions if t.type == "expense"),
+        "paid_back": sum(t.amount for t in transactions if t.type == "income" and t.paid_back),
     }
 
 
@@ -289,8 +303,10 @@ def get_totals(
 
     refund_txns = [t for t in txns if t.type == "refund"]
     surplus = sum(refund_surplus(t) for t in refund_txns)
-    income = sum(counted(t) for t in txns if t.type == "income") + surplus
-    expenses = sum(counted(t) for t in txns if t.type == "expense")
+    income = sum(counted(t) for t in txns if t.type == "income" and not t.paid_back) + surplus
+    expense_txns = [t for t in txns if t.type == "expense"]
+    expenses = sum(counted(t) * t.own_ratio for t in expense_txns)
+    for_others = sum(counted(t) * (1 - t.own_ratio) for t in expense_txns)
     refunds = sum(t.amount for t in refund_txns) - surplus
     return {
         "count": len(txns),
@@ -299,6 +315,8 @@ def get_totals(
         "refunds": round(refunds, 2),
         "net": round(income - expenses + refunds, 2),
         "transfers": sum(1 for t in txns if t.type == "transfer"),
+        "for_others": round(for_others, 2),
+        "paid_back": round(sum(counted(t) for t in txns if t.type == "income" and t.paid_back), 2),
     }
 
 
@@ -394,6 +412,7 @@ def create_transaction(data: TransactionCreate, db: Session = Depends(get_db)):
         payee=data.payee,
         notes=data.notes,
     )
+    apply_true_cost(txn, data.for_others, data.paid_back)
     if data.refund_links:
         apply_refund_links(db, txn, data.refund_links)
     if tag_ids:
@@ -450,8 +469,15 @@ def update_transaction(transaction_id: str, data: TransactionUpdate, db: Session
     splits_data = update_data.pop("splits", None)
     refund_links = update_data.pop("refund_links", None)
 
+    for_others = update_data.pop("for_others", None)
+    paid_back = update_data.pop("paid_back", None)
     for field, value in update_data.items():
         setattr(txn, field, value)
+    apply_true_cost(
+        txn,
+        txn.for_others if for_others is None else for_others,
+        txn.paid_back if paid_back is None else paid_back,
+    )
 
     if refund_links is not None:
         apply_refund_links(db, txn, refund_links)

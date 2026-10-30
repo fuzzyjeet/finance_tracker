@@ -234,7 +234,8 @@ export const Dashboard: React.FC = () => {
       const catMap: Record<string, CatSpend> = {};
       for (const t of inRange) {
         // Refunds linked to this expense reduce its spend proportionally across categories
-        const netFactor = t.amount > 0 ? Math.max(0, 1 - (t.refunded_amount ?? 0) / t.amount) : 1;
+        // True cost: leave out refunds and the part spent on others
+        const netFactor = t.amount > 0 ? Math.max(0, 1 - ((t.refunded_amount ?? 0) + (t.for_others ?? 0)) / t.amount) : 1;
         if (t.category) {
           if (!catMap[t.category.id]) {
             catMap[t.category.id] = { id: t.category.id, name: t.category.name, icon: t.category.icon, color: t.category.color, amount: 0 };

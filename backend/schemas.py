@@ -180,6 +180,8 @@ class TransactionBase(BaseModel):
     project_ids: Optional[List[str]] = []
     splits: Optional[List[TransactionSplitCreate]] = None  # None = no splits
     refund_links: Optional[List[RefundLinkCreate]] = None
+    for_others: float = 0       # expense: the part spent on other people
+    paid_back: bool = False     # income: someone paying me back, not income
 
 
 class TransactionCreate(TransactionBase):
@@ -202,6 +204,8 @@ class TransactionUpdate(BaseModel):
     project_ids: Optional[List[str]] = None
     splits: Optional[List[TransactionSplitCreate]] = None  # None = don't touch, [] = clear
     refund_links: Optional[List[RefundLinkCreate]] = None  # None = don't touch, [] = clear
+    for_others: Optional[float] = None
+    paid_back: Optional[bool] = None
 
 
 class TransactionRead(BaseModel):
@@ -217,6 +221,8 @@ class TransactionRead(BaseModel):
     to_account_id: Optional[str] = None
     payee: str
     notes: Optional[str] = None
+    for_others: float = 0.0
+    paid_back: bool = False
     recurring_id: Optional[str] = None
     created_at: datetime
     category: Optional[CategoryRead] = None
@@ -235,11 +241,13 @@ class TransactionRead(BaseModel):
 
 class TransactionTotals(BaseModel):
     count: int
-    income: float
-    expenses: float
+    income: float       # excludes money paid back
+    expenses: float     # my share only
     refunds: float
     net: float
     transfers: int
+    for_others: float = 0.0
+    paid_back: float = 0.0
 
 
 class BulkAction(BaseModel):
@@ -255,6 +263,8 @@ class TransactionSummary(BaseModel):
     total_expenses: float
     total_refunds: float = 0.0
     net: float
+    for_others: float = 0.0
+    paid_back: float = 0.0
 
 
 # ── Recurring Transaction ─────────────────────────────────────────────────────

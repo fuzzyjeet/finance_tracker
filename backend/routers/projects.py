@@ -98,17 +98,20 @@ def get_project_spending(project_id: str, db: Session = Depends(get_db)):
             # Only count this transaction directly if it has no split-level project assignments
             has_split_projects = any(p for s in txn.splits for p in s.projects)
             if not has_split_projects:
-                total_spent += txn.amount
+                # True cost: only my share counts
+                ratio = txn.own_ratio
+                total_spent += txn.amount * ratio
                 if txn.splits:
                     for s in txn.splits:
-                        _add_to_cat(s.category, s.amount)
+                        _add_to_cat(s.category, s.amount * ratio)
                 else:
-                    _add_to_cat(txn.category, txn.amount)
+                    _add_to_cat(txn.category, txn.amount * ratio)
 
     for split in project_splits:
         if split.transaction.type in ("expense",):
-            total_spent += split.amount
-            _add_to_cat(split.category, split.amount)
+            ratio = split.transaction.own_ratio
+            total_spent += split.amount * ratio
+            _add_to_cat(split.category, split.amount * ratio)
 
     # Build transaction entries for the list
     # Collect unique transactions that touch this project

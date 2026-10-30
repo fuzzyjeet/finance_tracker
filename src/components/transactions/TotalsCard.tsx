@@ -21,7 +21,7 @@ export const TotalsCard: React.FC<{
   filtered: boolean;
   onSelect?: () => void;
 }> = ({ totals, label, filtered, onSelect }) => {
-  // Refunds bring spending down, so "Spent" is what it actually cost
+  // Refunds and the part spent on others bring spending down, so "Spent" is what it cost me
   const spent = totals ? totals.expenses - totals.refunds : 0;
   const onlyTransfers = totals && totals.count > 0 && totals.count === totals.transfers;
 
@@ -81,6 +81,16 @@ export const TotalsCard: React.FC<{
             </p>
           </div>
         </div>
+      )}
+
+      {totals && (totals.for_others > 0.005 || totals.paid_back > 0.005) && (
+        <p className="text-xs mt-2 pt-2 tabular-nums" style={{ color: 'var(--muted)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          On others <span style={{ color: 'var(--text-2)' }}>{fmt(totals.for_others)}</span>
+          {' · '}paid back <span style={{ color: 'var(--text-2)' }}>{fmt(totals.paid_back)}</span>
+          {totals.for_others - totals.paid_back > 0.005 && (
+            <>{' · '}still out <span className="font-semibold" style={{ color: 'var(--warn)' }}>{fmt(totals.for_others - totals.paid_back)}</span></>
+          )}
+        </p>
       )}
     </div>
   );

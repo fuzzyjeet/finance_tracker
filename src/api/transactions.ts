@@ -35,6 +35,8 @@ export interface TransactionPayload {
   project_ids?: string[];
   splits?: SplitPayload[];
   refund_links?: { original_id: string; amount: number }[];
+  for_others?: number;
+  paid_back?: boolean;
 }
 
 export type BulkAction =

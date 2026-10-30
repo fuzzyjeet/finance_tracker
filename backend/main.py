@@ -46,6 +46,12 @@ async def startup():
         if "time" not in txn_cols:
             conn.execute(text("ALTER TABLE transactions ADD COLUMN time VARCHAR"))
             conn.commit()
+        if "for_others" not in txn_cols:
+            conn.execute(text("ALTER TABLE transactions ADD COLUMN for_others FLOAT NOT NULL DEFAULT 0"))
+            conn.commit()
+        if "paid_back" not in txn_cols:
+            conn.execute(text("ALTER TABLE transactions ADD COLUMN paid_back BOOLEAN NOT NULL DEFAULT 0"))
+            conn.commit()
         # Legacy single-link refunds (refund_of_id) → refund_links table
         if "refund_of_id" in txn_cols:
             conn.execute(text("""
@@ -72,6 +78,7 @@ def _ensure_default_categories():
         missing = [
             {"name": "Lent to Friends", "icon": "🤝", "color": "#a78bfa", "type": "expense"},
             {"name": "Household",        "icon": "🏡", "color": "#2dd4bf", "type": "expense"},
+            {"name": "Social",           "icon": "🥂", "color": "#f472b6", "type": "expense"},
         ]
         for cat in missing:
             exists = db.query(Category).filter(Category.name == cat["name"]).first()

@@ -114,8 +114,18 @@ class Transaction(Base):
     to_account_id = Column(String, ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
     payee = Column(String, nullable=False, default="")
     notes = Column(String, nullable=True)
+    # True cost: on an expense, the part spent on other people; on income, money paid back to me
+    for_others = Column(Float, nullable=False, default=0)
+    paid_back = Column(Boolean, nullable=False, default=False)
     recurring_id = Column(String, ForeignKey("recurring_transactions.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    @property
+    def own_ratio(self) -> float:
+        """Share of an expense that was mine (1.0 unless part of it was for others)."""
+        if self.type != "expense" or not self.for_others or self.amount <= 0:
+            return 1.0
+        return max(0.0, 1.0 - self.for_others / self.amount)
 
     account = relationship("Account", foreign_keys=[account_id], back_populates="transactions")
     to_account = relationship("Account", foreign_keys=[to_account_id], back_populates="to_transactions")

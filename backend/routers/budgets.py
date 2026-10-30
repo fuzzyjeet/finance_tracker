@@ -45,7 +45,8 @@ def compute_spent(db: Session, category_id: str, month: str, exclude_project_ids
         )
     split_amounts = q_splits.all()
 
-    return sum(t.amount for t in direct) + sum(s.amount for s in split_amounts)
+    # True cost: only my share of an expense counts against the budget
+    return sum(t.amount * t.own_ratio for t in direct) + sum(s.amount * s.transaction.own_ratio for s in split_amounts)
 
 
 def build_budget_read(budget: Budget, db: Session, exclude_project_ids: list = None) -> BudgetRead:

@@ -99,6 +99,10 @@ export interface Transaction {
   to_account_id?: string;
   payee: string;
   notes?: string;
+  /** Expense: the part spent on other people. Only the rest counts as my spending. */
+  for_others?: number;
+  /** Income: money someone paid me back; not counted as income. */
+  paid_back?: boolean;
   recurring_id?: string;
   created_at: string;
   // nested
@@ -158,6 +162,8 @@ export interface TransactionTotals {
   refunds: number;
   net: number;
   transfers: number;
+  for_others: number;
+  paid_back: number;
 }
 
 export interface TransactionSummary {
@@ -165,4 +171,6 @@ export interface TransactionSummary {
   total_expenses: number;
   total_refunds: number;
   net: number;
+  for_others?: number;
+  paid_back?: number;
 }
