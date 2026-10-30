@@ -41,6 +41,8 @@ def trends(
     spending = [0.0] * months
     income = [0.0] * months
     expenses = [0.0] * months
+    for_others = [0.0] * months
+    paid_back = [0.0] * months
     categories = {}
     payees = {}
     so_far_last_month = 0.0
@@ -56,8 +58,11 @@ def trends(
         m = t.date[:7]
         i = index.get(m)
         if t.type == "income":
-            if i is not None and not t.paid_back:
-                income[i] += t.amount
+            if i is not None:
+                if t.paid_back:
+                    paid_back[i] += t.amount
+                else:
+                    income[i] += t.amount
             continue
         if t.type == "refund":
             # The part of a refund not linked to an expense counts as income
@@ -66,6 +71,8 @@ def trends(
             continue
 
         factor = my_cost_factor(t)
+        if i is not None:
+            for_others[i] += t.for_others or 0
         parts = [(s.category, s.amount * factor) for s in t.splits] if t.splits else [(t.category, t.amount * factor)]
         name = (t.payee or "").strip()
         for cat, cost in parts:
@@ -106,6 +113,9 @@ def trends(
         "income": r(income),
         "expenses": r(expenses),
         "net": r([a - b for a, b in zip(income, expenses)]),
+        # Spent on others (part of expenses) and money paid back to me (not income)
+        "for_others": r(for_others),
+        "paid_back": r(paid_back),
         "categories": sorted(categories.values(), key=lambda c: -sum(c["amounts"])),
         "payees": sorted(payees.values(), key=lambda p: -sum(p["amounts"])),
         # Spending by today's day of the month, last month: to compare "so far"

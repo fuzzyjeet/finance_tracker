@@ -82,16 +82,6 @@ export const TotalsCard: React.FC<{
           </div>
         </div>
       )}
-
-      {totals && (totals.for_others > 0.005 || totals.paid_back > 0.005) && (
-        <p className="text-xs mt-2 pt-2 tabular-nums" style={{ color: 'var(--muted)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-          On others <span style={{ color: 'var(--text-2)' }}>{fmt(totals.for_others)}</span>
-          {' · '}paid back <span style={{ color: 'var(--text-2)' }}>{fmt(totals.paid_back)}</span>
-          {totals.for_others - totals.paid_back > 0.005 && (
-            <>{' · '}still out <span className="font-semibold" style={{ color: 'var(--warn)' }}>{fmt(totals.for_others - totals.paid_back)}</span></>
-          )}
-        </p>
-      )}
     </div>
   );
 };

@@ -14,6 +14,8 @@ export interface Trends {
   income: number[];
   expenses: number[];
   net: number[];
+  for_others: number[];
+  paid_back: number[];
   categories: TrendSeries[]; // every category, unfiltered
   payees: { payee: string; amounts: number[] }[]; // only with a category
   so_far_last_month: number | null;

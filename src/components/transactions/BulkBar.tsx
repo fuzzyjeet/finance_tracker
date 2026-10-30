@@ -1,11 +1,18 @@
 import React, { useState } from 'react';
-import { X, Shapes, Tag as TagIcon, FolderOpen, Trash2, Check } from 'lucide-react';
+import { X, Shapes, Tag as TagIcon, FolderOpen, Trash2, Check, Plus } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { BulkAction } from '../../api/transactions';
+import { tagsApi } from '../../api/tags';
 import { Category, Project, Tag } from '../../types';
 
 type Picker = 'category' | 'tags' | 'project' | 'delete' | null;
+
+// Same colours the add form offers for new tags
+const TAG_COLORS = [
+  '#6366f1', '#22c55e', '#f97316', '#ef4444', '#3b82f6',
+  '#ec4899', '#f59e0b', '#14b8a6', '#8b5cf6', '#84cc16',
+];
 
 /** Bottom bar shown while transactions are selected, with the actions that apply to all of them. */
 export const BulkBar: React.FC<{
@@ -21,6 +28,26 @@ export const BulkBar: React.FC<{
   const [picker, setPicker] = useState<Picker>(null);
   const [tagIds, setTagIds] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
+  // Typing filters the tags; a name that doesn't exist yet can be created here
+  const [tagQuery, setTagQuery] = useState('');
+  const [createdTags, setCreatedTags] = useState<Tag[]>([]);
+  const allTags = [...tags, ...createdTags.filter(c => !tags.some(t => t.id === c.id))];
+  const query = tagQuery.trim();
+  const shownTags = query ? allTags.filter(t => t.name.toLowerCase().includes(query.toLowerCase())) : allTags;
+  const exactTag = allTags.find(t => t.name.toLowerCase() === query.toLowerCase());
+
+  const createTag = async () => {
+    if (!query || exactTag) return;
+    setBusy(true);
+    try {
+      const tag = await tagsApi.create({ name: query, color: TAG_COLORS[allTags.length % TAG_COLORS.length] });
+      setCreatedTags(prev => [...prev, tag]);
+      setTagIds(prev => new Set(prev).add(tag.id));
+      setTagQuery('');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const apply = async (action: BulkAction) => {
     setBusy(true);
@@ -28,6 +55,7 @@ export const BulkBar: React.FC<{
       await onApply(action);
       setPicker(null);
       setTagIds(new Set());
+      setTagQuery('');
     } finally {
       setBusy(false);
     }
@@ -96,26 +124,43 @@ export const BulkBar: React.FC<{
 
       <Modal isOpen={picker === 'tags'} onClose={() => setPicker(null)} title={`Add tags to ${noun}`} size="sm">
         <p className="text-xs mb-2" style={{ color: 'var(--muted)' }}>Existing tags stay; these are added.</p>
-        {tags.length === 0 ? (
-          <p className="text-sm py-4 text-center" style={{ color: 'var(--muted)' }}>No tags yet. Create them in Settings.</p>
-        ) : (
-          <div className="space-y-0.5">
-            {tags.map(t => {
-              const on = tagIds.has(t.id);
-              return (
-                <button key={t.id} type="button" className={rowCls} style={{ color: 'var(--text)' }}
-                  onClick={() => setTagIds(prev => { const s = new Set(prev); on ? s.delete(t.id) : s.add(t.id); return s; })}>
-                  <span className="w-3 h-3 rounded-full shrink-0" style={{ background: t.color }} />
-                  <span className="flex-1">{t.name}</span>
-                  <span className="w-6 h-6 rounded-md flex items-center justify-center"
-                    style={{ background: on ? 'var(--accent)' : 'transparent', border: on ? 'none' : '1.5px solid var(--faint-2)', color: 'var(--on-accent)' }}>
-                    {on && <Check size={15} strokeWidth={3} />}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
+        <input
+          type="text"
+          value={tagQuery}
+          onChange={e => setTagQuery(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); createTag(); } }}
+          placeholder={allTags.length ? 'Find or create a tag' : 'Name a new tag'}
+          enterKeyHint="done"
+          className="block w-full rounded-xl px-3 h-11 mb-2 text-base focus:outline-none"
+          style={{ background: 'var(--surface-highest)', color: 'var(--text)', border: '1px solid rgba(255,255,255,0.1)' }}
+        />
+        <div className="space-y-0.5">
+          {query && !exactTag && (
+            <button type="button" disabled={busy} className={rowCls} style={{ color: 'var(--accent)' }} onClick={createTag}>
+              <span className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: 'rgb(var(--accent-rgb) / 0.15)' }}>
+                <Plus size={15} />
+              </span>
+              <span className="flex-1 truncate">Create “{query}”</span>
+            </button>
+          )}
+          {shownTags.map(t => {
+            const on = tagIds.has(t.id);
+            return (
+              <button key={t.id} type="button" className={rowCls} style={{ color: 'var(--text)' }}
+                onClick={() => setTagIds(prev => { const s = new Set(prev); on ? s.delete(t.id) : s.add(t.id); return s; })}>
+                <span className="w-3 h-3 rounded-full shrink-0" style={{ background: t.color }} />
+                <span className="flex-1">{t.name}</span>
+                <span className="w-6 h-6 rounded-md flex items-center justify-center"
+                  style={{ background: on ? 'var(--accent)' : 'transparent', border: on ? 'none' : '1.5px solid var(--faint-2)', color: 'var(--on-accent)' }}>
+                  {on && <Check size={15} strokeWidth={3} />}
+                </span>
+              </button>
+            );
+          })}
+          {!query && allTags.length === 0 && (
+            <p className="text-sm py-3 text-center" style={{ color: 'var(--muted)' }}>No tags yet. Type a name to create one.</p>
+          )}
+        </div>
         <div className="flex justify-end gap-2 pt-3">
           <Button variant="secondary" onClick={() => setPicker(null)}>Cancel</Button>
           <Button disabled={tagIds.size === 0} loading={busy} onClick={() => apply({ action: 'update', add_tag_ids: [...tagIds] })}>
