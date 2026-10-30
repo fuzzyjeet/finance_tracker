@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
-  Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight,
+  Pencil, Trash2, Search, ChevronLeft, ChevronRight,
   ArrowUpRight, ArrowDownLeft, ArrowLeftRight, ChevronDown, X, Undo2,
 } from 'lucide-react';
 import { Header } from '../components/layout/Header';
@@ -9,6 +9,8 @@ import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Badge } from '../components/ui/Badge';
 import { TransactionFormModal } from '../components/transactions/TransactionFormModal';
+import { LogStatus } from '../components/transactions/LogStatus';
+import { emitDataChanged, onDataChanged } from '../lib/events';
 import { CustomSelect } from '../components/ui/CustomSelect';
 import { transactionsApi } from '../api/transactions';
 import { accountsApi } from '../api/accounts';
@@ -164,18 +166,18 @@ export const Transactions: React.FC = () => {
 
   useEffect(() => { loadRefs(); }, []);
   useEffect(() => { setOffset(0); load(0); }, [load]);
+  // Entries added from the global + button or the pending-actions menu
+  useEffect(() => onDataChanged(() => { load(offset); loadRefs(); }), [load, offset]);
 
-  const openCreate = () => { setEditing(null); setRefundOf(null); setModalOpen(true); };
   const openEdit   = (txn: Transaction) => { setEditing(txn); setRefundOf(null); setModalOpen(true); };
   const openRefund = (txn: Transaction) => { setEditing(null); setRefundOf(txn); setModalOpen(true); };
 
-  const handleSaved = async () => { await load(offset); await loadRefs(); };
+  const handleSaved = () => emitDataChanged();
 
   const handleDelete = async (id: string) => {
     await transactionsApi.delete(id);
     setDeleteConfirm(null);
-    await load(offset);
-    await loadRefs();
+    emitDataChanged();
   };
 
   const prevPage = () => { const n = Math.max(0, offset - PAGE_SIZE); setOffset(n); load(n); };
@@ -218,10 +220,9 @@ export const Transactions: React.FC = () => {
 
   return (
     <div>
-      <Header
-        title="Transactions"
-        actions={<Button onClick={openCreate}><Plus size={16} /> Add Transaction</Button>}
-      />
+      <Header title="Transactions" />
+
+      <LogStatus />
 
       {/* ── Filter bar ─────────────────────────────────────── */}
       <div

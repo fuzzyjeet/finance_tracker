@@ -5,14 +5,14 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
-import { Plus, ArrowUpRight, ArrowDownLeft, ArrowLeftRight, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, ArrowLeftRight, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { Header } from '../components/layout/Header';
 import { Card } from '../components/ui/Card';
-import { TransactionFormModal } from '../components/transactions/TransactionFormModal';
 import { accountsApi } from '../api/accounts';
 import { transactionsApi } from '../api/transactions';
 import { budgetsApi } from '../api/budgets';
 import { Account, Transaction, Budget, getCurrencySymbol } from '../types';
+import { onDataChanged } from '../lib/events';
 
 const fmt = (value: number) =>
   new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
@@ -163,7 +163,6 @@ export const Dashboard: React.FC = () => {
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets]               = useState<Budget[]>([]);
   const [loading, setLoading]               = useState(true);
-  const [addTxnOpen, setAddTxnOpen]         = useState(false);
 
   // Bar chart state (fixed: always last 6 months from today)
   const [monthlyData, setMonthlyData]   = useState<{ month: string; income: number; expenses: number }[]>([]);
@@ -179,25 +178,23 @@ export const Dashboard: React.FC = () => {
 
   const currentMonth = format(new Date(), 'yyyy-MM');
 
-  // ── Load static data once ──────────────────────────────
-  useEffect(() => {
-    const init = async () => {
-      setLoading(true);
-      try {
-        const [accts, txns, buds] = await Promise.all([
-          accountsApi.list(),
-          transactionsApi.list({ limit: 5 }),
-          budgetsApi.list(currentMonth),
-        ]);
-        setAccounts(accts);
-        setRecentTransactions(txns);
-        setBudgets(buds.slice(0, 4));
-      } finally {
-        setLoading(false);
-      }
-    };
-    init();
-  }, []);
+  // ── Load static data (balances, recent txns, budgets) ──
+  const loadStatic = useCallback(async () => {
+    try {
+      const [accts, txns, buds] = await Promise.all([
+        accountsApi.list(),
+        transactionsApi.list({ limit: 5 }),
+        budgetsApi.list(currentMonth),
+      ]);
+      setAccounts(accts);
+      setRecentTransactions(txns);
+      setBudgets(buds.slice(0, 4));
+    } finally {
+      setLoading(false);
+    }
+  }, [currentMonth]);
+
+  useEffect(() => { loadStatic(); }, [loadStatic]);
 
   // ── Load bar chart (last 6 months from today, independent) ──
   const loadBarChart = useCallback(async () => {
@@ -265,6 +262,8 @@ export const Dashboard: React.FC = () => {
   }, [pieDate, pieRangeMode, pieCustomFrom, pieCustomTo]);
 
   useEffect(() => { loadPieChart(); }, [loadPieChart]);
+
+  useEffect(() => onDataChanged(() => { loadStatic(); loadBarChart(); loadPieChart(); }), [loadStatic, loadBarChart, loadPieChart]);
 
   // ── Donut period navigation ────────────────────────────
   const prevPieMonth = () => setPieDate(d => subMonths(d, 1));
@@ -510,20 +509,6 @@ export const Dashboard: React.FC = () => {
         </Card>
       </div>
 
-      {/* Floating Action Button */}
-      <button
-        onClick={() => setAddTxnOpen(true)}
-        className="fixed bottom-8 right-8 w-14 h-14 bg-primary-container text-on-primary-container rounded-full shadow-lg flex items-center justify-center transition-all hover:brightness-110 active:scale-95 z-40"
-        title="Add Transaction"
-      >
-        <Plus size={24} />
-      </button>
-
-      <TransactionFormModal
-        isOpen={addTxnOpen}
-        onClose={() => setAddTxnOpen(false)}
-        onSaved={() => { loadBarChart(); loadPieChart(); }}
-      />
     </div>
   );
 };

@@ -12,9 +12,9 @@ import {
 } from 'lucide-react';
 
 const navItems = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/accounts', icon: CreditCard, label: 'Accounts' },
   { to: '/transactions', icon: ArrowLeftRight, label: 'Transactions' },
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/accounts', icon: CreditCard, label: 'Accounts' },
   { to: '/budgets', icon: PieChart, label: 'Budgets' },
   { to: '/recurring', icon: RefreshCw, label: 'Recurring' },
   { to: '/projects', icon: FolderOpen, label: 'Projects' },
@@ -42,7 +42,6 @@ export const Sidebar: React.FC = () => {
           <NavLink
             key={to}
             to={to}
-            end={to === '/'}
             className={({ isActive }) =>
               `flex items-center gap-3 py-3 px-6 text-xs font-medium uppercase tracking-widest transition-all duration-300 ease-in-out ${
                 isActive

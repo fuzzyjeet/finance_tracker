@@ -11,6 +11,7 @@ import { accountsApi } from '../api/accounts';
 import { categoriesApi } from '../api/categories';
 import { tagsApi } from '../api/tags';
 import { RecurringTransaction, Account, Category, Tag } from '../types';
+import { emitDataChanged, onDataChanged } from '../lib/events';
 
 const formatCurrency = (v: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v);
@@ -103,7 +104,7 @@ export const Recurring: React.FC = () => {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); return onDataChanged(load); }, []);
 
   const openCreate = () => {
     setEditing(null);
@@ -177,7 +178,7 @@ export const Recurring: React.FC = () => {
     setPosting(id);
     try {
       await recurringApi.postNow(id);
-      await load();
+      emitDataChanged();
     } finally {
       setPosting(null);
     }

@@ -1,5 +1,6 @@
 import React from 'react';
 import { format } from 'date-fns';
+import { PendingActions } from './PendingActions';
 
 interface HeaderProps {
   title: React.ReactNode;
@@ -19,7 +20,10 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle, actions }) => {
           <p className="text-xs text-slate-500 mt-1 uppercase tracking-widest">{today}</p>
         )}
       </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      <div className="flex items-center gap-2">
+        {actions}
+        <PendingActions />
+      </div>
     </div>
   );
 };

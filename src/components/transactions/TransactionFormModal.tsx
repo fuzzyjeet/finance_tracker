@@ -153,9 +153,11 @@ interface Props {
   onSaved: () => void;
   editing?: Transaction | null;
   refundOf?: Transaction | null;
+  /** Prefills the date of a new transaction (e.g. backfilling a missed day). */
+  defaultDate?: string;
 }
 
-export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved, editing, refundOf }) => {
+export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved, editing, refundOf, defaultDate }) => {
   const [accounts, setAccounts]     = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags]             = useState<Tag[]>([]);
@@ -289,14 +291,15 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
       setSplitOpen(false);
       setSplits([{ amount: 0, category_id: '', notes: '', project_ids: [] }]);
     } else {
-      setForm(emptyForm());
+      // A backfilled day has no meaningful "now" time, so leave it blank
+      setForm(defaultDate ? { ...emptyForm(), date: defaultDate, time: '' } : emptyForm());
       setLinks([]);
       setSplitOpen(false);
       setSplits([{ amount: 0, category_id: '', notes: '', project_ids: [] }]);
     }
     setShowErrors(false);
     setSaveError('');
-  }, [editing, isOpen, refundOf]);
+  }, [editing, isOpen, refundOf, defaultDate]);
 
   // Lock body scroll
   useEffect(() => {
