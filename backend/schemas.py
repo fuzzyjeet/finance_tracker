@@ -183,7 +183,8 @@ class TransactionBase(BaseModel):
 
 
 class TransactionCreate(TransactionBase):
-    pass
+    # Client-generated id, so an entry saved offline and retried is only created once
+    id: Optional[str] = None
 
 
 class TransactionUpdate(BaseModel):

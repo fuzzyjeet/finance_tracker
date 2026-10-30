@@ -6,6 +6,7 @@ import {
 import { CustomSelect } from '../ui/CustomSelect';
 import { RefundLinkPicker, remainingRefundable } from './RefundLinkPicker';
 import { transactionsApi, TransactionPayload, SplitPayload } from '../../api/transactions';
+import { createTransaction, isNetworkError } from '../../lib/offlineQueue';
 import { accountsApi } from '../../api/accounts';
 import { categoriesApi } from '../../api/categories';
 import { tagsApi } from '../../api/tags';
@@ -492,28 +493,31 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
           ? links.map(l => ({ original_id: l.id, amount: parseFloat(l.amount) || 0 }))
           : editing ? [] : undefined,
       };
+      let queued = false;
       if (editing) {
         await transactionsApi.update(editing.id, payload);
       } else {
-        await transactionsApi.create(payload);
+        queued = (await createTransaction(payload)).queued;
         rememberAccount(form.account_id);
       }
       onSaved();
       if (andNext && !editing) {
-        startNext();
+        startNext(queued);
       } else {
         onClose();
       }
     } catch (err: any) {
-      setSaveError(err?.response?.data?.detail ?? 'Could not save the transaction');
+      setSaveError(isNetworkError(err)
+        ? "You're offline. New transactions are saved offline, but edits need a connection."
+        : err?.response?.data?.detail ?? 'Could not save the transaction');
     } finally {
       setSaving(false);
     }
   };
 
   // Clear the entry for the next one, keeping account, date and type (handy for backfilling a day)
-  const startNext = () => {
-    setLastSaved(`${form.payee} · ${new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2 }).format(totalAmount)}`);
+  const startNext = (queued = false) => {
+    setLastSaved(`${form.payee} · ${new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2 }).format(totalAmount)}${queued ? ' (offline, will sync)' : ''}`);
     setForm(f => ({
       ...emptyForm(),
       type: f.type === 'refund' ? 'expense' : f.type,

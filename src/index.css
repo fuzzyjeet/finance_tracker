@@ -63,13 +63,13 @@ html, body {
   .pb-safe-page { padding-bottom: 2rem; }
 }
 
-/* Floating add button */
+/* Floating add button: bottom right, above the tab bar on phones */
 .fab-position {
-  left: 1rem;
+  right: 1rem;
   bottom: calc(4.5rem + env(safe-area-inset-bottom));
 }
 @media (min-width: 768px) {
-  .fab-position { left: 17.5rem; bottom: 1.5rem; }
+  .fab-position { right: 2rem; bottom: 2rem; }
 }
 
 /* iOS zooms into any field under 16px; keep inputs at 16px on phones (big amount input excepted) */

@@ -187,11 +187,15 @@ def list_transactions(
 
 @router.post("", response_model=TransactionRead)
 def create_transaction(data: TransactionCreate, db: Session = Depends(get_db)):
+    if data.id:
+        existing = db.query(Transaction).filter(Transaction.id == data.id).first()
+        if existing:  # a retried offline save that already reached the server
+            return TransactionRead.model_validate(build_transaction_read(existing))
     tag_ids = data.tag_ids or []
     project_ids = data.project_ids or []
     has_splits = bool(data.splits)
     txn = Transaction(
-        id=str(uuid.uuid4()),
+        id=data.id or str(uuid.uuid4()),
         date=data.date,
         time=data.time,
         billing_date=data.billing_date,
