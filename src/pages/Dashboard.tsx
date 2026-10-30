@@ -222,7 +222,8 @@ export const Dashboard: React.FC = () => {
     <div className="pb-4">
       <Header title="Dashboard" />
 
-      {/* One period for every chart; tap a column to pick the month the cards describe */}
+      {/* One period for every chart. Tapping a spending column picks the month for the
+          categories too; the net balance chart picks its own */}
       <div className="flex items-center gap-2 mb-4">
         <div className="grid grid-cols-3 gap-1 p-1 rounded-xl flex-1 md:flex-none md:w-80" style={{ background: 'var(--surface-low)' }}>
           {RANGES.map(r => (
@@ -235,26 +236,6 @@ export const Dashboard: React.FC = () => {
               {r.label}
             </button>
           ))}
-        </div>
-        <div className="flex items-center">
-          <button
-            onClick={() => setSelected(Math.max(0, sel - 1))}
-            disabled={sel === 0}
-            className="w-10 h-10 flex items-center justify-center rounded-xl disabled:opacity-30"
-            style={{ color: 'var(--text-2)' }}
-            aria-label="Previous month"
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <button
-            onClick={() => setSelected(Math.min(data.months.length - 1, sel + 1))}
-            disabled={sel === data.months.length - 1}
-            className="w-10 h-10 flex items-center justify-center rounded-xl disabled:opacity-30"
-            style={{ color: 'var(--text-2)' }}
-            aria-label="Next month"
-          >
-            <ChevronRight size={18} />
-          </button>
         </div>
       </div>
 
@@ -285,7 +266,7 @@ export const Dashboard: React.FC = () => {
           )}
         </div>
 
-        <NetCard data={data} selected={sel} onSelect={setSelected} partialMonth={partialMonth} />
+        <NetCard data={data} partialMonth={partialMonth} />
         <OthersCard data={data} selected={sel} isPartial={isPartial} />
       </div>
     </div>
@@ -322,7 +303,7 @@ const SpendingCard: React.FC<{
         label="Spending per month"
       />
       <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
-        Your share, after refunds. Tap a month to see its categories.
+        Your share, after refunds. Tap a month to see its categories below.
       </p>
     </section>
   );
@@ -502,9 +483,12 @@ const DrillCard: React.FC<{
 };
 
 // ── Net balance ─────────────────────────────────────────────────────────────
-const NetCard: React.FC<{
-  data: Trends; selected: number; onSelect: (i: number) => void; partialMonth?: string;
-}> = ({ data, selected, onSelect, partialMonth }) => {
+// Picks its own month: tapping a column here only changes this card
+const NetCard: React.FC<{ data: Trends; partialMonth?: string }> = ({ data, partialMonth }) => {
+  const last = data.months.length - 1;
+  const [picked, setPicked] = useState<string | null>(null);
+  const selected = picked && data.months.includes(picked) ? data.months.indexOf(picked) : last;
+  const onSelect = (i: number) => setPicked(data.months[i]);
   const month = data.months[selected];
   const net = data.net[selected];
   const isPartial = month === partialMonth;
