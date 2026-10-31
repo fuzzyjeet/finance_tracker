@@ -3,7 +3,7 @@
 // - /assets (hashed filenames) and icons: cache first
 // - GET /api: network first, falling back to the last response (writes are never cached;
 //   new transactions made offline are queued by the app itself)
-const CACHE = 'jeetmoney-v1';
+const CACHE = 'jeetmoney-v2';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg', '/icons/icon-192.png'];
 
 self.addEventListener('install', event => {

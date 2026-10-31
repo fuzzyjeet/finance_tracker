@@ -5,6 +5,7 @@ import uuid
 from database import get_db
 from models import Project, Transaction, TransactionSplit
 from schemas import ProjectCreate, ProjectUpdate, ProjectRead
+from routers.budgets import my_cost_factor
 
 router = APIRouter()
 
@@ -98,8 +99,8 @@ def get_project_spending(project_id: str, db: Session = Depends(get_db)):
             # Only count this transaction directly if it has no split-level project assignments
             has_split_projects = any(p for s in txn.splits for p in s.projects)
             if not has_split_projects:
-                # True cost: only my share counts
-                ratio = txn.own_ratio
+                # True cost: my share, after refunds (same rule as budgets and the dashboard)
+                ratio = my_cost_factor(txn)
                 total_spent += txn.amount * ratio
                 if txn.splits:
                     for s in txn.splits:
@@ -109,7 +110,7 @@ def get_project_spending(project_id: str, db: Session = Depends(get_db)):
 
     for split in project_splits:
         if split.transaction.type in ("expense",):
-            ratio = split.transaction.own_ratio
+            ratio = my_cost_factor(split.transaction)
             total_spent += split.amount * ratio
             _add_to_cat(split.category, split.amount * ratio)
 
