@@ -9,6 +9,7 @@ import { Button } from '../ui/Button';
 import { AccountIcon, formatAmount, typeLabel } from '../../pages/Accounts';
 import { emitDataChanged, onDataChanged } from '../../lib/events';
 import { localISODate } from '../../lib/dates';
+import { usePayeeLogos } from '../../lib/payeeLogos';
 
 const cardStyle = { background: 'var(--surface-low)', border: '1px solid rgba(255,255,255,0.05)' };
 const toDate = (m: string) => parse(m, 'yyyy-MM', new Date());
@@ -33,6 +34,7 @@ export const AccountDetail: React.FC<{
   const [txns, setTxns] = useState<Transaction[] | null>(null);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const logoFor = usePayeeLogos();
 
   // A different account starts on this month again
   useEffect(() => { setMonth(localISODate().slice(0, 7)); }, [account.id]);
@@ -170,6 +172,7 @@ export const AccountDetail: React.FC<{
               </div>
               {list.map(t => {
                 const v = effect(t, account.id);
+                const logo = t.type === 'transfer' ? null : logoFor(t.payee);
                 const other = t.type === 'transfer'
                   ? (t.to_account_id === account.id ? `From ${t.account_name}` : `To ${t.to_account_name ?? ''}`)
                   : t.splits?.length ? `${t.splits.length} splits` : t.category?.name ?? 'No category';
@@ -181,9 +184,11 @@ export const AccountDetail: React.FC<{
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-left active:bg-white/5"
                     style={{ borderTop: '1px solid rgba(255,255,255,0.03)' }}
                   >
-                    <span className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"
-                      style={{ background: t.category ? `color-mix(in srgb, ${t.category.color} 14%, transparent)` : 'rgba(255,255,255,0.05)' }}>
-                      {t.type === 'transfer' ? <ArrowLeftRight size={14} style={{ color: 'var(--transfer)' }} /> : t.category?.icon ?? '💸'}
+                    <span className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0 overflow-hidden"
+                      style={{ background: logo ? 'var(--text)' : t.category ? `color-mix(in srgb, ${t.category.color} 14%, transparent)` : 'rgba(255,255,255,0.05)' }}>
+                      {t.type === 'transfer' ? <ArrowLeftRight size={14} style={{ color: 'var(--transfer)' }} />
+                        : logo ? <img src={logo} alt="" className="w-full h-full object-contain p-[2px]" loading="lazy" />
+                        : t.category?.icon ?? '💸'}
                     </span>
                     <span className="flex-1 min-w-0">
                       <span className="block text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{t.payee || '—'}</span>

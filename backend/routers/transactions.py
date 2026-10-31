@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import or_, and_
 from sqlalchemy.orm import Session
 from typing import Dict, List, Optional
@@ -13,6 +13,7 @@ from schemas import (
     TransactionTotals, BulkAction,
 )
 from routers.accounts import recalculate_balance
+from routers.logos import fetch_for_new_payee
 
 router = APIRouter()
 
@@ -391,7 +392,10 @@ def bulk_action(data: BulkAction, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=TransactionRead)
-def create_transaction(data: TransactionCreate, db: Session = Depends(get_db)):
+def create_transaction(data: TransactionCreate, background: BackgroundTasks, db: Session = Depends(get_db)):
+    # A known shop seen for the first time gets its logo once the response is sent
+    if data.type != "transfer" and data.payee:
+        background.add_task(fetch_for_new_payee, data.payee)
     if data.id:
         existing = db.query(Transaction).filter(Transaction.id == data.id).first()
         if existing:  # a retried offline save that already reached the server

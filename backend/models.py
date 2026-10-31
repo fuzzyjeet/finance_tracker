@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import (
-    Column, String, Text, Float, Integer, Boolean, DateTime, ForeignKey, Table, Enum as SAEnum
+    Column, String, Text, Float, Integer, Boolean, DateTime, ForeignKey, Table, LargeBinary, Enum as SAEnum
 )
 from sqlalchemy.orm import relationship
 from database import Base
@@ -241,3 +241,24 @@ class BudgetMonth(Base):
     __tablename__ = "budget_months"
 
     month = Column(String, primary_key=True)  # YYYY-MM
+
+
+class Logo(Base):
+    """A logo image, fetched from a website (key = the domain) or uploaded (key = "upload-<id>")."""
+    __tablename__ = "logos"
+
+    key = Column(String, primary_key=True)
+    content_type = Column(String, nullable=False)
+    data = Column(LargeBinary, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class PayeeLogo(Base):
+    """The user's choice of logo for a payee, overriding the guess from its name.
+    logo_key None means "no logo for this payee"."""
+    __tablename__ = "payee_logos"
+
+    payee = Column(String, primary_key=True)  # lower-cased, single spaces
+    logo_key = Column(String, ForeignKey("logos.key", ondelete="SET NULL"), nullable=True)
+    domain = Column(String, nullable=True)
+

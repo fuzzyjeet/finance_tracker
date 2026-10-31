@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import {
   Tag, Users, Plus, Pencil, Trash2, Check, X,
-  ChevronRight,
 } from 'lucide-react';
 import { Header } from '../components/layout/Header';
 import { Card } from '../components/ui/Card';
 import { categoriesApi, CategoryPayload } from '../api/categories';
-import { transactionsApi } from '../api/transactions';
+import { PayeeLogos } from '../components/settings/PayeeLogos';
 import { Category, CategoryType } from '../types';
 
 // ── Constants ──────────────────────────────────────────────
@@ -54,34 +53,16 @@ export const Settings: React.FC = () => {
   const [catSearch, setCatSearch]     = useState('');
 
   // ── Payees state ──────────────────────────────────────
-  const [txnPayees, setTxnPayees]       = useState<{ name: string; count: number }[]>([]);
-  const [payeesLoading, setPayeesLoading] = useState(false);
   const [customPayees, setCustomPayees]   = useState<string[]>(() =>
     JSON.parse(localStorage.getItem('custom_payees') || '[]')
   );
   const [newPayee, setNewPayee]   = useState('');
-  const [payeeSearch, setPayeeSearch] = useState('');
 
   // ── Load categories ───────────────────────────────────
   useEffect(() => {
     if (tab !== 'categories') return;
     setCatLoading(true);
     categoriesApi.list().then(setCategories).finally(() => setCatLoading(false));
-  }, [tab]);
-
-  // ── Load payees ───────────────────────────────────────
-  useEffect(() => {
-    if (tab !== 'payees') return;
-    setPayeesLoading(true);
-    transactionsApi.list({ limit: 500 }).then(txns => {
-      const map: Record<string, number> = {};
-      txns.forEach(t => { if (t.payee) map[t.payee] = (map[t.payee] || 0) + 1; });
-      setTxnPayees(
-        Object.entries(map)
-          .map(([name, count]) => ({ name, count }))
-          .sort((a, b) => b.count - a.count)
-      );
-    }).finally(() => setPayeesLoading(false));
   }, [tab]);
 
   // ── Category CRUD ─────────────────────────────────────
@@ -148,9 +129,6 @@ export const Settings: React.FC = () => {
   // ── Filtered lists ────────────────────────────────────
   const filteredCats = categories.filter(c =>
     c.name.toLowerCase().includes(catSearch.toLowerCase())
-  );
-  const filteredTxnPayees = txnPayees.filter(p =>
-    p.name.toLowerCase().includes(payeeSearch.toLowerCase())
   );
   // ── Tab button ────────────────────────────────────────
   const TabBtn = ({ id, icon: Icon, label }: { id: SettingsTab; icon: React.FC<any>; label: string }) => (
@@ -426,8 +404,7 @@ export const Settings: React.FC = () => {
             ) : (
               <div className="space-y-1">
                 {customPayees
-                  .filter(p => p.toLowerCase().includes(payeeSearch.toLowerCase()))
-                  .map(name => (
+                                    .map(name => (
                     <div
                       key={name}
                       className="flex items-center justify-between px-3 py-2 rounded-lg"
@@ -448,53 +425,7 @@ export const Settings: React.FC = () => {
             )}
           </Card>
 
-          {/* Payees from transactions */}
-          <Card>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-sm font-bold" style={{ color: TEXT }}>From Transactions</h2>
-                <p className="text-xs mt-0.5" style={{ color: MUTED }}>Auto-discovered from your transaction history</p>
-              </div>
-              <input
-                className="bg-transparent text-xs outline-none px-3 py-1.5 rounded-lg"
-                style={{ color: TEXT, border: `1px solid ${BORDER}`, width: 130 }}
-                placeholder="Search…"
-                value={payeeSearch}
-                onChange={e => setPayeeSearch(e.target.value)}
-              />
-            </div>
-
-            {payeesLoading ? (
-              <div className="flex items-center justify-center py-10">
-                <div className="animate-spin w-6 h-6 border-4 border-primary border-t-transparent rounded-full" />
-              </div>
-            ) : filteredTxnPayees.length === 0 ? (
-              <p className="text-sm text-center py-6" style={{ color: MUTED }}>
-                {payeeSearch ? 'No matching payees' : 'No transaction payees found'}
-              </p>
-            ) : (
-              <div className="space-y-1 max-h-80 overflow-y-auto pr-1">
-                {filteredTxnPayees.map(({ name, count }) => (
-                  <div
-                    key={name}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg"
-                    style={{ background: 'rgba(255,255,255,0.02)' }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <ChevronRight size={12} style={{ color: MUTED }} />
-                      <span className="text-sm" style={{ color: TEXT }}>{name}</span>
-                    </div>
-                    <span
-                      className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                      style={{ background: 'rgba(255,255,255,0.05)', color: MUTED }}
-                    >
-                      {count} txn{count !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
+          <PayeeLogos />
         </div>
       )}
     </div>

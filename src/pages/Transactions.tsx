@@ -27,6 +27,7 @@ import { Account, Category, Project, Tag, Transaction, TransactionTotals } from 
 import { localISODate } from '../lib/dates';
 import { myShare } from '../lib/myShare';
 import { treeOrder, accountLabel } from '../lib/accounts';
+import { usePayeeLogos } from '../lib/payeeLogos';
 
 // Searches look across every month; this caps how many results come back
 const SEARCH_LIMIT = 500;
@@ -133,6 +134,7 @@ function MobileTransactionList({
   selected: Set<string> | null;
   onExplain: (txn: Transaction) => void;
 }) {
+  const logoFor = usePayeeLogos();
   return (
     <div className="md:hidden">
       {groups.map(group => {
@@ -158,6 +160,7 @@ function MobileTransactionList({
                     txn.account_name,
                   ].filter(Boolean).join(' · ');
               const isSelected = selected?.has(txn.id) ?? false;
+              const logo = txn.type === 'transfer' ? null : logoFor(txn.payee);
               return (
                 <div
                   key={txn.id}
@@ -173,10 +176,11 @@ function MobileTransactionList({
                   }}
                 >
                   <div
-                    className="relative w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0"
-                    style={{ background: isSelected ? 'var(--accent)' : txn.category ? `color-mix(in srgb, ${txn.category.color} 14%, transparent)` : 'rgba(255,255,255,0.05)' }}
+                    className="relative w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0 overflow-hidden"
+                    style={{ background: isSelected ? 'var(--accent)' : logo ? 'var(--text)' : txn.category ? `color-mix(in srgb, ${txn.category.color} 14%, transparent)` : 'rgba(255,255,255,0.05)' }}
                   >
                     {isSelected ? <Check size={20} strokeWidth={3} style={{ color: 'var(--on-accent)' }} />
+                      : logo ? <img src={logo} alt="" className="w-full h-full object-contain p-[3px]" loading="lazy" />
                       : txn.type === 'transfer' ? <ArrowLeftRight size={16} style={{ color: 'var(--transfer)' }} />
                       : splitCount > 0 ? <span className="text-sm">✂️</span>
                       : txn.category?.icon ?? '💸'}
@@ -312,6 +316,7 @@ function SelectBox({ checked, onChange, label }: { checked: boolean; onChange: (
 
 // ── Main page ──────────────────────────────────────────────
 export const Transactions: React.FC = () => {
+  const logoFor = usePayeeLogos();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts]         = useState<Account[]>([]);
   const [categories, setCategories]     = useState<Category[]>([]);
@@ -837,6 +842,11 @@ export const Transactions: React.FC = () => {
                               {/* Payee */}
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-1.5">
+                                  {txn.type !== 'transfer' && logoFor(txn.payee) && (
+                                    <span className="w-6 h-6 rounded-md shrink-0 overflow-hidden p-[2px]" style={{ background: 'var(--text)' }}>
+                                      <img src={logoFor(txn.payee)!} alt="" className="w-full h-full object-contain" loading="lazy" />
+                                    </span>
+                                  )}
                                   <span className="font-medium" style={{ color: 'var(--text)' }}>{txn.payee}</span>
                                   {txn.refunds && txn.refunds.length > 0 && (
                                     <button
