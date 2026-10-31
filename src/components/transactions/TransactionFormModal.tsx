@@ -458,8 +458,9 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
 
   // Amount comes first: focus it (and raise the number keypad) when adding
   useEffect(() => {
-    if (!isOpen) return;
-    // Amount first, for new and existing entries: on touch screens this opens the keypad.
+    // New entries start on the amount (on touch screens: the keypad). An existing entry
+    // opens for review: nothing focused, no keypad until you tap the amount
+    if (!isOpen || editing) return;
     // Right away, and once more after the sheet settles
     amountRef.current?.focus();
     const id = setTimeout(() => amountRef.current?.focus(), 50);
