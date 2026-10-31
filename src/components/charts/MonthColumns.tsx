@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { format, parse } from 'date-fns';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell,
@@ -58,18 +58,78 @@ export const Column = (props: any) => {
   return <path d={d} fill={fill} fillOpacity={fillOpacity} />;
 };
 
-export const ChartTooltip = ({ active, payload, partialMonth, signed }: any) => {
-  if (!active || !payload?.length) return null;
-  const { month, value } = payload[0].payload;
+// ── Tap popup ───────────────────────────────────────────────────────────────
+// Charts show their details in a popup we control instead of the library's hover
+// tooltip: tap a point to open it, tap empty chart space, the popup itself or anywhere
+// outside to close it. The popup sits outside the chart, so taps on it never reach
+// the chart behind.
+export type PopupAt = { index: number; x: number };
+
+export function useChartPopup() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [at, setAt] = useState<PopupAt | null>(null);
+  useEffect(() => {
+    if (!at) return;
+    const onDown = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setAt(null);
+    };
+    document.addEventListener('pointerdown', onDown);
+    return () => document.removeEventListener('pointerdown', onDown);
+  }, [at]);
+  return { ref, at, setAt, close: () => setAt(null) };
+}
+
+export const popupStyle: React.CSSProperties = {
+  background: 'var(--surface-raised)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10,
+  padding: '8px 12px', fontSize: 12, boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
+};
+
+/** The popup, kept inside the chart's box. A tap on it closes it (buttons inside act first). */
+export const ChartPopup: React.FC<{
+  at: PopupAt;
+  container: React.RefObject<HTMLDivElement>;
+  onClose: () => void;
+  children: React.ReactNode;
+}> = ({ at, container, onClose, children }) => {
+  const box = useRef<HTMLDivElement>(null);
+  const [left, setLeft] = useState(at.x);
+  useLayoutEffect(() => {
+    const width = container.current?.offsetWidth ?? 0;
+    const w = box.current?.offsetWidth ?? 0;
+    setLeft(Math.min(Math.max(at.x - w / 2, 0), Math.max(0, width - w)));
+  }, [at.x, at.index, container]);
   return (
-    <div style={{ background: 'var(--surface-raised)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '8px 12px', fontSize: 12 }}>
-      <p style={{ color: 'var(--muted)', marginBottom: 2 }}>{monthLong(month)}{month === partialMonth ? ' (so far)' : ''}</p>
-      <p style={{ color: 'var(--text)', fontWeight: 700 }} className="tabular-nums">
-        {signed && value > 0 ? '+' : signed && value < 0 ? '−' : ''}{fmt(signed ? Math.abs(value) : value)}
-      </p>
+    <div
+      ref={box}
+      role="dialog"
+      className="absolute top-0 z-10 w-max max-w-[240px]"
+      style={{ ...popupStyle, left }}
+      onClick={e => { e.stopPropagation(); onClose(); }}
+    >
+      {children}
     </div>
   );
 };
+
+/** Default popup content: the month and its value. */
+export const MonthValue: React.FC<{ month: string; value: number; partialMonth?: string; signed?: boolean }> = ({ month, value, partialMonth, signed }) => (
+  <>
+    <p style={{ color: 'var(--muted)', marginBottom: 2 }}>{monthLong(month)}{month === partialMonth ? ' (so far)' : ''}</p>
+    <p style={{ color: 'var(--text)', fontWeight: 700 }} className="tabular-nums">
+      {signed && value > 0 ? '+' : signed && value < 0 ? '−' : ''}{fmt(signed ? Math.abs(value) : value)}
+    </p>
+  </>
+);
+
+/** Turns a chart click into "open the popup at this month", or "close it" on a repeat or a miss. */
+export function onChartTap(popup: ReturnType<typeof useChartPopup>, onPick?: (i: number) => void) {
+  return (s: any) => {
+    const i = s?.activeTooltipIndex;
+    if (i == null || i < 0 || popup.at?.index === i) { popup.close(); return; }
+    onPick?.(i);
+    popup.setAt({ index: i, x: s.activeCoordinate?.x ?? 0 });
+  };
+}
 
 export const MonthColumns: React.FC<{
   months: string[];
@@ -85,14 +145,20 @@ export const MonthColumns: React.FC<{
   const data = months.map((month, i) => ({ month, value: values[i] ?? 0 }));
   const yearMarks = months.length > 12;
   const ticks = niceTicks(values);
+  const popup = useChartPopup();
   return (
-    <div className="h-44 -ml-2 mt-3 select-none" role="img" aria-label={label}>
+    <div ref={popup.ref} className="relative h-44 -ml-2 mt-3 select-none" role="img" aria-label={label}>
+      {popup.at && (
+        <ChartPopup at={popup.at} container={popup.ref} onClose={popup.close}>
+          <MonthValue month={months[popup.at.index]} value={values[popup.at.index] ?? 0} partialMonth={partialMonth} signed={signed} />
+        </ChartPopup>
+      )}
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={data}
           margin={{ top: 8, right: 26, bottom: 0, left: 0 }}
           barCategoryGap="22%"
-          onClick={(s: any) => { if (s && s.activeTooltipIndex != null) onSelect(s.activeTooltipIndex); }}
+          onClick={onChartTap(popup, onSelect)}
         >
           <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.06)" />
           <XAxis
@@ -113,10 +179,8 @@ export const MonthColumns: React.FC<{
             domain={[ticks[0], ticks[ticks.length - 1]]}
             interval={0}
           />
-          <Tooltip
-            cursor={{ fill: 'rgba(255,255,255,0.04)' }}
-            content={<ChartTooltip partialMonth={partialMonth} signed={signed} />}
-          />
+          {/* Only tracks the tap position; the popup above shows the details */}
+          <Tooltip cursor={false} content={() => null} />
           {signed && <ReferenceLine y={0} stroke="rgba(255,255,255,0.25)" />}
           {average != null && average > 0 && !signed && (
             <ReferenceLine

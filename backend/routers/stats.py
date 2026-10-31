@@ -195,11 +195,6 @@ def health(
             factor = 30.44 / r.custom_interval_days if r.custom_interval_days else 0.0
         fixed += r.amount * factor
 
-    for_others = sum(v or 0 for (v,) in db.query(Transaction.for_others).filter(Transaction.type == "expense").all())
-    paid_back = sum(v for (v,) in db.query(Transaction.amount).filter(
-        Transaction.type == "income", Transaction.paid_back == True,  # noqa: E712
-    ).all())
-
     return {
         "currency": BASE_CURRENCY,
         "accounts": [
@@ -211,5 +206,4 @@ def health(
         "worth": worth,
         "moved_to_savings": {m: round(v, 2) for m, v in sorted(moved.items())},
         "fixed_monthly": round(fixed, 2),
-        "still_owed": round(max(0.0, for_others - paid_back), 2),
     }

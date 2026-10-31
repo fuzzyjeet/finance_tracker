@@ -25,6 +25,7 @@ import { tagsApi } from '../api/tags';
 import { projectsApi } from '../api/projects';
 import { Account, Category, Project, Tag, Transaction, TransactionTotals } from '../types';
 import { localISODate } from '../lib/dates';
+import { myShare } from '../lib/myShare';
 
 // Searches look across every month; this caps how many results come back
 const SEARCH_LIMIT = 500;
@@ -202,14 +203,6 @@ function MobileTransactionList({
       })}
     </div>
   );
-}
-
-/** My part of an expense after refunds and the share for others (same rule as budgets). */
-function myShare(txn: Transaction) {
-  if (txn.type !== 'expense' || txn.amount <= 0) return txn.amount;
-  const refunded = txn.refunded_amount ?? 0;
-  const ownRatio = Math.max(0, 1 - (txn.for_others ?? 0) / txn.amount);
-  return Math.max(0, txn.amount - refunded) * ownRatio;
 }
 
 /** Under the amount: what was really mine, with icons for why it's lower; else the time. */

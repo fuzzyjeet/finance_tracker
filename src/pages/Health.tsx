@@ -1,16 +1,19 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
-  AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area, LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { Eye, EyeOff, ChevronDown, ShieldCheck, Repeat, Users } from 'lucide-react';
+import { Eye, EyeOff, ChevronDown, ShieldCheck, Repeat } from 'lucide-react';
 import { Header } from '../components/layout/Header';
 import { statsApi, Health as HealthData, HealthAccount, Trends, TrendSeries } from '../api/stats';
 import { onDataChanged } from '../lib/events';
+import { useHideFab } from '../contexts/QuickAddContext';
 import {
   fmt, fmtAxis, toDate, monthLong, cardStyle, niceTicks, MonthColumns, Delta,
+  useChartPopup, ChartPopup, onChartTap,
 } from '../components/charts/MonthColumns';
+import { MonthMoney } from '../components/health/MonthMoney';
 
 const HISTORY_MONTHS = 24;
 const LATELY = 3;    // recent months compared…
@@ -65,6 +68,32 @@ const Section: React.FC<{ title: string; note?: React.ReactNode; action?: React.
 export const Health: React.FC = () => {
   const [health, setHealth] = useState<HealthData | null>(null);
   const [trends, setTrends] = useState<Trends | null>(null);
+  const hideFab = useHideFab();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [params, setParams] = useSearchParams();
+  const detail = params.get('month');
+  const savedScroll = useRef(0);
+
+  // This page is for looking, not logging: no + button
+  useEffect(() => { hideFab(true); return () => hideFab(false); }, [hideFab]);
+
+  // A month's detail opens over the page; going back returns to where you were, as you left it
+  const main = () => document.querySelector('main');
+  const openMonth = (month: string) => {
+    savedScroll.current = main()?.scrollTop ?? 0;
+    setParams({ month }, { state: { fromHealth: true } });
+  };
+  const closeMonth = () => {
+    if ((location.state as { fromHealth?: boolean } | null)?.fromHealth) navigate(-1);
+    else setParams({}, { replace: true });
+  };
+  useEffect(() => {
+    const el = main();
+    if (!el) return;
+    if (detail) el.scrollTo({ top: 0 });
+    else requestAnimationFrame(() => el.scrollTo({ top: savedScroll.current }));
+  }, [detail]);
 
   const load = useCallback(async () => {
     const [h, t] = await Promise.all([statsApi.health(HISTORY_MONTHS), statsApi.trends({ months: HISTORY_MONTHS })]);
@@ -89,16 +118,37 @@ export const Health: React.FC = () => {
   const w = windows(trends);
   return (
     <div className="pb-4">
+      {detail && <MonthMoney month={detail} health={health} trends={trends} onBack={closeMonth} />}
+      {/* Kept mounted while a month is open, so everything is as you left it on the way back */}
+      <div className={detail ? 'hidden' : undefined}>
       <Header title="Health" />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
         <WhatIHave health={health} />
-        <IncomeAndSpending trends={trends} health={health} w={w} />
+        <IncomeAndSpending trends={trends} health={health} w={w} onOpenMonth={openMonth} />
         <WhatChanged trends={trends} w={w} />
         <SafetyNet trends={trends} health={health} w={w} />
+      </div>
       </div>
     </div>
   );
 };
+
+/** Invisible tap targets on a line's points, plus a marker on the one that's open. */
+const tapDots = (popup: ReturnType<typeof useChartPopup>, color: string) => (p: any) => (
+  <g key={`dot-${p.index}`}>
+    {popup.at?.index === p.index && (
+      <circle cx={p.cx} cy={p.cy} r={4.5} fill={color} stroke="var(--surface-low)" strokeWidth={2} />
+    )}
+    <circle
+      cx={p.cx} cy={p.cy} r={14} fill="transparent" style={{ cursor: 'pointer' }}
+      onClick={e => {
+        e.stopPropagation();
+        if (popup.at?.index === p.index) popup.close();
+        else popup.setAt({ index: p.index, x: p.cx });
+      }}
+    />
+  </g>
+);
 
 // ── 1. What I have ──────────────────────────────────────────────────────────
 /** Total across accounts by kind of money. Amounts start hidden every time the page opens. */
@@ -223,8 +273,15 @@ const WhatIHave: React.FC<{ health: HealthData }> = ({ health }) => {
 const WorthChart: React.FC<{ months: string[]; worth: number[]; shown: boolean }> = ({ months, worth, shown }) => {
   const data = months.map((month, i) => ({ month, value: worth[i] }));
   const ticks = niceTicks(worth);
+  const popup = useChartPopup();
   return (
-    <div className="h-36 mt-3 -ml-2 select-none" role="img" aria-label="Total across accounts at the end of each month">
+    <div ref={popup.ref} onClick={popup.close} className="relative h-36 mt-3 -ml-2 select-none" role="img" aria-label="Total across accounts at the end of each month">
+      {popup.at && (
+        <ChartPopup at={popup.at} container={popup.ref} onClose={popup.close}>
+          <p style={{ color: 'var(--muted)' }}>End of {monthLong(months[popup.at.index])}</p>
+          <p className="tabular-nums" style={{ color: 'var(--text)', fontWeight: 700 }}>{shown ? fmt(worth[popup.at.index]) : HIDDEN}</p>
+        </ChartPopup>
+      )}
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: shown ? 0 : 8 }}>
           <defs>
@@ -238,16 +295,8 @@ const WorthChart: React.FC<{ months: string[]; worth: number[]; shown: boolean }
             tick={{ fill: 'var(--muted)', fontSize: 11 }} tickFormatter={monthTick} />
           <YAxis hide={!shown} width={48} tickLine={false} axisLine={false} tick={{ fill: 'var(--muted)', fontSize: 11 }}
             tickFormatter={fmtAxis} ticks={ticks} domain={[ticks[0], ticks[ticks.length - 1]]} interval={0} />
-          <Tooltip
-            cursor={{ stroke: 'rgba(255,255,255,0.2)' }}
-            content={({ active, payload }: any) => active && payload?.length ? (
-              <div style={{ background: 'var(--surface-raised)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '8px 12px', fontSize: 12 }}>
-                <p style={{ color: 'var(--muted)' }}>End of {monthLong(payload[0].payload.month)}</p>
-                <p className="tabular-nums" style={{ color: 'var(--text)', fontWeight: 700 }}>{shown ? fmt(payload[0].payload.value) : HIDDEN}</p>
-              </div>
-            ) : null}
-          />
-          <Area type="monotone" dataKey="value" stroke="var(--accent)" strokeWidth={2} fill="url(#worthFill)" isAnimationActive={false} />
+          <Area type="monotone" dataKey="value" stroke="var(--accent)" strokeWidth={2} fill="url(#worthFill)"
+            dot={tapDots(popup, 'var(--accent)')} activeDot={false} isAnimationActive={false} />
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -257,7 +306,7 @@ const WorthChart: React.FC<{ months: string[]; worth: number[]; shown: boolean }
 type Windows = ReturnType<typeof windows>;
 
 // ── 2. Income and spending, long term ───────────────────────────────────────
-const IncomeAndSpending: React.FC<{ trends: Trends; health: HealthData; w: Windows }> = ({ trends, health, w }) => {
+const IncomeAndSpending: React.FC<{ trends: Trends; health: HealthData; w: Windows; onOpenMonth: (m: string) => void }> = ({ trends, health, w, onOpenMonth }) => {
   const moved = trends.months.map(m => health.moved_to_savings[m] ?? 0);
   const figures = (range: readonly [number, number]) => {
     const income = avg(slice(trends.income, range));
@@ -310,6 +359,7 @@ const IncomeAndSpending: React.FC<{ trends: Trends; health: HealthData; w: Windo
           </span>
         ))}
       </div>
+      <MoneyMonths trends={trends} moved={moved} onOpenMonth={onOpenMonth} />
 
       <TrendLines trends={trends} />
     </Section>
@@ -348,6 +398,69 @@ const MoneySplit: React.FC<{ label: string; f: { income: number; spent: number; 
   );
 };
 
+const MONEY_MONTHS = 12;
+
+/** Each month's income as spent / moved to savings / left. Tap a month, then open its entries. */
+const MoneyMonths: React.FC<{ trends: Trends; moved: number[]; onOpenMonth: (m: string) => void }> = ({ trends, moved, onOpenMonth }) => {
+  const popup = useChartPopup();
+  const from = Math.max(0, trends.months.length - MONEY_MONTHS);
+  const partial = trends.months[trends.months.length - 1];
+  const data = trends.months.slice(from).map((month, k) => {
+    const i = from + k;
+    const toSavings = Math.max(0, moved[i]);
+    const left = trends.income[i] - trends.expenses[i] - toSavings;
+    return { month, income: trends.income[i], spent: trends.expenses[i], toSavings, left: Math.max(0, left), over: Math.max(0, -left) };
+  });
+  const ticks = niceTicks(data.flatMap(d => [d.income, d.spent + d.toSavings]));
+  const open = popup.at ? data[popup.at.index] : null;
+  const dim = (i: number) => (popup.at && popup.at.index !== i ? 0.4 : 1);
+  return (
+    <>
+      <p className="text-xs mt-4" style={{ color: 'var(--muted)' }}>Month by month. Tap a month to see its entries.</p>
+      <div ref={popup.ref} className="relative h-44 mt-2 -ml-2 select-none" role="img" aria-label="Where each month's income went">
+        {popup.at && open && (
+          <ChartPopup at={popup.at} container={popup.ref} onClose={popup.close}>
+            <p style={{ color: 'var(--muted)', marginBottom: 2 }}>{monthLong(open.month)}{open.month === partial ? ' so far' : ''}</p>
+            <div className="tabular-nums space-y-0.5" style={{ color: 'var(--text)' }}>
+              <p>Came in <b>{fmt(open.income)}</b></p>
+              <p>Spent <b>{fmt(open.spent)}</b></p>
+              {open.toSavings > 0.005 && <p>Moved to savings <b>{fmt(open.toSavings)}</b></p>}
+              {open.over > 0.005
+                ? <p style={{ color: 'var(--expense)' }}>{fmt(open.over)} more than came in</p>
+                : <p>Left <b>{fmt(open.left)}</b></p>}
+            </div>
+            <button
+              type="button"
+              onClick={e => { e.stopPropagation(); onOpenMonth(open.month); }}
+              className="mt-1.5 -mx-1 h-9 px-1 text-sm font-semibold"
+              style={{ color: 'var(--accent)' }}
+            >
+              See entries ›
+            </button>
+          </ChartPopup>
+        )}
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }} barCategoryGap="22%" onClick={onChartTap(popup)}>
+            <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.06)" />
+            <XAxis dataKey="month" tickLine={false} axisLine={false} interval={1} padding={{ left: 4, right: 4 }}
+              tick={{ fill: 'var(--muted)', fontSize: 11 }} tickFormatter={(m: string) => format(toDate(m), m.endsWith('-01') ? 'MMM yy' : 'MMM')} />
+            <YAxis width={48} tickLine={false} axisLine={false} tick={{ fill: 'var(--muted)', fontSize: 11 }}
+              tickFormatter={fmtAxis} ticks={ticks} domain={[ticks[0], ticks[ticks.length - 1]]} interval={0} />
+            {/* Only tracks the tap position; the popup shows the details */}
+            <Tooltip cursor={false} content={() => null} />
+            {SPLIT_PARTS.map(part => (
+              <Bar key={part.key} dataKey={part.key} stackId="money" maxBarSize={24} fill={part.color}
+                stroke="var(--surface-low)" strokeWidth={1} isAnimationActive={false} cursor="pointer">
+                {data.map((d, i) => <Cell key={d.month} fillOpacity={dim(i)} />)}
+              </Bar>
+            ))}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </>
+  );
+};
+
 /** Income and spending per month, each smoothed over 3 months so one-offs don't hide the trend. */
 const TrendLines: React.FC<{ trends: Trends }> = ({ trends }) => {
   const done = trends.months.length - 1; // this month isn't over
@@ -359,6 +472,8 @@ const TrendLines: React.FC<{ trends: Trends }> = ({ trends }) => {
     data.push({ month: trends.months[i], income: rolling(trends.income, i), spent: rolling(trends.expenses, i) });
   }
   const ticks = niceTicks(data.flatMap(d => [d.income, d.spent]));
+  const popup = useChartPopup();
+  const open = popup.at ? data[popup.at.index] : null;
   return (
     <>
       <div className="flex items-center justify-between mt-5">
@@ -369,7 +484,14 @@ const TrendLines: React.FC<{ trends: Trends }> = ({ trends }) => {
         </div>
       </div>
       <p className="text-xs" style={{ color: 'var(--muted)' }}>Each point is the average of 3 months</p>
-      <div className="h-44 mt-2 -ml-2 select-none" role="img" aria-label="Income and spending per month, 3-month averages">
+      <div ref={popup.ref} onClick={popup.close} className="relative h-44 mt-2 -ml-2 select-none" role="img" aria-label="Income and spending per month, 3-month averages">
+        {popup.at && open && (
+          <ChartPopup at={popup.at} container={popup.ref} onClose={popup.close}>
+            <p style={{ color: 'var(--muted)', marginBottom: 2 }}>3 months to {monthLong(open.month)}</p>
+            <p className="tabular-nums" style={{ color: 'var(--text)' }}>Came in <b>{fmt(open.income)}</b></p>
+            <p className="tabular-nums" style={{ color: 'var(--text)' }}>Spent <b>{fmt(open.spent)}</b></p>
+          </ChartPopup>
+        )}
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
             <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.06)" />
@@ -377,18 +499,10 @@ const TrendLines: React.FC<{ trends: Trends }> = ({ trends }) => {
               tick={{ fill: 'var(--muted)', fontSize: 11 }} tickFormatter={monthTick} />
             <YAxis width={48} tickLine={false} axisLine={false} tick={{ fill: 'var(--muted)', fontSize: 11 }}
               tickFormatter={fmtAxis} ticks={ticks} domain={[ticks[0], ticks[ticks.length - 1]]} interval={0} />
-            <Tooltip
-              cursor={{ stroke: 'rgba(255,255,255,0.2)' }}
-              content={({ active, payload }: any) => active && payload?.length ? (
-                <div style={{ background: 'var(--surface-raised)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '8px 12px', fontSize: 12 }}>
-                  <p style={{ color: 'var(--muted)', marginBottom: 2 }}>3 months to {monthLong(payload[0].payload.month)}</p>
-                  <p className="tabular-nums" style={{ color: 'var(--text)' }}>Came in <b>{fmt(payload[0].payload.income)}</b></p>
-                  <p className="tabular-nums" style={{ color: 'var(--text)' }}>Spent <b>{fmt(payload[0].payload.spent)}</b></p>
-                </div>
-              ) : null}
-            />
-            <Line type="monotone" dataKey="income" stroke="var(--income)" strokeWidth={2} dot={false} isAnimationActive={false} />
-            <Line type="monotone" dataKey="spent" stroke="var(--expense)" strokeWidth={2} dot={false} isAnimationActive={false} />
+            <Line type="monotone" dataKey="income" stroke="var(--income)" strokeWidth={2}
+              dot={tapDots(popup, 'var(--income)')} activeDot={false} isAnimationActive={false} />
+            <Line type="monotone" dataKey="spent" stroke="var(--expense)" strokeWidth={2}
+              dot={tapDots(popup, 'var(--expense)')} activeDot={false} isAnimationActive={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -535,12 +649,6 @@ const SafetyNet: React.FC<{ trends: Trends; health: HealthData; w: Windows }> = 
           health.fixed_monthly > 0.005
             ? <>{usualIncome > 0.005 && `${pct(health.fixed_monthly / usualIncome)} of your usual income. `}<Link to="/recurring" className="font-semibold" style={{ color: 'var(--accent)' }}>See recurring</Link></>
             : <><Link to="/recurring" className="font-semibold" style={{ color: 'var(--accent)' }}>Add recurring entries</Link> like rent and subscriptions to see them here.</>,
-        )}
-        {health.still_owed > 0.005 && item(
-          <Users size={18} />,
-          'Still owed to you',
-          fmt(health.still_owed),
-          'Paid for others and not paid back yet.',
         )}
       </div>
     </Section>

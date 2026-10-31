@@ -39,7 +39,6 @@ export interface Health {
   worth: number[];                    // total across accounts at each month end (today for this month)
   moved_to_savings: Record<string, number>; // YYYY-MM -> net transfers into savings and investments
   fixed_monthly: number;              // active recurring expenses, per month
-  still_owed: number;                 // paid for others and not paid back yet
 }
 
 export const statsApi = {
