@@ -43,6 +43,12 @@ async def startup():
         if "opening_balance" not in account_cols:
             conn.execute(text("ALTER TABLE accounts ADD COLUMN opening_balance FLOAT NOT NULL DEFAULT 0"))
             conn.commit()
+        if "parent_id" not in account_cols:
+            conn.execute(text("ALTER TABLE accounts ADD COLUMN parent_id VARCHAR REFERENCES accounts(id) ON DELETE SET NULL"))
+            conn.commit()
+        if "is_active" not in account_cols:
+            conn.execute(text("ALTER TABLE accounts ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT 1"))
+            conn.commit()
         txn_cols = [c["name"] for c in inspector.get_columns("transactions")]
         if "time" not in txn_cols:
             conn.execute(text("ALTER TABLE transactions ADD COLUMN time VARCHAR"))

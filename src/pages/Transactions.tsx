@@ -26,6 +26,7 @@ import { projectsApi } from '../api/projects';
 import { Account, Category, Project, Tag, Transaction, TransactionTotals } from '../types';
 import { localISODate } from '../lib/dates';
 import { myShare } from '../lib/myShare';
+import { treeOrder, accountLabel } from '../lib/accounts';
 
 // Searches look across every month; this caps how many results come back
 const SEARCH_LIMIT = 500;
@@ -564,7 +565,9 @@ export const Transactions: React.FC = () => {
             onChange={setFilterAccount}
             options={[
               { value: '', label: 'All Accounts' },
-              ...accounts.map(a => ({ value: a.id, label: a.name })),
+              // Inactive accounts last, still there to look back at their history
+              ...treeOrder(accounts).filter(a => a.is_active !== false).map(a => ({ value: a.id, label: accountLabel(a, accounts) })),
+              ...treeOrder(accounts).filter(a => a.is_active === false).map(a => ({ value: a.id, label: `${accountLabel(a, accounts)} (inactive)` })),
             ]}
             className="min-w-[130px]"
           />

@@ -13,6 +13,7 @@ import { tagsApi } from '../../api/tags';
 import { projectsApi } from '../../api/projects';
 import { Account, Category, Tag, Transaction, Project } from '../../types';
 import { localISODate } from '../../lib/dates';
+import { pickable, accountLabel } from '../../lib/accounts';
 
 const TAG_COLORS = [
   '#6366f1', '#22c55e', '#f97316', '#ef4444', '#3b82f6',
@@ -412,6 +413,10 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
     } else {
       // A backfilled day has no meaningful "now" time, so leave it blank
       const base = { ...emptyForm(), account_id: readLastAccount() };
+      // Don't start on an account that has since been made inactive
+      if (base.account_id) accountsApi.get(base.account_id).then(a => {
+        if (!a.is_active) setForm(f => (f.account_id === a.id ? { ...f, account_id: '' } : f));
+      }).catch(() => {});
       setForm(defaultDate ? { ...base, date: defaultDate, time: '' } : base);
       setLinks([]);
       setSplitOpen(false);
@@ -561,7 +566,8 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
 
     const fitsType = filteredCategories(f.type).some(c => c.id === last!.category_id);
     const fillCategory = !touched.category && !splitOpen && fitsType && !!last.category_id;
-    const fillAccount  = !touched.account && f.type !== 'transfer' && !!last.account_id;
+    const fillAccount  = !touched.account && f.type !== 'transfer' && !!last.account_id &&
+      accounts.find(a => a.id === last!.account_id)?.is_active !== false;
     setForm(cur => ({
       ...cur,
       category_id: fillCategory ? last!.category_id! : cur.category_id,
@@ -1085,7 +1091,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               icon={<span>{accountIcon(selectedAccount?.type)}</span>}
               label={form.type === 'transfer' ? 'From account' : 'Account'}
               hint={autoFilled.account ? 'from last time' : undefined}
-              value={selectedAccount ? `${selectedAccount.name} (${selectedAccount.currency})` : ''}
+              value={selectedAccount ? `${accountLabel(selectedAccount, accounts)} (${selectedAccount.currency})` : ''}
               placeholder="Select account"
               error={showErrors && !selectedAccount}
               select={
@@ -1099,7 +1105,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                   }}
                   options={[
                     { value: '', label: 'Select account' },
-                    ...accounts.map(a => ({ value: a.id, label: `${a.name} (${a.currency})` })),
+                    ...pickable(accounts, [form.account_id]).map(a => ({ value: a.id, label: `${accountLabel(a, accounts)} (${a.currency})` })),
                   ]}
                 />
               }
@@ -1110,7 +1116,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               <FieldRow
                 icon={<ArrowLeftRight size={14} style={{ color: 'var(--accent)' }} />}
                 label="To Account"
-                value={selectedToAccount?.name ?? ''}
+                value={selectedToAccount ? accountLabel(selectedToAccount, accounts) : ''}
                 placeholder="Select destination"
                 select={
                   <CustomSelect
@@ -1119,7 +1125,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                     onChange={v => setForm(f => ({ ...f, to_account_id: v }))}
                     options={[
                       { value: '', label: 'Select account' },
-                      ...accounts.filter(a => a.id !== form.account_id).map(a => ({ value: a.id, label: a.name })),
+                      ...pickable(accounts, [form.to_account_id]).filter(a => a.id !== form.account_id).map(a => ({ value: a.id, label: accountLabel(a, accounts) })),
                     ]}
                   />
                 }

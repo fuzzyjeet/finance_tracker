@@ -13,6 +13,7 @@ import { tagsApi } from '../api/tags';
 import { RecurringTransaction, Account, Category, Tag } from '../types';
 import { emitDataChanged, onDataChanged } from '../lib/events';
 import { localISODate } from '../lib/dates';
+import { pickable, accountLabel } from '../lib/accounts';
 
 const formatCurrency = (v: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v);
@@ -398,7 +399,7 @@ export const Recurring: React.FC = () => {
               label="Account"
               value={form.account_id}
               onChange={e => setForm(f => ({ ...f, account_id: e.target.value }))}
-              options={accounts.map(a => ({ value: a.id, label: a.name }))}
+              options={pickable(accounts, [form.account_id]).map(a => ({ value: a.id, label: accountLabel(a, accounts) }))}
               placeholder="Select account"
             />
             {form.type === 'transfer' ? (
@@ -406,7 +407,7 @@ export const Recurring: React.FC = () => {
                 label="To Account"
                 value={form.to_account_id}
                 onChange={e => setForm(f => ({ ...f, to_account_id: e.target.value }))}
-                options={accounts.filter(a => a.id !== form.account_id).map(a => ({ value: a.id, label: a.name }))}
+                options={pickable(accounts, [form.to_account_id]).filter(a => a.id !== form.account_id).map(a => ({ value: a.id, label: accountLabel(a, accounts) }))}
                 placeholder="Select account"
               />
             ) : (

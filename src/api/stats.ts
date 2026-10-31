@@ -29,6 +29,8 @@ export interface HealthAccount {
   type: 'checking' | 'savings' | 'credit_card' | 'cash' | 'investment';
   color: string;
   balance: number;
+  parent_id: string | null;
+  is_active: boolean;
 }
 
 export interface Health {

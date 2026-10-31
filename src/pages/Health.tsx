@@ -9,6 +9,7 @@ import { Header } from '../components/layout/Header';
 import { statsApi, Health as HealthData, HealthAccount, Trends, TrendSeries } from '../api/stats';
 import { onDataChanged } from '../lib/events';
 import { useHideFab } from '../contexts/QuickAddContext';
+import { treeOrder, accountLabel } from '../lib/accounts';
 import {
   fmt, fmtAxis, toDate, monthLong, cardStyle, niceTicks, MonthColumns, Delta,
   useChartPopup, ChartPopup, onChartTap,
@@ -155,11 +156,12 @@ const tapDots = (popup: ReturnType<typeof useChartPopup>, color: string) => (p: 
 const WhatIHave: React.FC<{ health: HealthData }> = ({ health }) => {
   const [shown, setShown] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
+  const [showInactive, setShowInactive] = useState<string[]>([]);
   const money = (v: number) => (shown ? fmt(v) : HIDDEN);
 
   const groups = GROUPS
     .map(g => {
-      const accounts = health.accounts.filter(a => a.type === g.type);
+      const accounts = treeOrder(health.accounts).filter(a => a.type === g.type);
       return { ...g, accounts, total: sum(accounts.map(a => a.balance)) };
     })
     .filter(g => g.accounts.length);
@@ -200,21 +202,39 @@ const WhatIHave: React.FC<{ health: HealthData }> = ({ health }) => {
         </button>
         {expanded && (
           <div className="ml-5 mb-2 pl-3 space-y-1.5" style={{ borderLeft: '1px solid rgba(255,255,255,0.08)' }}>
-            {accounts.map(a => (
-              <div key={a.id} className="flex items-center justify-between gap-3 text-sm">
-                <span className="truncate" style={{ color: 'var(--text-2)' }}>{a.name}</span>
+            {accounts.filter(a => a.is_active || showInactive.includes(key)).map(a => (
+              <div key={a.id} className="flex items-center justify-between gap-3 text-sm" style={{ opacity: a.is_active ? 1 : 0.7 }}>
+                <span className="truncate" style={{ color: 'var(--text-2)' }}>
+                  {accountLabel(a, health.accounts)}{a.is_active ? '' : ' (inactive)'}
+                </span>
                 <span className="tabular-nums shrink-0" style={{ color: a.balance < 0 && shown ? 'var(--expense)' : 'var(--text-2)' }}>
                   {shown && a.balance < 0 ? '−' : ''}{money(Math.abs(a.balance))}
                 </span>
               </div>
             ))}
+            {/* Inactive accounts fold into one line until asked for */}
+            {(() => {
+              const off = accounts.filter(a => !a.is_active);
+              if (!off.length || showInactive.includes(key)) return null;
+              return (
+                <button type="button" onClick={() => setShowInactive(s => [...s, key])}
+                  className="w-full flex items-center justify-between gap-3 text-sm h-8 text-left" style={{ color: 'var(--muted)' }}>
+                  <span>{off.length} inactive ›</span>
+                  <span className="tabular-nums">{money(off.reduce((s, a) => s + a.balance, 0))}</span>
+                </button>
+              );
+            })()}
           </div>
         )}
       </div>
     );
   };
 
-  const count = (n: number) => `${n} account${n === 1 ? '' : 's'}`;
+  const count = (list: HealthAccount[]) => {
+    const on = list.filter(a => a.is_active).length;
+    const off = list.length - on;
+    return `${on} account${on === 1 ? '' : 's'}${off ? ` · ${off} inactive` : ''}`;
+  };
 
   return (
     <Section
@@ -254,9 +274,9 @@ const WhatIHave: React.FC<{ health: HealthData }> = ({ health }) => {
       )}
 
       <div className="mt-2">
-        {groups.map(g => row(g.type, g.color, g.label, count(g.accounts.length), g.total,
+        {groups.map(g => row(g.type, g.color, g.label, count(g.accounts), g.total,
           assets > 0.005 && g.total > 0 ? pct(g.total / assets) : null, g.accounts, g.total < 0))}
-        {cards.length > 0 && row('cards', 'var(--expense)', 'Owed on cards', count(cards.length), owed, null, cards, owed < 0)}
+        {cards.length > 0 && row('cards', 'var(--expense)', 'Owed on cards', count(cards), owed, null, cards, owed < 0)}
       </div>
 
       {months.length > 2 && <WorthChart months={months} worth={worth} shown={shown} />}

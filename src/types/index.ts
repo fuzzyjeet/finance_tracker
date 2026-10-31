@@ -12,6 +12,10 @@ export interface Account {
   billing_cycle_day?: number;
   currency: string;
   opening_balance: number;
+  /** Set on a sub-account: the main account it partitions */
+  parent_id?: string | null;
+  /** Inactive accounts are folded away in lists and left out of pickers */
+  is_active: boolean;
   created_at: string;
 }
 

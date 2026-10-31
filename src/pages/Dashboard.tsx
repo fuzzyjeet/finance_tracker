@@ -111,7 +111,6 @@ export const Dashboard: React.FC = () => {
         </div>
 
         <NetCard data={data} partialMonth={partialMonth} />
-        <OthersCard data={data} selected={sel} isPartial={isPartial} />
       </div>
     </div>
   );
@@ -364,54 +363,6 @@ const NetCard: React.FC<{ data: Trends; partialMonth?: string }> = ({ data, part
         Over these {data.months.length} months: <span className="font-semibold" style={{ color: 'var(--text-2)' }}>{sign(totalNet)}{fmt(Math.abs(totalNet))}</span>
         {totalIncome > 0.005 && totalNet > 0 && ` · you kept ${Math.round((totalNet / totalIncome) * 100)}% of what came in`}
       </p>
-    </section>
-  );
-};
-
-// ── Money spent on others ───────────────────────────────────────────────────
-/** What I covered for friends vs what came back. Hidden when there's none in the period. */
-const OthersCard: React.FC<{ data: Trends; selected: number; isPartial: boolean }> = ({ data, selected, isPartial }) => {
-  const sum = (xs: number[]) => xs.reduce((s, v) => s + v, 0);
-  const totalOthers = sum(data.for_others);
-  const totalBack = sum(data.paid_back);
-  if (totalOthers < 0.005 && totalBack < 0.005) return null;
-
-  const month = data.months[selected];
-  const rows = [
-    { label: `${monthLong(month)}${isPartial ? ' so far' : ''}`, others: data.for_others[selected], back: data.paid_back[selected] },
-    { label: `Over these ${data.months.length} months`, others: totalOthers, back: totalBack },
-  ];
-
-  return (
-    <section className="rounded-xl px-4 py-4" style={cardStyle}>
-      <h2 className="text-[15px] font-semibold" style={{ color: 'var(--text)' }}>Spent on others</h2>
-      <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
-        The part of expenses you paid for friends, and what they paid you back. Neither counts in your spending or income.
-      </p>
-      <div className="mt-3 space-y-3">
-        {rows.map(r => {
-          const out = r.others - r.back;
-          return (
-            <div key={r.label}>
-              <p className="text-sm" style={{ color: 'var(--text-2)' }}>{r.label}</p>
-              <div className="grid grid-cols-3 gap-2 mt-1">
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--muted)' }}>On others</p>
-                  <p className="text-base font-semibold tabular-nums" style={{ color: 'var(--text)' }}>{fmt(r.others)}</p>
-                </div>
-                <div>
-                  <p className="text-xs" style={{ color: 'var(--muted)' }}>Paid back</p>
-                  <p className="text-base font-semibold tabular-nums" style={{ color: 'var(--text)' }}>{fmt(r.back)}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs" style={{ color: 'var(--muted)' }}>{out >= 0 ? 'Still out' : 'Back more'}</p>
-                  <p className="text-base font-semibold tabular-nums" style={{ color: out > 0.005 ? 'var(--warn)' : 'var(--text)' }}>{fmt(Math.abs(out))}</p>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
     </section>
   );
 };

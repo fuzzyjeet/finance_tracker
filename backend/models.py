@@ -50,6 +50,10 @@ class Account(Base):
     color = Column(String, nullable=False, default="#3b82f6")
     billing_cycle_day = Column(Integer, nullable=True)
     currency = Column(String, nullable=False, default="EUR", server_default="EUR")
+    # A sub-account partitions money within its parent (one level deep)
+    parent_id = Column(String, ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
+    # Inactive accounts stay in history but are folded away in lists and pickers
+    is_active = Column(Boolean, nullable=False, default=True, server_default="1")
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     transactions = relationship("Transaction", foreign_keys="Transaction.account_id", back_populates="account")
