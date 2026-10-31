@@ -14,22 +14,6 @@ export const useQuickAdd = () => useContext(QuickAddContext);
 /** Hides the + button, e.g. while a bulk-action bar takes its place. */
 export const useHideFab = () => useContext(FabHiddenContext);
 
-/**
- * iOS only shows the keyboard for a focus that happens during the tap itself. The form
- * mounts a moment later, so focus a hidden decimal field now; the form then moves the
- * focus to its amount field and the keyboard stays up.
- */
-function raiseKeyboard() {
-  const proxy = document.createElement('input');
-  proxy.setAttribute('inputmode', 'decimal');
-  proxy.setAttribute('aria-hidden', 'true');
-  proxy.tabIndex = -1;
-  proxy.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;font-size:16px;border:0;padding:0;';
-  document.body.appendChild(proxy);
-  proxy.focus();
-  setTimeout(() => proxy.remove(), 1500);
-}
-
 export const QuickAddProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState<string | undefined>();
@@ -38,7 +22,6 @@ export const QuickAddProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const onTransactions = useLocation().pathname.startsWith('/transactions');
 
   const openAdd = (opts?: QuickAddOptions) => {
-    raiseKeyboard();
     setDate(opts?.date);
     setOpen(true);
   };

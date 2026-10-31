@@ -14,6 +14,11 @@ import { projectsApi } from '../../api/projects';
 import { Account, Category, Tag, Transaction, Project } from '../../types';
 import { localISODate } from '../../lib/dates';
 import { pickable, accountLabel } from '../../lib/accounts';
+import { cleanExpression, evaluate, hasOperator } from '../../lib/amountMath';
+import { AmountKeypad } from './AmountKeypad';
+
+// Touch screens get the calculator keypad for the amount instead of the phone's keyboard
+const useKeypad = () => typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
 
 const TAG_COLORS = [
   '#6366f1', '#22c55e', '#f97316', '#ef4444', '#3b82f6',
@@ -297,6 +302,16 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
   const [saveError, setSaveError]   = useState('');
 
   const amountRef      = useRef<HTMLInputElement>(null);
+  const amountBoxRef   = useRef<HTMLDivElement>(null);
+  const [keypadOpen, setKeypadOpen] = useState(false);
+  const touchKeypad = useKeypad();
+  // A sum becomes its result once you move on from the amount
+  const settleAmount = () => setForm(f => {
+    if (!hasOperator(f.amount)) return f;
+    const v = evaluate(f.amount);
+    return v !== null && v >= 0 ? { ...f, amount: toAmountInput(v) } : f;
+  });
+  const closeKeypad = () => { setKeypadOpen(false); settleAmount(); };
   const payeeInputRef  = useRef<HTMLInputElement>(null);
   const formRef        = useRef(form);
   formRef.current      = form;
@@ -425,6 +440,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
     setShowErrors(false);
     setSaveError('');
     setOpenPanel(null);
+    setKeypadOpen(false);
     setAutoFilled({ category: false, account: false });
     setTouched({ category: false, account: false });
     setPayeeHistory(null);
@@ -463,7 +479,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
   if (!isOpen) return null;
 
   // ── Derived ───────────────────────────────────────────────
-  const totalAmount     = parseAmount(form.amount);
+  const totalAmount     = Math.max(0, evaluate(form.amount) ?? 0);
   const allocatedAmount = splits.reduce((s, r) => s + (parseFloat(String(r.amount)) || 0), 0);
   const remaining       = totalAmount - allocatedAmount;
   const splitBalanced   = Math.abs(remaining) < 0.005;
@@ -732,7 +748,10 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
 
       {/* Dialog */}
       <div
-        className="relative w-full md:max-w-md rounded-t-2xl md:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[94dvh] md:max-h-[90vh]"
+        // On touch screens the sheet keeps its full height, so showing or hiding the keypad
+        // never moves what's under your finger
+        className={`relative w-full md:max-w-md rounded-t-2xl md:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[94dvh] md:max-h-[90vh] ${
+          touchKeypad ? 'h-[94dvh] md:h-[90vh]' : ''}`}
         style={{ background: 'var(--surface-low)', border: '1px solid rgba(255,255,255,0.06)' }}
         onKeyDown={onFormKeyDown}
       >
@@ -782,7 +801,12 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
           </div>
         </div>
 
-        <div className="overflow-y-auto overscroll-contain flex-1 px-5 md:px-6 pb-4 space-y-4">
+        <div
+          className="overflow-y-auto overscroll-contain flex-1 px-5 md:px-6 pb-4 space-y-4"
+          onPointerDownCapture={e => {
+            if (keypadOpen && !amountBoxRef.current?.contains(e.target as Node)) closeKeypad();
+          }}
+        >
 
           {/* ── 1. Type toggle ──────────────────────────────── */}
           <div className="grid grid-cols-4 gap-1.5">
@@ -825,6 +849,8 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
             const amtError = showErrors && !totalAmount;
             return (
               <div
+                ref={amountBoxRef}
+                onClick={() => amountRef.current?.focus()}
                 className="rounded-xl px-6 py-4 text-center relative transition-all"
                 style={{
                   background: SURFACE,
@@ -841,20 +867,29 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                 <p className="text-xs mb-1" style={{ color: amtError ? 'var(--expense)' : 'var(--muted)' }}>Amount</p>
                 <div className="flex items-center justify-center gap-2">
                   <span className="text-3xl font-bold" style={{ color: 'var(--faint-2)' }}>€</span>
-                  {/* Text + inputMode so phones show the decimal keypad and "12,50" works */}
+                  {/* Touch screens use our keypad (inputMode none keeps the phone's keyboard down);
+                      elsewhere it's a text field that also takes sums like 12,50+3 */}
                   <input
                     ref={amountRef}
                     type="text"
-                    inputMode="decimal"
+                    inputMode={touchKeypad ? 'none' : 'decimal'}
                     enterKeyHint="next"
                     autoComplete="off"
                     value={form.amount}
-                    onChange={e => setForm(f => ({ ...f, amount: cleanAmountInput(e.target.value) }))}
+                    onChange={e => setForm(f => ({ ...f, amount: cleanExpression(e.target.value) }))}
+                    onFocus={() => { if (touchKeypad) setKeypadOpen(true); }}
+                    onBlur={() => { if (!touchKeypad) settleAmount(); }}
                     placeholder="0,00"
-                    className="bg-transparent border-none outline-none text-4xl font-bold text-center w-40"
+                    className={`bg-transparent border-none outline-none font-bold text-center min-w-0 ${
+                      form.amount.length > 12 ? 'text-2xl w-60' : form.amount.length > 8 ? 'text-3xl w-56' : 'text-4xl w-40'}`}
                     style={{ color: typeColor.text, caretColor: typeColor.text }}
                   />
                 </div>
+                {hasOperator(form.amount) && (
+                  <p className="text-sm font-semibold tabular-nums mt-0.5" style={{ color: 'var(--text-2)' }}>
+                    {evaluate(form.amount) === null ? "Can't work that out" : `= ${fmtAmount(evaluate(form.amount)!)}`}
+                  </p>
+                )}
                 {showSuggestion && (
                   <button
                     type="button"
@@ -1632,6 +1667,19 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
           )}
 
         </div>
+
+        {keypadOpen && touchKeypad && (
+          <AmountKeypad
+            value={form.amount}
+            onChange={amount => setForm(f => ({ ...f, amount }))}
+            accent={typeColor.text}
+            onNext={() => {
+              closeKeypad();
+              amountRef.current?.blur();
+              if (!form.payee) payeeInputRef.current?.focus();
+            }}
+          />
+        )}
 
         {/* ── 7. Action buttons: pinned so they stay reachable above the keyboard / home bar ── */}
         <div
