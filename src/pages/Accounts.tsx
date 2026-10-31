@@ -9,6 +9,7 @@ import { Select } from '../components/ui/Select';
 import { AccountDetail } from '../components/accounts/AccountDetail';
 import { accountsApi } from '../api/accounts';
 import { onDataChanged, emitDataChanged } from '../lib/events';
+import { useHideFab } from '../contexts/QuickAddContext';
 import { Account, AccountType, CURRENCY_OPTIONS } from '../types';
 
 export const formatAmount = (value: number, currency: string) =>
@@ -79,6 +80,10 @@ export const Accounts: React.FC = () => {
   const [params, setParams] = useSearchParams();
   const detailId = params.get('account');
   const savedScroll = useRef(0);
+  const hideFab = useHideFab();
+
+  // No + button for new entries here
+  useEffect(() => { hideFab(true); return () => hideFab(false); }, [hideFab]);
 
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
