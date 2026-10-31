@@ -68,7 +68,7 @@ html, body {
 /* Page padding that clears the notch, and the tab bar + floating button */
 .pt-safe-page { padding-top: calc(1.25rem + env(safe-area-inset-top)); }
 .pb-safe-page { padding-bottom: calc(9rem + env(safe-area-inset-bottom)); }
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   .pt-safe-page { padding-top: 2rem; }
   .pb-safe-page { padding-bottom: 2rem; }
 }
@@ -78,17 +78,17 @@ html, body {
   right: 1rem;
   bottom: calc(4.5rem + env(safe-area-inset-bottom));
 }
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   .fab-position { right: 2rem; bottom: 2rem; }
 }
 /* Bulk-action bar: above the tab bar on phones, near the bottom edge on desktop */
 .bulk-bar-position { bottom: calc(4.75rem + env(safe-area-inset-bottom)); }
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   .bulk-bar-position { bottom: 1.5rem; }
 }
 
-/* iOS zooms into any field under 16px; keep inputs at 16px on phones (big amount input excepted) */
-@media (max-width: 767px) {
+/* iOS zooms into any field under 16px; keep inputs at 16px on phones and tablets (big amount input excepted) */
+@media (max-width: 1023px), (pointer: coarse) {
   input:not(.text-4xl), select, textarea {
     font-size: 16px !important;
   }

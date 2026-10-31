@@ -38,7 +38,7 @@ export const MobileNav: React.FC = () => {
       {moreOpen && (
         // Sits above the floating + button but stops at the tab bar so the bar stays usable
         <div
-          className="md:hidden fixed inset-x-0 top-0 z-[41]"
+          className="lg:hidden fixed inset-x-0 top-0 z-[41]"
           style={{ bottom: 'calc(3.5rem + env(safe-area-inset-bottom))' }}
           onClick={() => setMoreOpen(false)}
         >
@@ -72,7 +72,7 @@ export const MobileNav: React.FC = () => {
       )}
 
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex border-t border-white/5 bg-surface/95 backdrop-blur"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 flex border-t border-white/5 bg-surface/95 backdrop-blur"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         {tabs.map(({ to, icon: Icon, label }) => (

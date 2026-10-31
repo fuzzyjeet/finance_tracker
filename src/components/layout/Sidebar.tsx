@@ -26,7 +26,7 @@ const navItems = [
 export const Sidebar: React.FC = () => {
   const { pathname } = useLocation();
   return (
-    <aside className="sidebar-themed hidden md:flex flex-col h-full py-8 w-64 border-r shrink-0 transition-all duration-300 ease-in-out" style={{ borderColor: 'var(--sidebar-border)' }}>
+    <aside className="sidebar-themed hidden lg:flex flex-col h-full py-8 w-64 border-r shrink-0 transition-all duration-300 ease-in-out" style={{ borderColor: 'var(--sidebar-border)' }}>
       {/* Logo */}
       <div className="px-6 mb-12">
         <div className="flex items-center gap-3">

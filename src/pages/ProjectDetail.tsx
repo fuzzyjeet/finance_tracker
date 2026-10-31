@@ -8,6 +8,8 @@ import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
 import { projectsApi, ProjectSpending } from '../api/projects';
 import { ProjectStatus } from '../types';
+import { useTransactionEditor } from '../components/transactions/useTransactionEditor';
+import { onDataChanged } from '../lib/events';
 
 const STATUS_LABELS: Record<ProjectStatus, string> = {
   planned: 'Planned',
@@ -32,6 +34,7 @@ export const ProjectDetail: React.FC = () => {
   const [data, setData] = useState<ProjectSpending | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedTxns, setExpandedTxns] = useState<Set<string>>(new Set());
+  const editor = useTransactionEditor();
 
   const load = async () => {
     if (!id) return;
@@ -44,6 +47,8 @@ export const ProjectDetail: React.FC = () => {
   };
 
   useEffect(() => { load(); }, [id]);
+  // Entries edited from here update the totals and the list
+  useEffect(() => onDataChanged(() => { load(); }), [id]);
 
   const handleStatusChange = async (status: string) => {
     if (!id || !data) return;
@@ -255,16 +260,21 @@ export const ProjectDetail: React.FC = () => {
               return (
                 <React.Fragment key={txn.id}>
                   <div
-                    className={`flex items-center gap-3 py-3 ${hasSplits ? 'cursor-pointer hover:bg-white/5' : ''} -mx-1 px-1 rounded-lg transition-colors`}
-                    onClick={() => hasSplits && toggleExpand(txn.id)}
+                    className="flex items-center gap-3 py-3 cursor-pointer hover:bg-white/5 -mx-1 px-1 rounded-lg transition-colors"
+                    onClick={() => editor.open(txn.id)}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-medium text-on-surface truncate">{txn.payee}</p>
                         {hasSplits && (
-                          <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium shrink-0">
+                          <button
+                            type="button"
+                            onClick={e => { e.stopPropagation(); toggleExpand(txn.id); }}
+                            aria-expanded={expanded}
+                            className="text-xs bg-primary/10 text-primary px-2 h-7 rounded-full font-medium shrink-0"
+                          >
                             {projectSplits.length}/{txn.splits.length} splits
-                          </span>
+                          </button>
                         )}
                       </div>
                       <p className="text-xs text-muted mt-0.5">
@@ -316,6 +326,7 @@ export const ProjectDetail: React.FC = () => {
           </div>
         )}
       </Card>
+      {editor.element}
     </div>
   );
 };

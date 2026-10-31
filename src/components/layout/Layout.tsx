@@ -24,8 +24,9 @@ export const Layout: React.FC = () => {
     <div className="flex h-[100dvh] overflow-hidden bg-surface text-on-surface font-body">
       <Sidebar />
       <main className="flex-1 overflow-y-auto overscroll-contain bg-surface-dim">
-        {/* On phones: clear the notch on top, and the tab bar + floating button at the bottom */}
-        <div className="max-w-7xl mx-auto px-4 md:px-8 pt-safe-page pb-safe-page md:py-8">
+        {/* Phones and tablets: clear the notch on top, and the tab bar + floating button at the
+            bottom; tablets keep a comfortable reading width. Desktop gets the sidebar */}
+        <div className="max-w-3xl lg:max-w-7xl mx-auto px-4 md:px-6 lg:px-8 pt-safe-page pb-safe-page">
           <SyncBanner />
           <Outlet />
         </div>

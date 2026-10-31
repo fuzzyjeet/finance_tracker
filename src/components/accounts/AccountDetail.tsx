@@ -3,11 +3,9 @@ import { format, endOfMonth, addMonths, parse } from 'date-fns';
 import { ChevronLeft, ChevronRight, Pencil, Plus, ArrowLeftRight } from 'lucide-react';
 import { transactionsApi } from '../../api/transactions';
 import { Transaction, Account } from '../../types';
-import { TransactionFormModal } from '../transactions/TransactionFormModal';
-import { Modal } from '../ui/Modal';
-import { Button } from '../ui/Button';
+import { useTransactionEditor } from '../transactions/useTransactionEditor';
 import { AccountIcon, formatAmount, typeLabel } from '../../pages/Accounts';
-import { emitDataChanged, onDataChanged } from '../../lib/events';
+import { onDataChanged } from '../../lib/events';
 import { localISODate } from '../../lib/dates';
 import { usePayeeLogos } from '../../lib/payeeLogos';
 
@@ -32,8 +30,7 @@ export const AccountDetail: React.FC<{
 }> = ({ account, accounts, backLabel, onBack, onOpen, onEdit, onAddSub }) => {
   const [month, setMonth] = useState(() => localISODate().slice(0, 7));
   const [txns, setTxns] = useState<Transaction[] | null>(null);
-  const [editing, setEditing] = useState<Transaction | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const editor = useTransactionEditor();
   const logoFor = usePayeeLogos();
 
   // A different account starts on this month again
@@ -180,7 +177,7 @@ export const AccountDetail: React.FC<{
                   <button
                     key={t.id}
                     type="button"
-                    onClick={() => setEditing(t)}
+                    onClick={() => editor.open(t)}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-left active:bg-white/5"
                     style={{ borderTop: '1px solid rgba(255,255,255,0.03)' }}
                   >
@@ -206,27 +203,7 @@ export const AccountDetail: React.FC<{
         )}
       </section>
 
-      <TransactionFormModal
-        isOpen={!!editing}
-        onClose={() => setEditing(null)}
-        onSaved={() => { setEditing(null); emitDataChanged(); }}
-        editing={editing}
-        onDelete={editing ? () => { setDeleteId(editing.id); setEditing(null); } : undefined}
-      />
-
-      <Modal isOpen={!!deleteId} onClose={() => setDeleteId(null)} title="Delete entry" size="sm">
-        <p className="text-sm text-on-surface-variant mb-4">Delete this entry? This can't be undone.</p>
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={() => setDeleteId(null)}>Cancel</Button>
-          <Button variant="danger" onClick={async () => {
-            if (deleteId) await transactionsApi.delete(deleteId);
-            setDeleteId(null);
-            emitDataChanged();
-          }}>
-            Delete
-          </Button>
-        </div>
-      </Modal>
+      {editor.element}
     </div>
   );
 };

@@ -40,7 +40,7 @@ export const TotalsCard: React.FC<{
           <button
             type="button"
             onClick={onSelect}
-            className="md:hidden shrink-0 -my-2 px-2 h-9 text-xs font-semibold"
+            className="lg:hidden shrink-0 -my-2 px-2 h-9 text-xs font-semibold"
             style={{ color: 'var(--accent)' }}
           >
             Select

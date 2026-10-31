@@ -8,7 +8,6 @@ import { Eye, EyeOff, ChevronDown, ShieldCheck, Repeat } from 'lucide-react';
 import { Header } from '../components/layout/Header';
 import { statsApi, Health as HealthData, HealthAccount, Trends, TrendSeries } from '../api/stats';
 import { onDataChanged } from '../lib/events';
-import { useHideFab } from '../contexts/QuickAddContext';
 import { treeOrder, accountLabel } from '../lib/accounts';
 import {
   fmt, fmtAxis, toDate, monthLong, cardStyle, niceTicks, MonthColumns, Delta,
@@ -69,15 +68,11 @@ const Section: React.FC<{ title: string; note?: React.ReactNode; action?: React.
 export const Health: React.FC = () => {
   const [health, setHealth] = useState<HealthData | null>(null);
   const [trends, setTrends] = useState<Trends | null>(null);
-  const hideFab = useHideFab();
   const navigate = useNavigate();
   const location = useLocation();
   const [params, setParams] = useSearchParams();
   const detail = params.get('month');
   const savedScroll = useRef(0);
-
-  // This page is for looking, not logging: no + button
-  useEffect(() => { hideFab(true); return () => hideFab(false); }, [hideFab]);
 
   // A month's detail opens over the page; going back returns to where you were, as you left it
   const main = () => document.querySelector('main');

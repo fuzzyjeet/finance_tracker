@@ -136,7 +136,7 @@ function MobileTransactionList({
 }) {
   const logoFor = usePayeeLogos();
   return (
-    <div className="md:hidden">
+    <div className="lg:hidden">
       {groups.map(group => {
         const net = group.txns.reduce((s, t) =>
           s + (t.type === 'income' || t.type === 'refund' ? t.amount : t.type === 'expense' ? -t.amount : 0), 0);
@@ -550,7 +550,7 @@ export const Transactions: React.FC = () => {
           <button
             type="button"
             onClick={() => setFiltersOpen(o => !o)}
-            className="md:hidden flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium"
+            className="lg:hidden flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium"
             style={{
               color: activeFilterCount > (filterSearch ? 1 : 0) ? 'var(--accent)' : 'var(--text-2)',
               background: 'var(--surface)',
@@ -562,7 +562,7 @@ export const Transactions: React.FC = () => {
           </button>
 
           {/* On phones the rest only shows when "Filters" is open; on desktop the wrapper disappears */}
-          <div className={`${filtersOpen ? 'flex' : 'hidden'} md:contents w-full flex-wrap gap-2`}>
+          <div className={`${filtersOpen ? 'flex' : 'hidden'} lg:contents w-full flex-wrap gap-2`}>
 
           {/* Account */}
           <CustomSelect
@@ -626,7 +626,7 @@ export const Transactions: React.FC = () => {
         </div>
 
         {/* Row 2: type toggle pills */}
-        <div className={`${filtersOpen ? 'flex' : 'hidden'} md:flex items-center gap-1.5 mt-2.5 overflow-x-auto`}>
+        <div className={`${filtersOpen ? 'flex' : 'hidden'} lg:flex items-center gap-1.5 mt-2.5 overflow-x-auto`}>
           <span className="text-xs mr-1" style={{ color: 'var(--faint)' }}>Type</span>
           {TYPE_OPTS.map(opt => {
             const active = filterType === opt.value;
@@ -652,7 +652,7 @@ export const Transactions: React.FC = () => {
           })}
           {activeFilterCount > 0 && (
             <span
-              className="hidden md:inline ml-auto text-xs"
+              className="hidden lg:inline ml-auto text-xs"
               style={{ color: 'var(--faint)' }}
             >
               {activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''} active
@@ -663,7 +663,7 @@ export const Transactions: React.FC = () => {
 
       {mode === 'month' ? (
         <div
-          className="sticky top-0 z-20 -mx-4 px-4 md:mx-0 md:px-0 mb-3 flex items-center justify-between gap-2"
+          className="sticky top-0 z-20 -mx-4 px-4 md:-mx-6 md:px-6 lg:mx-0 lg:px-0 mb-3 flex items-center justify-between gap-2"
           style={{ background: 'var(--bg)', paddingTop: 'max(0.25rem, env(safe-area-inset-top))', paddingBottom: '0.25rem' }}
         >
           <button
@@ -728,7 +728,7 @@ export const Transactions: React.FC = () => {
 
       {/* ── Table ──────────────────────────────────────────── */}
       <div
-        className={`rounded-xl overflow-hidden ${selected ? 'mb-40 md:mb-28' : ''}`}
+        className={`rounded-xl overflow-hidden ${selected ? 'mb-40 lg:mb-28' : ''}`}
         style={{ background: 'var(--surface-low)', border: '1px solid rgba(255,255,255,0.05)' }}
         {...swipeProps}
       >
@@ -743,14 +743,14 @@ export const Transactions: React.FC = () => {
         ) : (
           <>
           <MobileTransactionList groups={dateGroups} rowProps={rowProps} selected={selected} onExplain={setExplain} />
-          <div className="hidden md:block overflow-x-auto">
+          <div className="hidden lg:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}>
                   <th className="pl-4 py-3 w-8">
                     <SelectBox checked={allSelected} onChange={() => selected ? toggleAll() : setSelected(new Set(transactions.map(t => t.id)))} label="Select all" />
                   </th>
-                  {['#', 'Payee', 'Category', 'Account', 'Tags', 'Amount', ''].map((h, i) => (
+                  {['Time', 'Payee', 'Category', 'Account', 'Tags', 'Amount', ''].map((h, i) => (
                     <th
                       key={i}
                       className={`px-4 py-3 text-xs font-medium ${i === 5 ? 'text-right' : 'text-left'}`}
@@ -811,28 +811,27 @@ export const Transactions: React.FC = () => {
                       </tr>
 
                       {/* ── Transactions for this date ── */}
-                      {group.txns.map((txn, txnIdx) => {
+                      {group.txns.map(txn => {
                         const hasSplits = txn.splits && txn.splits.length > 0;
                         const isExpanded = expandedSplits.has(txn.id);
                         return (
                           <React.Fragment key={txn.id}>
                             <tr
-                              className={`transition-colors ${selected?.has(txn.id) ? 'bg-primary/10' : 'hover:bg-white/[0.02]'}`}
+                              // Tapping a row opens it (or ticks it while selecting); its buttons keep their own jobs
+                              onClick={e => {
+                                if ((e.target as HTMLElement).closest('button, a, input, label')) return;
+                                if (selected) toggleSelected(txn.id); else openEdit(txn);
+                              }}
+                              className={`cursor-pointer transition-colors ${selected?.has(txn.id) ? 'bg-primary/10' : 'hover:bg-white/[0.02]'}`}
                               style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}
                             >
                               <td className="pl-4 py-3 w-8">
                                 <SelectBox checked={!!selected?.has(txn.id)} onChange={() => toggleSelected(txn.id)} label={`Select ${txn.payee}`} />
                               </td>
-                              {/* Day index */}
+                              {/* Time */}
                               <td className="px-4 py-3 whitespace-nowrap text-center w-10">
-                                <span
-                                  className="text-xs font-semibold tabular-nums"
-                                  style={{ color: 'var(--faint-2)' }}
-                                >
-                                  {txnIdx + 1}
-                                </span>
                                 {txn.time && (
-                                  <div className="text-xs tabular-nums mt-0.5" style={{ color: 'var(--faint)' }}>{txn.time}</div>
+                                  <div className="text-xs tabular-nums" style={{ color: 'var(--faint)' }}>{txn.time}</div>
                                 )}
                                 {txn.billing_date && (
                                   <div className="text-xs mt-0.5" style={{ color: 'var(--faint)' }}>📅</div>

@@ -437,6 +437,8 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
   // Amount comes first: focus it (and raise the number keypad) when adding
   useEffect(() => {
     if (!isOpen || editing) return;
+    // Right away (keeps the keyboard a tap raised), and once more after the sheet settles
+    amountRef.current?.focus();
     const id = setTimeout(() => amountRef.current?.focus(), 50);
     return () => clearTimeout(id);
   }, [isOpen, editing]);
@@ -555,10 +557,19 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
     let last: Transaction | undefined;
     let matches: Transaction[];
     try {
-      matches = await transactionsApi.list({ search: name.trim(), limit: 20 });
-      last = matches.find(t => t.payee.trim().toLowerCase() === payee && t.type !== 'transfer');
+      // Enough history that an exact match isn't crowded out by longer names ("Rewe Mitte" for "Rewe")
+      matches = (await transactionsApi.list({ search: name.trim(), limit: 300 })).filter(t => t.type !== 'transfer');
     } catch {
       return;
+    }
+    const norm = (v: string) => v.trim().toLowerCase().replace(/\s+/g, ' ');
+    last = matches.find(t => norm(t.payee) === norm(payee));
+    if (!last) {
+      // Typed a shorter name: take the most used payee that starts with it
+      const counts = new Map<string, number>();
+      for (const t of matches) if (norm(t.payee).startsWith(norm(payee))) counts.set(norm(t.payee), (counts.get(norm(t.payee)) ?? 0) + 1);
+      const best = [...counts.entries()].sort((x, y) => y[1] - x[1])[0]?.[0];
+      last = best ? matches.find(t => norm(t.payee) === best) : undefined;
     }
     const f = formRef.current;
     if (!last || f.payee.trim().toLowerCase() !== payee) return;

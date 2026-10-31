@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { format, endOfMonth } from 'date-fns';
 import { ChevronDown, ChevronLeft, ArrowRight } from 'lucide-react';
 import { transactionsApi } from '../../api/transactions';
@@ -6,6 +6,8 @@ import { Health, Trends } from '../../api/stats';
 import { Transaction } from '../../types';
 import { myShare } from '../../lib/myShare';
 import { fmt, toDate, monthLong, cardStyle } from '../charts/MonthColumns';
+import { useTransactionEditor } from '../transactions/useTransactionEditor';
+import { onDataChanged } from '../../lib/events';
 
 const SAVINGS_TYPES = ['savings', 'investment'];
 const shortDate = (iso: string) => format(new Date(iso + 'T00:00:00'), 'd MMM');
@@ -52,15 +54,18 @@ function sortMonth(txns: Transaction[], savingsIds: Set<string>) {
 export const MonthMoney: React.FC<{ month: string; health: Health; trends: Trends; onBack: () => void }> = ({ month, health, trends, onBack }) => {
   const [txns, setTxns] = useState<Transaction[] | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const editor = useTransactionEditor();
 
-  useEffect(() => {
-    setTxns(null);
+  const load = useCallback(() => {
     transactionsApi.list({
       date_from: `${month}-01`,
       date_to: format(endOfMonth(toDate(month)), 'yyyy-MM-dd'),
       limit: 5000,
     }).then(setTxns).catch(() => setTxns([]));
   }, [month]);
+  useEffect(() => { setTxns(null); load(); }, [load]);
+  // An entry edited from here updates the lists
+  useEffect(() => onDataChanged(load), [load]);
 
   const i = trends.months.indexOf(month);
   const isPartial = i === trends.months.length - 1;
@@ -79,14 +84,14 @@ export const MonthMoney: React.FC<{ month: string; health: Health; trends: Trend
   );
 
   const row = ({ txn, amount }: Line, sub: React.ReactNode, sign = '') => (
-    <div key={`${txn.id}-${amount}`} className="flex items-center gap-3 py-2">
+    <button type="button" key={`${txn.id}-${amount}`} onClick={() => editor.open(txn)} className="w-full flex items-center gap-3 py-2 text-left active:bg-white/5">
       <span className="w-12 text-xs tabular-nums shrink-0" style={{ color: 'var(--muted)' }}>{shortDate(txn.date)}</span>
       <span className="flex-1 min-w-0">
         <span className="block text-sm truncate" style={{ color: 'var(--text)' }}>{txn.payee || '—'}</span>
         <span className="block text-xs truncate" style={{ color: 'var(--muted)' }}>{sub}</span>
       </span>
       <span className="text-sm font-semibold tabular-nums shrink-0" style={{ color: 'var(--text)' }}>{sign}{fmt(Math.abs(amount))}</span>
-    </div>
+    </button>
   );
 
   const section = (title: string, total: number, children: React.ReactNode, note?: string) => (
@@ -185,6 +190,7 @@ export const MonthMoney: React.FC<{ month: string; health: Health; trends: Trend
           </div>
         </div>
       )}
+      {editor.element}
     </div>
   );
 };
