@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   ArrowLeftRight, LayoutDashboard, PieChart, RefreshCw, MoreHorizontal,
-  CreditCard, FolderOpen, Settings, X,
+  CreditCard, FolderOpen, Settings, X, HeartPulse,
 } from 'lucide-react';
 import { emitTabReselected } from '../../lib/events';
 
@@ -10,10 +10,11 @@ const tabs = [
   { to: '/transactions', icon: ArrowLeftRight, label: 'Transactions' },
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/budgets', icon: PieChart, label: 'Budgets' },
-  { to: '/recurring', icon: RefreshCw, label: 'Recurring' },
+  { to: '/health', icon: HeartPulse, label: 'Health' },
 ];
 
 const more = [
+  { to: '/recurring', icon: RefreshCw, label: 'Recurring' },
   { to: '/accounts', icon: CreditCard, label: 'Accounts' },
   { to: '/projects', icon: FolderOpen, label: 'Projects' },
   { to: '/settings', icon: Settings, label: 'Settings' },

@@ -10,6 +10,7 @@ import {
   TrendingUp,
   FolderOpen,
   Settings,
+  HeartPulse,
 } from 'lucide-react';
 
 const navItems = [
@@ -17,6 +18,7 @@ const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/accounts', icon: CreditCard, label: 'Accounts' },
   { to: '/budgets', icon: PieChart, label: 'Budgets' },
+  { to: '/health', icon: HeartPulse, label: 'Health' },
   { to: '/recurring', icon: RefreshCw, label: 'Recurring' },
   { to: '/projects', icon: FolderOpen, label: 'Projects' },
 ];

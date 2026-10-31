@@ -5,6 +5,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Accounts } from './pages/Accounts';
 import { Transactions } from './pages/Transactions';
 import { Budgets } from './pages/Budgets';
+import { Health } from './pages/Health';
 import { Recurring } from './pages/Recurring';
 import { Projects } from './pages/Projects';
 import { ProjectDetail } from './pages/ProjectDetail';
@@ -23,6 +24,7 @@ const App: React.FC = () => {
             <Route path="/accounts" element={<Accounts />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/budgets" element={<Budgets />} />
+            <Route path="/health" element={<Health />} />
             <Route path="/recurring" element={<Recurring />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />

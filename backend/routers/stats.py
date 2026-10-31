@@ -4,7 +4,7 @@ from typing import Optional
 from collections import defaultdict
 from database import get_db
 from clock import local_today
-from models import Transaction
+from models import Account, RecurringTransaction, Transaction
 from routers.budgets import month_bounds, my_cost_factor, shift_month
 from routers.transactions import refund_surplus
 
@@ -122,4 +122,94 @@ def trends(
         # Spending by today's day of the month, last month: to compare "so far"
         "so_far_last_month": round(so_far_last_month, 2) if end == this_month else None,
         "day_of_month": today.day if end == this_month else None,
+    }
+
+
+BASE_CURRENCY = "EUR"
+SAVINGS_TYPES = {"savings", "investment"}
+# Average days per period, to turn recurring entries into a monthly figure
+MONTHLY_FACTOR = {"daily": 30.44, "weekly": 30.44 / 7, "monthly": 1.0, "yearly": 1 / 12}
+
+
+def balance_effect(t: Transaction, included: set) -> float:
+    """How a transaction changed the total across the included accounts."""
+    if t.type == "transfer":
+        return (t.amount if t.to_account_id in included else 0.0) - (t.amount if t.account_id in included else 0.0)
+    if t.account_id not in included:
+        return 0.0
+    return -t.amount if t.type == "expense" else t.amount
+
+
+@router.get("/health")
+def health(
+    months: int = Query(24, ge=2, le=60),
+    today: Optional[str] = Query(None, description="The phone's date, YYYY-MM-DD"),
+    db: Session = Depends(get_db),
+):
+    """What I have across accounts and how it changed, for the financial health page.
+    Only accounts in the base currency count until amounts can be converted."""
+    today = local_today(today)
+    this_month = today.strftime("%Y-%m")
+    month_list = [shift_month(this_month, i - months + 1) for i in range(months)]
+
+    accounts = db.query(Account).all()
+    included = [a for a in accounts if (a.currency or BASE_CURRENCY) == BASE_CURRENCY]
+    ids = {a.id for a in included}
+    savings_ids = {a.id for a in included if a.type in SAVINGS_TYPES}
+    total = sum(a.balance for a in included)
+
+    # Total at each month end: today's total, minus everything dated after that month
+    first_end = month_bounds(month_list[0])[1]
+    txns = db.query(Transaction).filter(Transaction.date >= first_end).all()
+    after = defaultdict(float)  # month -> net change in that month
+    moved = defaultdict(float)  # month -> net transfers into savings and investments
+    for t in txns:
+        m = t.date[:7]
+        after[m] += balance_effect(t, ids)
+        if t.type == "transfer":
+            into = t.to_account_id in savings_ids
+            out_of = t.account_id in savings_ids
+            if into and not out_of:
+                moved[m] += t.amount
+            elif out_of and not into:
+                moved[m] -= t.amount
+    later = sorted(after)
+    worth = []
+    for m in month_list:
+        worth.append(round(total - sum(after[x] for x in later if x > m), 2))
+
+    # Moved to savings for every month, also before the history window (for long averages)
+    for t in db.query(Transaction).filter(Transaction.type == "transfer", Transaction.date < first_end).all():
+        into, out_of = t.to_account_id in savings_ids, t.account_id in savings_ids
+        if into != out_of:
+            moved[t.date[:7]] += t.amount if into else -t.amount
+
+    fixed = 0.0
+    for r in db.query(RecurringTransaction).filter(
+        RecurringTransaction.is_active == True, RecurringTransaction.type == "expense",  # noqa: E712
+    ).all():
+        if r.end_date and r.end_date < today.isoformat():
+            continue
+        factor = MONTHLY_FACTOR.get(r.frequency)
+        if factor is None:
+            factor = 30.44 / r.custom_interval_days if r.custom_interval_days else 0.0
+        fixed += r.amount * factor
+
+    for_others = sum(v or 0 for (v,) in db.query(Transaction.for_others).filter(Transaction.type == "expense").all())
+    paid_back = sum(v for (v,) in db.query(Transaction.amount).filter(
+        Transaction.type == "income", Transaction.paid_back == True,  # noqa: E712
+    ).all())
+
+    return {
+        "currency": BASE_CURRENCY,
+        "accounts": [
+            {"id": a.id, "name": a.name, "type": a.type, "color": a.color, "balance": round(a.balance, 2)}
+            for a in sorted(included, key=lambda a: -abs(a.balance))
+        ],
+        "left_out": sorted({a.currency for a in accounts if a.id not in ids}),
+        "months": month_list,
+        "worth": worth,
+        "moved_to_savings": {m: round(v, 2) for m, v in sorted(moved.items())},
+        "fixed_monthly": round(fixed, 2),
+        "still_owed": round(max(0.0, for_others - paid_back), 2),
     }
