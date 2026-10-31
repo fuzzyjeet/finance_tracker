@@ -7,7 +7,6 @@ import {
   ArrowLeftRight,
   PieChart,
   RefreshCw,
-  TrendingUp,
   FolderOpen,
   Settings,
   HeartPulse,
@@ -30,9 +29,7 @@ export const Sidebar: React.FC = () => {
       {/* Logo */}
       <div className="px-6 mb-12">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded bg-primary-container flex items-center justify-center">
-            <TrendingUp size={16} className="text-on-primary-container" />
-          </div>
+          <img src="/favicon.svg" alt="" className="w-8 h-8" />
           <div>
             <h1 className="font-headline text-lg font-black text-on-surface tracking-normal">JeetMoney</h1>
           </div>
