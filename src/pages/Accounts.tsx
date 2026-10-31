@@ -11,6 +11,7 @@ import { accountsApi } from '../api/accounts';
 import { onDataChanged, emitDataChanged } from '../lib/events';
 import { useHideFab } from '../contexts/QuickAddContext';
 import { Account, AccountType, CURRENCY_OPTIONS } from '../types';
+import { guessBankDomain, imageToLogo } from '../lib/bankLogos';
 
 export const formatAmount = (value: number, currency: string) =>
   new Intl.NumberFormat('de-DE', { style: 'currency', currency }).format(value);
@@ -29,8 +30,17 @@ const ACCOUNT_COLORS = [
   '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#6366f1',
 ];
 
-export const AccountIcon: React.FC<{ account: Pick<Account, 'type' | 'color'>; size?: 'sm' | 'md' }> = ({ account, size = 'md' }) => {
-  const px = size === 'sm' ? 14 : 18;
+export const AccountIcon: React.FC<{ account: Pick<Account, 'type' | 'color' | 'logo'>; size?: 'sm' | 'md' | 'lg' }> = ({ account, size = 'md' }) => {
+  const box = size === 'sm' ? 'w-7 h-7 rounded-md' : size === 'lg' ? 'w-12 h-12 rounded-xl' : 'w-9 h-9 rounded-lg';
+  // A logo sits on a light tile, since most are drawn for white backgrounds
+  if (account.logo) {
+    return (
+      <span className={`${box} flex items-center justify-center shrink-0 overflow-hidden p-[3px]`} style={{ background: 'var(--text)' }}>
+        <img src={account.logo} alt="" className="w-full h-full object-contain" />
+      </span>
+    );
+  }
+  const px = size === 'sm' ? 14 : size === 'lg' ? 22 : 18;
   const Icon = account.type === 'credit_card' ? CreditCard
     : account.type === 'savings' ? PiggyBank
     : account.type === 'investment' ? TrendingUp
@@ -38,7 +48,7 @@ export const AccountIcon: React.FC<{ account: Pick<Account, 'type' | 'color'>; s
     : Landmark;
   return (
     <span
-      className={`${size === 'sm' ? 'w-7 h-7 rounded-md' : 'w-9 h-9 rounded-lg'} flex items-center justify-center shrink-0`}
+      className={`${box} flex items-center justify-center shrink-0`}
       style={{ background: account.color }}
     >
       <Icon size={px} style={{ color: 'var(--text)' }} />
@@ -47,6 +57,84 @@ export const AccountIcon: React.FC<{ account: Pick<Account, 'type' | 'color'>; s
 };
 
 const ordinal = (n: number) => `${n}${n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th'}`;
+
+/** Logo for an account: found from the bank's website by the server, or an uploaded image. */
+const LogoPicker: React.FC<{
+  name: string;
+  logo: string | null;
+  preview: Pick<Account, 'type' | 'color'>;
+  onChange: (logo: string | null) => void;
+}> = ({ name, logo, preview, onChange }) => {
+  const [domain, setDomain] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
+  const guess = guessBankDomain(name);
+
+  const find = async (d: string) => {
+    if (!d.trim()) return;
+    setBusy(true);
+    setError('');
+    try {
+      const res = await accountsApi.findLogo(d);
+      setDomain(res.domain);
+      onChange(res.logo);
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? "Couldn't reach the server");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const upload = async (file?: File) => {
+    if (!file) return;
+    setError('');
+    try {
+      onChange(await imageToLogo(file));
+    } catch {
+      setError("That file isn't an image");
+    }
+  };
+
+  return (
+    <div>
+      <label className="block text-xs font-medium text-on-surface-variant mb-1.5">Logo</label>
+      <div className="flex items-center gap-2">
+        <AccountIcon account={{ ...preview, logo }} size="lg" />
+        <input
+          value={domain}
+          onChange={e => setDomain(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); find(domain); } }}
+          inputMode="url"
+          autoCapitalize="none"
+          autoCorrect="off"
+          placeholder={guess ?? 'Website, e.g. paypal.com'}
+          className="flex-1 min-w-0 h-11 px-3 rounded-lg bg-surface-container-high text-on-surface text-base outline-none border border-white/10 focus:border-primary/50"
+        />
+        <Button variant="secondary" onClick={() => find(domain || guess || '')} loading={busy} disabled={!domain && !guess}>
+          Find
+        </Button>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 mt-1">
+        {guess && !domain && !logo && (
+          <button type="button" onClick={() => find(guess)} className="h-9 text-sm font-semibold" style={{ color: 'var(--accent)' }}>
+            Use the {guess} logo
+          </button>
+        )}
+        <button type="button" onClick={() => fileRef.current?.click()} className="h-9 text-sm font-semibold" style={{ color: 'var(--accent)' }}>
+          Upload an image
+        </button>
+        {logo && (
+          <button type="button" onClick={() => onChange(null)} className="h-9 text-sm font-semibold" style={{ color: 'var(--muted)' }}>
+            Remove
+          </button>
+        )}
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => { upload(e.target.files?.[0]); e.target.value = ''; }} />
+      </div>
+      {error && <p className="text-xs mt-0.5" style={{ color: 'var(--expense)' }}>{error}</p>}
+    </div>
+  );
+};
 
 interface AccountFormData {
   name: string;
@@ -58,6 +146,7 @@ interface AccountFormData {
   opening_is_debt: boolean;
   parent_id: string;
   is_active: boolean;
+  logo: string | null;
 }
 
 const emptyForm: AccountFormData = {
@@ -70,6 +159,7 @@ const emptyForm: AccountFormData = {
   opening_is_debt: false,
   parent_id: '',
   is_active: true,
+  logo: null,
 };
 
 const cardStyle = { background: 'var(--surface-low)', border: '1px solid rgba(255,255,255,0.05)' };
@@ -144,6 +234,7 @@ export const Accounts: React.FC = () => {
       opening_is_debt: account.opening_balance < 0,
       parent_id: account.parent_id ?? '',
       is_active: account.is_active !== false,
+      logo: account.logo ?? null,
     });
     setSaveError('');
     setModalOpen(true);
@@ -162,6 +253,7 @@ export const Accounts: React.FC = () => {
         opening_balance: Math.abs(parseFloat(form.opening_amount.replace(',', '.')) || 0) * (form.opening_is_debt ? -1 : 1),
         parent_id: form.parent_id || null,
         is_active: form.is_active,
+        logo: form.logo,
       };
       if (editing) {
         await accountsApi.update(editing.id, payload);
@@ -328,6 +420,12 @@ export const Accounts: React.FC = () => {
             value={form.name}
             onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
             placeholder={form.parent_id ? 'e.g. Holiday pot' : 'e.g. Girokonto'}
+          />
+          <LogoPicker
+            name={form.name}
+            logo={form.logo}
+            preview={{ type: form.type as AccountType, color: form.color }}
+            onChange={logo => setForm(f => ({ ...f, logo }))}
           />
           <div className="grid grid-cols-2 gap-3">
             <Select

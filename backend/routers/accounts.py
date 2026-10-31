@@ -36,6 +36,14 @@ def recalculate_balance(db: Session, account_id: str) -> float:
     return account.balance
 
 
+MAX_LOGO_CHARS = 400_000
+
+
+def check_logo(logo: Optional[str]):
+    if logo and (not logo.startswith("data:image/") or len(logo) > MAX_LOGO_CHARS):
+        raise HTTPException(status_code=400, detail="The logo must be a small image")
+
+
 def check_parent(db: Session, parent_id: Optional[str], account: Optional[Account], currency: str):
     """A sub-account sits under a main account in the same currency, one level deep."""
     if not parent_id:
@@ -62,6 +70,7 @@ def list_accounts(db: Session = Depends(get_db)):
 def create_account(data: AccountCreate, db: Session = Depends(get_db)):
     import uuid
     check_parent(db, data.parent_id, None, data.currency)
+    check_logo(data.logo)
     account = Account(
         id=str(uuid.uuid4()),
         name=data.name,
@@ -73,6 +82,7 @@ def create_account(data: AccountCreate, db: Session = Depends(get_db)):
         currency=data.currency,
         parent_id=data.parent_id,
         is_active=data.is_active,
+        logo=data.logo,
     )
     db.add(account)
     db.commit()
@@ -97,7 +107,10 @@ def update_account(account_id: str, data: AccountUpdate, db: Session = Depends(g
     if "parent_id" in data.model_fields_set:
         changes["parent_id"] = data.parent_id or None
         check_parent(db, changes["parent_id"], account, changes.get("currency", account.currency))
-    elif "currency" in changes and account.parent_id:
+    if "logo" in data.model_fields_set:
+        changes["logo"] = data.logo or None
+        check_logo(changes["logo"])
+    if "parent_id" not in data.model_fields_set and "currency" in changes and account.parent_id:
         check_parent(db, account.parent_id, account, changes["currency"])
     for field, value in changes.items():
         setattr(account, field, value)

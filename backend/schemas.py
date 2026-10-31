@@ -60,6 +60,7 @@ class AccountBase(BaseModel):
     opening_balance: float = 0.0
     parent_id: Optional[str] = None
     is_active: bool = True
+    logo: Optional[str] = None  # image data URL
 
 
 class AccountCreate(AccountBase):
@@ -75,6 +76,7 @@ class AccountUpdate(BaseModel):
     opening_balance: Optional[float] = None
     parent_id: Optional[str] = None  # send null to make it a main account again
     is_active: Optional[bool] = None
+    logo: Optional[str] = None  # send null to remove it
 
 
 class AccountRead(AccountBase):

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import (
-    Column, String, Float, Integer, Boolean, DateTime, ForeignKey, Table, Enum as SAEnum
+    Column, String, Text, Float, Integer, Boolean, DateTime, ForeignKey, Table, Enum as SAEnum
 )
 from sqlalchemy.orm import relationship
 from database import Base
@@ -54,6 +54,8 @@ class Account(Base):
     parent_id = Column(String, ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
     # Inactive accounts stay in history but are folded away in lists and pickers
     is_active = Column(Boolean, nullable=False, default=True, server_default="1")
+    # The bank's logo as a small image data URL, fetched once or uploaded
+    logo = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     transactions = relationship("Transaction", foreign_keys="Transaction.account_id", back_populates="account")

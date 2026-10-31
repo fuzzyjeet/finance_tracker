@@ -16,6 +16,8 @@ export interface Account {
   parent_id?: string | null;
   /** Inactive accounts are folded away in lists and left out of pickers */
   is_active: boolean;
+  /** The bank's logo as an image data URL */
+  logo?: string | null;
   created_at: string;
 }
 

@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 from database import engine
 import models
 import os
-from routers import accounts, transactions, categories, budgets, recurring, tags, projects, stats
+from routers import accounts, transactions, categories, budgets, recurring, tags, projects, stats, logos
 from services.scheduler import start_scheduler
 from seed import seed_data
 
@@ -28,6 +28,7 @@ app.include_router(recurring.router, prefix="/api/recurring", tags=["recurring"]
 app.include_router(tags.router, prefix="/api/tags", tags=["tags"])
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 app.include_router(stats.router, prefix="/api/stats", tags=["stats"])
+app.include_router(logos.router, prefix="/api/logos", tags=["logos"])
 
 
 @app.on_event("startup")
@@ -48,6 +49,9 @@ async def startup():
             conn.commit()
         if "is_active" not in account_cols:
             conn.execute(text("ALTER TABLE accounts ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT 1"))
+            conn.commit()
+        if "logo" not in account_cols:
+            conn.execute(text("ALTER TABLE accounts ADD COLUMN logo TEXT"))
             conn.commit()
         txn_cols = [c["name"] for c in inspector.get_columns("transactions")]
         if "time" not in txn_cols:

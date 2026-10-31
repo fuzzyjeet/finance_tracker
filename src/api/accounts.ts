@@ -9,4 +9,7 @@ export const accountsApi = {
   update: (id: string, data: Partial<Omit<Account, 'id' | 'balance' | 'created_at'>>) =>
     api.put<Account>(`/accounts/${id}`, data).then(r => r.data),
   delete: (id: string) => api.delete(`/accounts/${id}`).then(r => r.data),
+  /** Looks up a bank's logo from its website, e.g. "paypal.com" */
+  findLogo: (domain: string) =>
+    api.get<{ domain: string; logo: string }>('/logos', { params: { domain } }).then(r => r.data),
 };

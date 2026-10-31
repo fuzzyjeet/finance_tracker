@@ -76,7 +76,7 @@ export const AccountDetail: React.FC<{
 
       <section className="rounded-xl px-4 py-4 mt-1" style={cardStyle}>
         <div className="flex items-start gap-3">
-          <AccountIcon account={account} />
+          <AccountIcon account={account} size="lg" />
           <div className="flex-1 min-w-0">
             <h1 className="font-headline text-xl font-bold truncate" style={{ color: 'var(--text)' }}>{account.name}</h1>
             <p className="text-xs" style={{ color: 'var(--muted)' }}>
