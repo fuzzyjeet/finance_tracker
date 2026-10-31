@@ -133,7 +133,7 @@ const draftFromTxn = (t: Transaction): LinkDraft => {
   const remaining = remainingRefundable(t);
   return {
     id: t.id, payee: t.payee, date: t.date, total: t.amount, remaining,
-    categoryIcon: t.category?.icon, amount: remaining.toFixed(2),
+    categoryIcon: t.category?.icon, amount: toAmountInput(remaining),
   };
 };
 
@@ -298,6 +298,9 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
 
   // Refund links
   const [links, setLinks]           = useState<LinkDraft[]>([]);
+  // Until you change a linked amount yourself, the refund is spread over the linked
+  // expenses as you type it: a 10 € refund of a 30 € expense links 10 €, not 30 €
+  const linksEdited = useRef(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [saveError, setSaveError]   = useState('');
 
@@ -401,7 +404,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
       });
       setLinks((editing.refund_for ?? []).map(l => ({
         id: l.transaction_id, payee: l.payee, date: l.date, total: l.transaction_amount,
-        remaining: l.transaction_amount, amount: l.amount.toFixed(2),
+        remaining: l.transaction_amount, amount: toAmountInput(l.amount),
       })));
       if (editing.splits && editing.splits.length > 0) {
         setSplitOpen(true);
@@ -421,6 +424,8 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
         type: 'refund',
         payee: refundOf.payee,
         category_id: refundOf.category_id ?? '',
+        // Money usually comes back to the account it was paid from
+        account_id: refundOf.account_id,
       });
       setLinks([draftFromTxn(refundOf)]);
       setSplitOpen(false);
@@ -446,18 +451,35 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
     setPayeeHistory(null);
     setSharedExpenses(null);
     setDismissedHints([]);
+    linksEdited.current = !!editing;  // an existing refund keeps its saved split
     setLastSaved('');
     confirmedPayee.current = '';
   }, [editing, isOpen, refundOf, defaultDate]);
 
   // Amount comes first: focus it (and raise the number keypad) when adding
   useEffect(() => {
-    if (!isOpen || editing) return;
-    // Right away (keeps the keyboard a tap raised), and once more after the sheet settles
+    if (!isOpen) return;
+    // Amount first, for new and existing entries: on touch screens this opens the keypad.
+    // Right away, and once more after the sheet settles
     amountRef.current?.focus();
     const id = setTimeout(() => amountRef.current?.focus(), 50);
     return () => clearTimeout(id);
   }, [isOpen, editing]);
+
+  const refundTotal = form.type === 'refund' ? Math.max(0, evaluate(form.amount) ?? 0) : 0;
+  const linkCount = links.length;
+  useEffect(() => {
+    if (linksEdited.current || refundTotal <= 0 || !linkCount) return;
+    setLinks(prev => {
+      let left = refundTotal;
+      const next = prev.map(l => {
+        const take = Math.min(l.remaining, left);
+        left = Math.round((left - take) * 100) / 100;
+        return { ...l, amount: toAmountInput(take) };
+      });
+      return next.every((l, i) => l.amount === prev[i].amount) ? prev : next;
+    });
+  }, [refundTotal, linkCount]);
 
   // Recent expenses partly for others, to spot money being paid back
   const wantShared = isOpen && !editing && form.type === 'income' && sharedExpenses === null;
@@ -545,11 +567,12 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
   };
 
   const isRefund        = form.type === 'refund';
-  const linkAmounts     = links.map(l => parseFloat(l.amount) || 0);
+  const linkAmounts     = links.map(l => parseAmount(l.amount));
   const linkedTotal     = linkAmounts.reduce((s, a) => s + a, 0);
   const unallocated     = totalAmount - linkedTotal;
   const overAllocated   = isRefund && unallocated < -0.005;
-  const badLinkAmount   = isRefund && linkAmounts.some(a => a <= 0);
+  // A linked expense the refund doesn't reach (0 €) is simply left out on save
+  const badLinkAmount   = isRefund && (linkAmounts.some(a => a < 0) || (links.length > 0 && linkAmounts.every(a => a <= 0)));
   const showSuggestion  = isRefund && linkedTotal > 0 && totalAmount < linkedTotal - 0.005;
 
   const timeInvalid = !!form.time && !TIME_RE.test(form.time);
@@ -561,8 +584,10 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
     setLinks(prev => [...prev, ...txns.filter(t => !prev.some(l => l.id === t.id)).map(draftFromTxn)]);
     if (!form.payee && txns.length === 1) setForm(f => ({ ...f, payee: txns[0].payee }));
   };
-  const updateLinkAmount = (id: string, amount: string) =>
+  const updateLinkAmount = (id: string, amount: string) => {
+    linksEdited.current = true;
     setLinks(prev => prev.map(l => l.id === id ? { ...l, amount } : l));
+  };
   const removeLink = (id: string) => setLinks(prev => prev.filter(l => l.id !== id));
 
   // Fill category and account from this payee's most recent transaction,
@@ -646,7 +671,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
             }))
           : undefined,
         refund_links: isRefund
-          ? links.map(l => ({ original_id: l.id, amount: parseFloat(l.amount) || 0 }))
+          ? links.map(l => ({ original_id: l.id, amount: parseAmount(l.amount) })).filter(l => l.amount > 0)
           : editing ? [] : undefined,
         for_others: form.type === 'expense' ? Math.min(parseAmount(form.for_others), totalAmount) : 0,
         paid_back: form.type === 'income' && form.paid_back,
@@ -938,9 +963,9 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               {links.length > 0 && (
                 <>
                   {links.map(l => {
-                    const amt = parseFloat(l.amount) || 0;
+                    const amt = parseAmount(l.amount);
                     const exceeds = amt > l.remaining + 0.005;
-                    const invalid = amt <= 0;
+                    const invalid = amt < 0;
                     return (
                       <div
                         key={l.id}
@@ -967,10 +992,11 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                         >
                           <span className="text-xs mr-1" style={{ color: 'var(--faint)' }}>€</span>
                           <input
-                            type="number" inputMode="decimal" min={0} step="0.01"
+                            type="text" inputMode="decimal" autoComplete="off"
+                            aria-label={`Amount refunded of ${l.payee}`}
                             value={l.amount}
-                            onChange={e => updateLinkAmount(l.id, e.target.value)}
-                            className="w-16 bg-transparent text-sm text-right outline-none tabular-nums"
+                            onChange={e => updateLinkAmount(l.id, cleanAmountInput(e.target.value))}
+                            className="w-20 bg-transparent text-base text-right outline-none tabular-nums"
                             style={{ color: 'var(--refund)' }}
                           />
                         </div>
