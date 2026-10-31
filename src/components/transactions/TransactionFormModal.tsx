@@ -160,6 +160,52 @@ const fmtAmount = (v: number) => new Intl.NumberFormat('de-DE', { minimumFractio
 
 const todayISO = () => localISODate();
 
+const SHARED_LOOKBACK_DAYS = 120;
+const shortDate = (iso: string) =>
+  new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+
+/** What this payee's latest expense and income looked like, for suggestions. */
+interface PayeeHistory {
+  payee: string;                                       // lower-case
+  others?: { ratio: number; date: string };            // share of the last expense for others
+  paidBack?: string;                                   // date of the last income, if it was paid back
+}
+
+function historyOf(payee: string, txns: Transaction[]): PayeeHistory {
+  const own = txns.filter(t => t.payee.trim().toLowerCase() === payee);
+  const expense = own.find(t => t.type === 'expense');
+  const income = own.find(t => t.type === 'income');
+  return {
+    payee,
+    others: expense && expense.amount > 0 && (expense.for_others ?? 0) > 0
+      ? { ratio: expense.for_others! / expense.amount, date: expense.date } : undefined,
+    paidBack: income?.paid_back ? income.date : undefined,
+  };
+}
+
+/** "½" when my share was a half, and so on; otherwise a percentage. */
+function shareLabel(myRatio: number) {
+  for (const [f, label] of [[1 / 2, '½'], [1 / 3, '⅓'], [1 / 4, '¼']] as const) {
+    if (Math.abs(myRatio - f) < 0.01) return label;
+  }
+  return `${Math.round(myRatio * 100)}%`;
+}
+
+/** A recent expense whose part for others (whole, or one person's even share) equals the amount. */
+function matchSharedExpense(amount: number, payee: string, expenses: Transaction[]) {
+  if (amount <= 0) return null;
+  for (const t of expenses) {
+    const others = t.for_others ?? 0;
+    const people = Math.max(1, Math.round(t.amount / Math.max(0.01, t.amount - others)) - 1);
+    if (Math.abs(others - amount) < 0.005) return { txn: t, why: 'amount' as const };
+    if (people > 1 && Math.abs(others / people - amount) < 0.005) return { txn: t, why: 'share' as const };
+  }
+  const name = payee.trim().toLowerCase();
+  if (!name) return null;
+  const tagged = expenses.find(t => t.tags?.some(tag => tag.name.trim().toLowerCase() === name));
+  return tagged ? { txn: tagged, why: 'tag' as const } : null;
+}
+
 // The account used for the previous new transaction is the default for the next one
 const LAST_ACCOUNT_KEY = 'last_account_id';
 const readLastAccount = () => {
@@ -227,6 +273,11 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
   // Category/account prefilled from the payee's last transaction, until the user picks one
   const [autoFilled, setAutoFilled] = useState({ category: false, account: false });
   const [touched, setTouched]       = useState({ category: false, account: false });
+
+  // Suggestions for "for others" / "paid back": offered, never filled in on their own
+  const [payeeHistory, setPayeeHistory] = useState<PayeeHistory | null>(null);
+  const [sharedExpenses, setSharedExpenses] = useState<Transaction[] | null>(null);
+  const [dismissedHints, setDismissedHints] = useState<string[]>([]);
 
   // "Add & next" confirmation, e.g. "REWE · 12,40"
   const [lastSaved, setLastSaved] = useState('');
@@ -371,6 +422,9 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
     setOpenPanel(null);
     setAutoFilled({ category: false, account: false });
     setTouched({ category: false, account: false });
+    setPayeeHistory(null);
+    setSharedExpenses(null);
+    setDismissedHints([]);
     setLastSaved('');
     confirmedPayee.current = '';
   }, [editing, isOpen, refundOf, defaultDate]);
@@ -381,6 +435,17 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
     const id = setTimeout(() => amountRef.current?.focus(), 50);
     return () => clearTimeout(id);
   }, [isOpen, editing]);
+
+  // Recent expenses partly for others, to spot money being paid back
+  const wantShared = isOpen && !editing && form.type === 'income' && sharedExpenses === null;
+  useEffect(() => {
+    if (!wantShared) return;
+    const from = new Date();
+    from.setDate(from.getDate() - SHARED_LOOKBACK_DAYS);
+    transactionsApi.list({ type: 'expense', date_from: localISODate(from), limit: 1000 })
+      .then(txns => setSharedExpenses(txns.filter(t => (t.for_others ?? 0) > 0)))
+      .catch(() => setSharedExpenses([]));
+  }, [wantShared]);
 
   // Lock body scroll
   useEffect(() => {
@@ -397,6 +462,48 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
   const splitBalanced   = Math.abs(remaining) < 0.005;
   const othersAmount    = form.type === 'expense' ? parseAmount(form.for_others) : 0;
   const othersTooBig    = othersAmount > totalAmount + 0.005;
+
+  // One suggestion at a time; it only fills anything in when tapped
+  const payeeKey = form.payee.trim().toLowerCase();
+  const history  = payeeHistory && payeeHistory.payee === payeeKey ? payeeHistory : null;
+  let hint: { key: string; icon: React.ReactNode; text: React.ReactNode; action: string; apply: () => void } | null = null;
+  if (!editing && form.type === 'expense' && othersAmount === 0 && totalAmount > 0 && history?.others) {
+    const { ratio, date } = history.others;
+    const value = Math.round(totalAmount * ratio * 100) / 100;
+    hint = {
+      key: `others:${payeeKey}`,
+      icon: <Users size={14} />,
+      text: <>On {shortDate(date)} at {form.payee.trim()}, your share was {shareLabel(1 - ratio)}.</>,
+      action: `For others ${fmtAmount(value)}`,
+      apply: () => setForm(f => ({ ...f, for_others: toAmountInput(value) })),
+    };
+  } else if (!editing && form.type === 'income' && !form.paid_back) {
+    const markPaidBack = () => setForm(f => ({ ...f, paid_back: true }));
+    const match = history?.paidBack ? null : matchSharedExpense(totalAmount, form.payee, sharedExpenses ?? []);
+    if (history?.paidBack) {
+      hint = {
+        key: `paidback:${payeeKey}`,
+        icon: <HandCoins size={14} />,
+        text: <>The last money from {form.payee.trim()} ({shortDate(history.paidBack)}) was paid back to you.</>,
+        action: 'Paid back',
+        apply: markPaidBack,
+      };
+    } else if (match) {
+      const t = match.txn;
+      hint = {
+        key: `paidback:${t.id}:${match.why}`,
+        icon: <HandCoins size={14} />,
+        text: match.why === 'amount'
+          ? <>Matches the {fmtAmount(totalAmount)} you paid for others at {t.payee} on {shortDate(t.date)}.</>
+          : match.why === 'share'
+          ? <>Matches one person's share of the {fmtAmount(t.for_others ?? 0)} you paid for others at {t.payee} on {shortDate(t.date)}.</>
+          : <>{form.payee.trim()} is tagged on {t.payee} ({shortDate(t.date)}), where {fmtAmount(t.for_others ?? 0)} was for others.</>,
+        action: 'Paid back',
+        apply: markPaidBack,
+      };
+    }
+  }
+  if (hint && dismissedHints.includes(hint.key)) hint = null;
 
   const typeColor         = TYPE_COLORS[form.type as keyof typeof TYPE_COLORS] ?? TYPE_COLORS.expense;
   const selectedAccount   = accounts.find(a => a.id === form.account_id);
@@ -441,14 +548,16 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
     const payee = name.trim().toLowerCase();
     if (editing || !payee) return;
     let last: Transaction | undefined;
+    let matches: Transaction[];
     try {
-      const matches = await transactionsApi.list({ search: name.trim(), limit: 20 });
+      matches = await transactionsApi.list({ search: name.trim(), limit: 20 });
       last = matches.find(t => t.payee.trim().toLowerCase() === payee && t.type !== 'transfer');
     } catch {
       return;
     }
     const f = formRef.current;
     if (!last || f.payee.trim().toLowerCase() !== payee) return;
+    setPayeeHistory(historyOf(payee, matches));
 
     const fitsType = filteredCategories(f.type).some(c => c.id === last!.category_id);
     const fillCategory = !touched.category && !splitOpen && fitsType && !!last.category_id;
@@ -547,6 +656,8 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
     setOpenPanel(null);
     setAutoFilled({ category: false, account: false });
     setTouched(t => ({ ...t, category: false }));
+    setPayeeHistory(null);
+    setDismissedHints([]);
     setShowErrors(false);
     confirmedPayee.current = '';
     amountRef.current?.focus();
@@ -1171,6 +1282,33 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
             );
           })()}
 
+          {hint && (
+            <div
+              className="flex items-center gap-2 rounded-xl pl-3 pr-1 py-1"
+              style={{ background: 'rgb(var(--accent-rgb) / 0.06)', border: '1px dashed rgb(var(--accent-rgb) / 0.3)' }}
+            >
+              <span className="shrink-0" style={{ color: 'var(--accent)' }}>{hint.icon}</span>
+              <p className="flex-1 min-w-0 text-xs py-1.5" style={{ color: 'var(--text-2)' }}>{hint.text}</p>
+              <button
+                type="button"
+                onClick={hint.apply}
+                className="shrink-0 h-10 px-3 rounded-lg text-sm font-semibold whitespace-nowrap"
+                style={{ color: 'var(--accent)' }}
+              >
+                {hint.action}
+              </button>
+              <button
+                type="button"
+                aria-label="Dismiss suggestion"
+                onClick={() => setDismissedHints(d => [...d, hint!.key])}
+                className="shrink-0 w-10 h-10 flex items-center justify-center rounded-lg"
+                style={{ color: 'var(--muted)' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
+
           {form.type === 'income' && form.paid_back && (
             <p className="text-xs -mt-1 px-1" style={{ color: 'var(--muted)' }}>
               Money someone paid you back: it lowers what you're still owed and doesn't count as income.
@@ -1207,7 +1345,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                   <input
                     inputMode="decimal"
                     enterKeyHint="done"
-                    className="w-full min-w-0 bg-transparent text-sm text-right outline-none tabular-nums"
+                    className="w-full min-w-0 bg-transparent text-base text-right outline-none tabular-nums"
                     style={{ color: 'var(--text)' }}
                     placeholder="0,00"
                     value={form.for_others}

@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import {
   Pencil, Trash2, Search, ChevronLeft, ChevronRight,
   ArrowUpRight, ArrowDownLeft, ArrowLeftRight, ChevronDown, X, Undo2, SlidersHorizontal, Check,
+  Users, FolderOpen,
 } from 'lucide-react';
 import { Header } from '../components/layout/Header';
 import { Button } from '../components/ui/Button';
@@ -184,19 +185,14 @@ function MobileTransactionList({
                       {what}
                       {txn.notes ? ` · ${txn.notes}` : ''}
                     </p>
+                    <RowChips txn={txn} />
                   </div>
                   <div className="text-right shrink-0">
                     <p className="flex items-center justify-end gap-0.5 text-[15px] font-semibold tabular-nums" style={{ color: AMOUNT_COLORS[txn.type] }}>
                       <UnusualIcon txn={txn} onExplain={onExplain} />
                       {AMOUNT_SIGN[txn.type]}{formatCurrency(txn.amount)}
                     </p>
-                    <p className="text-xs tabular-nums" style={{ color: (txn.refunded_amount ?? 0) > 0 ? 'var(--refund)' : 'var(--muted)' }}>
-                      {(txn.refunded_amount ?? 0) > 0
-                        ? (txn.is_fully_refunded ? 'refunded' : `−${formatCurrency(txn.refunded_amount!)} refunded`)
-                        : (txn.for_others ?? 0) > 0 ? `yours ${formatCurrency(txn.amount - txn.for_others!)}`
-                        : txn.paid_back ? 'paid back'
-                        : txn.time ?? ''}
-                    </p>
+                    <MyShareLine txn={txn} />
                   </div>
                 </div>
               );
@@ -204,6 +200,74 @@ function MobileTransactionList({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** My part of an expense after refunds and the share for others (same rule as budgets). */
+function myShare(txn: Transaction) {
+  if (txn.type !== 'expense' || txn.amount <= 0) return txn.amount;
+  const refunded = txn.refunded_amount ?? 0;
+  const ownRatio = Math.max(0, 1 - (txn.for_others ?? 0) / txn.amount);
+  return Math.max(0, txn.amount - refunded) * ownRatio;
+}
+
+/** Under the amount: what was really mine, with icons for why it's lower; else the time. */
+function MyShareLine({ txn }: { txn: Transaction }) {
+  const refunded = (txn.refunded_amount ?? 0) > 0;
+  const shared = (txn.for_others ?? 0) > 0;
+  let content: React.ReactNode = txn.time ?? '';
+  let color = 'var(--muted)';
+  if (txn.type === 'expense' && txn.is_fully_refunded) {
+    content = <><Undo2 size={11} /> refunded</>;
+    color = 'var(--refund)';
+  } else if (txn.type === 'expense' && (refunded || shared)) {
+    content = (
+      <>
+        {refunded && <Undo2 size={11} style={{ color: 'var(--refund)' }} aria-label="Partly refunded" />}
+        {shared && <Users size={11} aria-label="Partly for others" />}
+        yours {formatCurrency(myShare(txn))}
+      </>
+    );
+  } else if (txn.type === 'income' && txn.paid_back) {
+    content = 'paid back';
+  }
+  return (
+    <p className="flex items-center justify-end gap-1 text-xs tabular-nums" style={{ color }}>
+      {content}
+    </p>
+  );
+}
+
+const MAX_ROW_CHIPS = 2;
+
+/** Tags and projects on a phone row: a third line, only when there are any. */
+function RowChips({ txn }: { txn: Transaction }) {
+  const projects = new Map<string, { name: string; icon: string; color: string }>();
+  for (const p of txn.projects ?? []) projects.set(p.id, p);
+  for (const s of txn.splits ?? []) for (const p of s.projects ?? []) projects.set(p.id, p);
+  const chips = [
+    ...[...projects.entries()].map(([id, p]) => ({ id, label: p.name, color: p.color, project: true })),
+    ...(txn.tags ?? []).map(t => ({ id: t.id, label: t.name, color: t.color, project: false })),
+  ];
+  if (!chips.length) return null;
+  const shown = chips.slice(0, MAX_ROW_CHIPS);
+  const more = chips.length - shown.length;
+  return (
+    <div className="flex items-center gap-1 mt-1 min-w-0 overflow-hidden">
+      {shown.map(c => (
+        <span
+          key={c.id}
+          className="inline-flex items-center gap-1 min-w-0 max-w-[60%] px-1.5 py-px rounded-md text-[11px] font-medium"
+          style={{ background: `color-mix(in srgb, ${c.color} 14%, transparent)`, color: 'var(--text-2)' }}
+        >
+          {c.project
+            ? <FolderOpen size={10} className="shrink-0" style={{ color: c.color }} />
+            : <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: c.color }} />}
+          <span className="truncate">{c.label}</span>
+        </span>
+      ))}
+      {more > 0 && <span className="text-[11px] shrink-0" style={{ color: 'var(--muted)' }}>+{more}</span>}
     </div>
   );
 }
