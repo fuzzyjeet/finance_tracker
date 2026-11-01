@@ -571,8 +571,8 @@ export const Transactions: React.FC = () => {
             options={[
               { value: '', label: 'All Accounts' },
               // Inactive accounts last, still there to look back at their history
-              ...treeOrder(accounts).filter(a => a.is_active !== false).map(a => ({ value: a.id, label: accountLabel(a, accounts) })),
-              ...treeOrder(accounts).filter(a => a.is_active === false).map(a => ({ value: a.id, label: `${accountLabel(a, accounts)} (inactive)` })),
+              ...treeOrder(accounts).filter(a => a.is_active !== false).map(a => ({ value: a.id, label: accountLabel(a, accounts), image: a.logo })),
+              ...treeOrder(accounts).filter(a => a.is_active === false).map(a => ({ value: a.id, label: `${accountLabel(a, accounts)} (inactive)`, image: a.logo })),
             ]}
             className="min-w-[130px]"
           />

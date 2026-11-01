@@ -20,4 +20,10 @@ export const logosApi = {
   reset: (payee: string) => api.delete('/logos/payees', { params: { payee } }).then(r => r.data),
 };
 
+export const accountLogosApi = {
+  /** Accounts without a logo whose name matches a known bank */
+  missing: () => api.get<{ id: string; name: string; domain: string }[]>('/logos/accounts').then(r => r.data),
+  fetchAll: () => api.post<{ found: string[]; missing: string[] }>('/logos/accounts/fetch').then(r => r.data),
+};
+
 export const logoUrl = (key: string) => `/api/logos/img/${encodeURIComponent(key)}`;

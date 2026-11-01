@@ -199,8 +199,13 @@ const WhatIHave: React.FC<{ health: HealthData }> = ({ health }) => {
           <div className="ml-5 mb-2 pl-3 space-y-1.5" style={{ borderLeft: '1px solid rgba(255,255,255,0.08)' }}>
             {accounts.filter(a => a.is_active || showInactive.includes(key)).map(a => (
               <div key={a.id} className="flex items-center justify-between gap-3 text-sm" style={{ opacity: a.is_active ? 1 : 0.7 }}>
-                <span className="truncate" style={{ color: 'var(--text-2)' }}>
-                  {accountLabel(a, health.accounts)}{a.is_active ? '' : ' (inactive)'}
+                <span className="flex items-center gap-2 min-w-0 truncate" style={{ color: 'var(--text-2)' }}>
+                  {a.logo && (
+                    <span className="w-5 h-5 rounded shrink-0 overflow-hidden p-px" style={{ background: 'var(--text)' }}>
+                      <img src={a.logo} alt="" className="w-full h-full object-contain" />
+                    </span>
+                  )}
+                  <span className="truncate">{accountLabel(a, health.accounts)}{a.is_active ? '' : ' (inactive)'}</span>
                 </span>
                 <span className="tabular-nums shrink-0" style={{ color: a.balance < 0 && shown ? 'var(--expense)' : 'var(--text-2)' }}>
                   {shown && a.balance < 0 ? '−' : ''}{money(Math.abs(a.balance))}

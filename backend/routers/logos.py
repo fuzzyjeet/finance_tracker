@@ -10,7 +10,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from database import get_db
 from merchants import guess_domain, payee_key
-from models import Logo, PayeeLogo, Transaction
+from models import Account, Logo, PayeeLogo, Transaction
 
 router = APIRouter()
 
@@ -228,3 +228,50 @@ def logo_image(key: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="No such logo")
     return Response(content=logo.data, media_type=logo.content_type,
                     headers={"Cache-Control": "public, max-age=604800"})
+
+
+# ── Account logos ────────────────────────────────────────────────────────────
+# Stored on the account itself (a data URL), so they also show offline.
+
+def accounts_missing_logo(db: Session):
+    """Accounts without a logo whose name matches a known bank or service."""
+    return [(a, d) for a in db.query(Account).filter(Account.logo.is_(None)).all() if (d := guess_domain(a.name))]
+
+
+@router.get("/accounts")
+def list_missing_account_logos(db: Session = Depends(get_db)):
+    return [{"id": a.id, "name": a.name, "domain": d} for a, d in accounts_missing_logo(db)]
+
+
+@router.post("/accounts/fetch")
+def fetch_account_logos(db: Session = Depends(get_db)):
+    """Fetches the logo of every account named after a known bank that has none yet."""
+    missing = accounts_missing_logo(db)
+    domains = sorted({d for _, d in missing})
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        found = dict(zip(domains, pool.map(fetch_logo, domains)))
+    for account, d in missing:
+        if found.get(d):
+            account.logo = found[d]
+    db.commit()
+    return {
+        "found": sorted(a.name for a, d in missing if found.get(d)),
+        "missing": sorted(a.name for a, d in missing if not found.get(d)),
+    }
+
+
+def fetch_for_new_account(account_id: str):
+    """Run after adding an account: gives it its bank's logo if the name says which bank."""
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        account = db.get(Account, account_id)
+        if not account or account.logo:
+            return
+        d = guess_domain(account.name)
+        found = fetch_logo(d) if d else None
+        if found:
+            account.logo = found
+            db.commit()
+    finally:
+        db.close()

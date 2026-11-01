@@ -5,6 +5,8 @@ import { ChevronDown, Check } from 'lucide-react';
 export interface CustomSelectOption {
   value: string;
   label: string;
+  /** A small logo shown before the label, e.g. an account's bank */
+  image?: string | null;
 }
 
 interface DropdownPos {
@@ -96,7 +98,14 @@ function DropdownList({
               if (!isSelected) (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
             }}
           >
-            <span>{opt.label}</span>
+            <span className="flex items-center gap-2 min-w-0">
+              {opt.image && (
+                <span className="w-5 h-5 rounded shrink-0 overflow-hidden p-px" style={{ background: 'var(--text)' }}>
+                  <img src={opt.image} alt="" className="w-full h-full object-contain" />
+                </span>
+              )}
+              <span className="truncate">{opt.label}</span>
+            </span>
             {isSelected && <Check size={12} style={{ color: 'var(--accent)', flexShrink: 0 }} />}
           </button>
         );

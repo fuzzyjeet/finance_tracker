@@ -8,6 +8,7 @@ import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { AccountDetail } from '../components/accounts/AccountDetail';
 import { accountsApi } from '../api/accounts';
+import { accountLogosApi } from '../api/logos';
 import { onDataChanged, emitDataChanged } from '../lib/events';
 import { Account, AccountType, CURRENCY_OPTIONS } from '../types';
 import { guessBankDomain, imageToLogo } from '../lib/bankLogos';
@@ -180,7 +181,27 @@ export const Accounts: React.FC = () => {
   const [deleteConfirm, setDeleteConfirm] = useState<Account | null>(null);
   const [showInactive, setShowInactive] = useState(false);
 
+  // Accounts named after a known bank that don't have its logo yet
+  const [missingLogos, setMissingLogos] = useState<{ id: string; name: string; domain: string }[]>([]);
+  const [findingLogos, setFindingLogos] = useState(false);
+  const [logoResult, setLogoResult] = useState('');
+  const findLogos = async () => {
+    setFindingLogos(true);
+    try {
+      const res = await accountLogosApi.fetchAll();
+      setLogoResult(res.missing.length
+        ? `Found ${res.found.length}. None found for ${res.missing.join(', ')}: edit the account to upload one.`
+        : `Found ${res.found.length} logo${res.found.length === 1 ? '' : 's'}.`);
+      await load();
+    } catch {
+      setLogoResult("Couldn't reach the server");
+    } finally {
+      setFindingLogos(false);
+    }
+  };
+
   const load = useCallback(async () => {
+    accountLogosApi.missing().then(setMissingLogos).catch(() => setMissingLogos([]));
     try {
       setAccounts(await accountsApi.list());
     } finally {
@@ -351,6 +372,19 @@ export const Accounts: React.FC = () => {
           subtitle="Tap an account to see its entries"
           actions={<Button onClick={() => openCreate()}><Plus size={16} /> Account</Button>}
         />
+
+        {(missingLogos.length > 0 || logoResult) && (
+          <section className="flex items-center gap-3 rounded-xl px-4 py-3 mb-4" style={cardStyle}>
+            <p className="flex-1 min-w-0 text-sm" style={{ color: 'var(--text-2)' }}>
+              {logoResult || (missingLogos.length === 1
+                ? `${missingLogos[0].name} can show its bank's logo.`
+                : `${missingLogos.length} accounts can show their bank's logo.`)}
+            </p>
+            {missingLogos.length > 0 && !logoResult && (
+              <Button onClick={findLogos} loading={findingLogos}>Find logos</Button>
+            )}
+          </section>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
           {groups.map(g => {

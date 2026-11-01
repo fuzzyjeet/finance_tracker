@@ -31,6 +31,7 @@ export interface HealthAccount {
   balance: number;
   parent_id: string | null;
   is_active: boolean;
+  logo: string | null;
 }
 
 export interface Health {

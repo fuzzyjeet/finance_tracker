@@ -1161,7 +1161,9 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
 
             {/* Account row */}
             <FieldRow
-              icon={<span>{accountIcon(selectedAccount?.type)}</span>}
+              icon={selectedAccount?.logo
+                ? <img src={selectedAccount.logo} alt="" className="w-full h-full object-contain rounded-md p-[3px]" style={{ background: 'var(--text)' }} />
+                : <span>{accountIcon(selectedAccount?.type)}</span>}
               label={form.type === 'transfer' ? 'From account' : 'Account'}
               hint={autoFilled.account ? 'from last time' : undefined}
               value={selectedAccount ? `${accountLabel(selectedAccount, accounts)} (${selectedAccount.currency})` : ''}
@@ -1178,7 +1180,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                   }}
                   options={[
                     { value: '', label: 'Select account' },
-                    ...pickable(accounts, [form.account_id]).map(a => ({ value: a.id, label: `${accountLabel(a, accounts)} (${a.currency})` })),
+                    ...pickable(accounts, [form.account_id]).map(a => ({ value: a.id, label: `${accountLabel(a, accounts)} (${a.currency})`, image: a.logo })),
                   ]}
                 />
               }
@@ -1198,7 +1200,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                     onChange={v => setForm(f => ({ ...f, to_account_id: v }))}
                     options={[
                       { value: '', label: 'Select account' },
-                      ...pickable(accounts, [form.to_account_id]).filter(a => a.id !== form.account_id).map(a => ({ value: a.id, label: accountLabel(a, accounts) })),
+                      ...pickable(accounts, [form.to_account_id]).filter(a => a.id !== form.account_id).map(a => ({ value: a.id, label: accountLabel(a, accounts), image: a.logo })),
                     ]}
                   />
                 }

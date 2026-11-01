@@ -199,7 +199,7 @@ def health(
         "currency": BASE_CURRENCY,
         "accounts": [
             {"id": a.id, "name": a.name, "type": a.type, "color": a.color, "balance": round(a.balance, 2),
-             "parent_id": a.parent_id, "is_active": a.is_active}
+             "parent_id": a.parent_id, "is_active": a.is_active, "logo": a.logo}
             for a in sorted(included, key=lambda a: -abs(a.balance))
         ],
         "left_out": sorted({a.currency for a in accounts if a.id not in ids}),

@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from database import get_db
 from models import Account, Transaction
 from schemas import AccountCreate, AccountUpdate, AccountRead
+from routers.logos import fetch_for_new_account
 
 router = APIRouter()
 
@@ -67,7 +68,7 @@ def list_accounts(db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=AccountRead)
-def create_account(data: AccountCreate, db: Session = Depends(get_db)):
+def create_account(data: AccountCreate, background: BackgroundTasks, db: Session = Depends(get_db)):
     import uuid
     check_parent(db, data.parent_id, None, data.currency)
     check_logo(data.logo)
@@ -87,6 +88,8 @@ def create_account(data: AccountCreate, db: Session = Depends(get_db)):
     db.add(account)
     db.commit()
     db.refresh(account)
+    if not account.logo:
+        background.add_task(fetch_for_new_account, account.id)  # its bank's logo, if the name says
     return account
 
 
