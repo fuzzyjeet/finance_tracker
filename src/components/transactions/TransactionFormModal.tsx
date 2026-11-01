@@ -1476,36 +1476,54 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                 </button>
               </div>
               {showTagInput && (
-                <div className="flex items-center gap-2 mb-3 p-2 rounded-lg" style={{ background: SURFACE_HI }}>
-                  <input
-                    value={newTagName}
-                    onChange={e => setNewTagName(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleCreateTag(); } }}
-                    placeholder="Tag name"
-                    autoFocus
-                    className="flex-1 text-sm border rounded px-2 py-1 outline-none bg-transparent"
-                    style={{ color: 'var(--text)', borderColor: 'rgba(255,255,255,0.12)' }}
-                  />
-                  <div className="flex gap-1">
+                // Name and Add on one row, colours wrapping below, so it all fits a phone
+                <div className="mb-3 p-2 rounded-lg space-y-2" style={{ background: SURFACE_HI }}>
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={newTagName}
+                      onChange={e => setNewTagName(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleCreateTag(); } }}
+                      placeholder="Tag name"
+                      autoFocus
+                      className="flex-1 min-w-0 h-10 text-base border rounded-lg px-3 outline-none bg-transparent"
+                      style={{ color: 'var(--text)', borderColor: 'rgba(255,255,255,0.12)' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCreateTag}
+                      disabled={!newTagName.trim()}
+                      className="shrink-0 h-10 px-4 rounded-lg text-sm disabled:opacity-40"
+                      style={{ background: 'var(--accent)', color: 'var(--on-accent)', fontWeight: 700 }}
+                    >
+                      Add
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowTagInput(false)}
+                      aria-label="Cancel new tag"
+                      className="shrink-0 w-10 h-10 flex items-center justify-center rounded-lg"
+                    >
+                      <X size={16} style={{ color: 'var(--muted)' }} />
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Tag colour">
                     {TAG_COLORS.map(c => (
-                      <button key={c} type="button" onClick={() => setNewTagColor(c)}
-                        className="w-4 h-4 rounded-full border-2 transition-all"
-                        style={{ background: c, borderColor: newTagColor === c ? '#fff' : 'transparent' }}
-                      />
+                      <button
+                        key={c}
+                        type="button"
+                        role="radio"
+                        aria-checked={newTagColor === c}
+                        aria-label={`Colour ${c}`}
+                        onClick={() => setNewTagColor(c)}
+                        className="w-9 h-9 flex items-center justify-center rounded-full"
+                      >
+                        <span
+                          className="w-6 h-6 rounded-full border-2 transition-all"
+                          style={{ background: c, borderColor: newTagColor === c ? 'var(--text)' : 'transparent' }}
+                        />
+                      </button>
                     ))}
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleCreateTag}
-                    disabled={!newTagName.trim()}
-                    className="text-xs px-2 py-1 rounded disabled:opacity-40"
-                    style={{ background: 'var(--accent)', color: 'var(--on-accent)', fontWeight: 700 }}
-                  >
-                    Add
-                  </button>
-                  <button type="button" onClick={() => setShowTagInput(false)}>
-                    <X size={13} style={{ color: 'var(--muted)' }} />
-                  </button>
                 </div>
               )}
               <div className="flex flex-wrap gap-1.5 min-h-[28px]">
