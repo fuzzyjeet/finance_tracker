@@ -26,7 +26,12 @@ function flows(list: Transaction[], accountId: string) {
     if (t.type === 'transfer') {
       if (t.to_account_id === accountId) f.transfersIn += t.amount; else f.transfersOut += t.amount;
     } else if (t.type === 'expense') f.spent += t.amount;
-    else if (t.type === 'refund') f.refunds += t.amount;
+    else if (t.type === 'refund') {
+      // The unlinked part of a refund counts as income, as in the Transactions totals
+      const surplus = t.refund_surplus ?? 0;
+      f.refunds += t.amount - surplus;
+      f.income += surplus;
+    }
     else f.income += t.amount;
   }
   return { ...f, in: f.income + f.refunds + f.transfersIn, out: f.spent + f.transfersOut };

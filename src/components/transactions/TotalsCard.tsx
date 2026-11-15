@@ -18,7 +18,14 @@ export function periodLabel(from: string, to: string) {
 export function dayPieces(txns: Transaction[]) {
   const sum = (type: Transaction['type']) =>
     txns.filter(t => t.type === type).reduce((s, t) => s + t.amount, 0);
-  return { spent: sum('expense'), refunds: sum('refund'), income: sum('income'), transfers: sum('transfer') };
+  // A refund not linked to a purchase (or the part beyond what it's linked to) counts as income
+  const surplus = txns.reduce((s, t) => s + (t.type === 'refund' ? t.refund_surplus ?? 0 : 0), 0);
+  return {
+    spent: sum('expense'),
+    refunds: sum('refund') - surplus,
+    income: sum('income') + surplus,
+    transfers: sum('transfer'),
+  };
 }
 
 /** Day subtotal: spent, back, in and moved, shown only when there is some. */
