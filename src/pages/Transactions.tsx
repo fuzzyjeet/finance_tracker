@@ -11,7 +11,7 @@ import { Modal } from '../components/ui/Modal';
 import { Badge } from '../components/ui/Badge';
 import { TransactionFormModal } from '../components/transactions/TransactionFormModal';
 import { LogStatus } from '../components/transactions/LogStatus';
-import { TotalsCard, periodLabel } from '../components/transactions/TotalsCard';
+import { TotalsCard, DayTotals, periodLabel } from '../components/transactions/TotalsCard';
 import { BulkBar } from '../components/transactions/BulkBar';
 import { UnusualIcon, UnusualExplainer } from '../components/transactions/UnusualSpend';
 import { useHideFab } from '../contexts/QuickAddContext';
@@ -138,18 +138,14 @@ function MobileTransactionList({
   return (
     <div className="lg:hidden">
       {groups.map(group => {
-        const net = group.txns.reduce((s, t) =>
-          s + (t.type === 'income' || t.type === 'refund' ? t.amount : t.type === 'expense' ? -t.amount : 0), 0);
         return (
           <div key={group.date}>
             <div
-              className="flex items-center justify-between px-4 py-2"
+              className="flex items-center justify-between gap-3 px-4 py-2"
               style={{ background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.04)' }}
             >
-              <span className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>{formatDateLabel(group.date)}</span>
-              <span className="text-xs font-semibold tabular-nums" style={{ color: net >= 0 ? 'var(--income)' : 'var(--expense)' }}>
-                {net >= 0 ? '+' : '−'}{formatCurrency(Math.abs(net))}
-              </span>
+              <span className="text-xs font-semibold shrink-0" style={{ color: 'var(--muted)' }}>{formatDateLabel(group.date)}</span>
+              <DayTotals txns={group.txns} className="min-w-0" />
             </div>
             {group.txns.map(txn => {
               const splitCount = txn.splits?.length ?? 0;
@@ -717,6 +713,7 @@ export const Transactions: React.FC = () => {
         label={mode === 'month' ? range.long : mode === 'range' ? periodLabel(filterFrom, filterTo) : 'All months'}
         filtered={!!(filterAccount || filterCategory || filterType || filterSearch)}
         onSelect={selected ? undefined : () => setSelected(new Set())}
+        byAccount={!!filterAccount}
       />
 
       {notice && (
@@ -763,12 +760,6 @@ export const Transactions: React.FC = () => {
               </thead>
               <tbody>
                 {dateGroups.map(group => {
-                  const surplus  = group.txns.reduce((s, t) => s + (t.refund_surplus ?? 0), 0);
-                  const income   = group.txns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0) + surplus;
-                  const expenses = group.txns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-                  const refunds  = group.txns.filter(t => t.type === 'refund').reduce((s, t) => s + t.amount, 0) - surplus;
-                  const net      = income - expenses + refunds;
-
                   return (
                     <React.Fragment key={group.date}>
                       {/* ── Date separator row ── */}
@@ -779,34 +770,7 @@ export const Transactions: React.FC = () => {
                           </span>
                         </td>
                         <td colSpan={3} className="px-4 py-1.5">
-                          <div className="flex items-center justify-end gap-3">
-                            {income > 0 && (
-                              <span className="text-xs font-semibold" style={{ color: 'var(--income)' }}>
-                                +{formatCurrency(income)}
-                              </span>
-                            )}
-                            {expenses > 0 && (
-                              <span className="text-xs font-semibold" style={{ color: 'var(--expense)' }}>
-                                −{formatCurrency(expenses)}
-                              </span>
-                            )}
-                            {refunds > 0 && (
-                              <span className="text-xs font-semibold" style={{ color: 'var(--refund)' }}>
-                                ↩{formatCurrency(refunds)}
-                              </span>
-                            )}
-                            {(income > 0 || expenses > 0 || refunds > 0) && (
-                              <span
-                                className="text-xs font-semibold pl-2"
-                                style={{
-                                  color: net >= 0 ? 'var(--income)' : 'var(--expense)',
-                                  borderLeft: '1px solid rgba(255,255,255,0.06)',
-                                }}
-                              >
-                                {net >= 0 ? '+' : ''}{formatCurrency(net)}
-                              </span>
-                            )}
-                          </div>
+                          <DayTotals txns={group.txns} />
                         </td>
                       </tr>
 

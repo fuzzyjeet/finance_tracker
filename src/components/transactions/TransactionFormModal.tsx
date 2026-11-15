@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle, ChevronDown, Plus, X, ArrowDown, ArrowUp, ArrowLeftRight, Tag as TagIcon, Split, Undo2,
-  CalendarDays, MessageSquare, FolderOpen, CheckCircle2, Trash2, Users, HandCoins,
+  CalendarDays, MessageSquare, FolderOpen, CheckCircle2, Trash2, Users, HandCoins, Receipt,
 } from 'lucide-react';
 import { CustomSelect } from '../ui/CustomSelect';
 import { RefundLinkPicker, remainingRefundable } from './RefundLinkPicker';
@@ -221,7 +221,7 @@ const rememberAccount = (id: string) => {
   try { localStorage.setItem(LAST_ACCOUNT_KEY, id); } catch { /* storage unavailable */ }
 };
 
-type DetailPanel = 'note' | 'tags' | 'projects' | 'others';
+type DetailPanel = 'note' | 'tags' | 'projects' | 'others' | 'billing';
 
 const emptyForm = (): TxnForm => ({
   date: todayISO(),
@@ -248,12 +248,14 @@ interface Props {
   refundOf?: Transaction | null;
   /** Prefills the date of a new transaction (e.g. backfilling a missed day). */
   defaultDate?: string;
+  /** Starts a new transaction on this account (e.g. added from an account's own page) */
+  defaultAccountId?: string;
   /** Shown as header actions while editing (the only way to reach them on a phone) */
   onDelete?: () => void;
   onRefund?: () => void;
 }
 
-export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved, editing, refundOf, defaultDate, onDelete, onRefund }) => {
+export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved, editing, refundOf, defaultDate, defaultAccountId, onDelete, onRefund }) => {
   const [accounts, setAccounts]     = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags]             = useState<Tag[]>([]);
@@ -432,7 +434,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
       setSplits([{ amount: 0, category_id: '', notes: '', project_ids: [] }]);
     } else {
       // A backfilled day has no meaningful "now" time, so leave it blank
-      const base = { ...emptyForm(), account_id: readLastAccount() };
+      const base = { ...emptyForm(), account_id: defaultAccountId || readLastAccount() };
       // Don't start on an account that has since been made inactive
       if (base.account_id) accountsApi.get(base.account_id).then(a => {
         if (!a.is_active) setForm(f => (f.account_id === a.id ? { ...f, account_id: '' } : f));
@@ -447,14 +449,15 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
     setOpenPanel(null);
     setKeypadOpen(false);
     setAutoFilled({ category: false, account: false });
-    setTouched({ category: false, account: false });
+    // Opened from an account: the payee's usual account doesn't replace it
+    setTouched({ category: false, account: !editing && !refundOf && !!defaultAccountId });
     setPayeeHistory(null);
     setSharedExpenses(null);
     setDismissedHints([]);
     linksEdited.current = !!editing;  // an existing refund keeps its saved split
     setLastSaved('');
     confirmedPayee.current = '';
-  }, [editing, isOpen, refundOf, defaultDate]);
+  }, [editing, isOpen, refundOf, defaultDate, defaultAccountId]);
 
   // Amount comes first: focus it (and raise the number keypad) when adding
   useEffect(() => {
@@ -1240,15 +1243,15 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               </div>
             </div>
 
-            {/* Billing date (credit card only) */}
-            {selectedAccount?.type === 'credit_card' && (
+            {/* Billing date: credit cards (transfers have it as a chip below) */}
+            {form.type !== 'transfer' && (selectedAccount?.type === 'credit_card' || !!form.billing_date) && (
               <div className="flex items-center gap-3 px-4 py-3" style={{ borderTop: `1px solid ${BORDER}` }}>
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-sm"
                   style={{ background: 'rgba(255,255,255,0.04)' }}>
                   🧾
                 </div>
                 <div className="flex-1">
-                  <p className="text-xs mb-0.5" style={{ color: 'var(--muted)' }}>Billing Date (optional)</p>
+                  <p className="text-xs mb-0.5" style={{ color: 'var(--muted)' }}>Billing date (optional)</p>
                   <input
                     type="date"
                     className="w-full bg-transparent text-sm outline-none"
@@ -1339,7 +1342,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               </button>
             );
             const togglePanel = (p: DetailPanel) => setOpenPanel(cur => cur === p ? null : p);
-            const showProjects = form.type !== 'transfer' && !splitOpen && projects.length > 0;
+            const showProjects = !splitOpen && projects.length > 0;
             const showSplit    = form.type === 'expense' || form.type === 'income';
             return (
               <div className="flex flex-wrap gap-2">
@@ -1350,6 +1353,11 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                 {showProjects && chip('projects', <FolderOpen size={12} />,
                   selectedProjects.length ? selectedProjects.map(p => `${p.icon} ${p.name}`).join(', ') : '+ Project',
                   selectedProjects.length > 0, openPanel === 'projects', () => togglePanel('projects'))}
+                {form.type === 'transfer' && chip('billing', <Receipt size={12} />,
+                  form.billing_date
+                    ? `Billed ${new Date(form.billing_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                    : '+ Billing date',
+                  !!form.billing_date, openPanel === 'billing', () => togglePanel('billing'))}
                 {showSplit && chip('split', <Split size={12} />,
                   splitOpen ? `Split · ${splits.length} parts` : '+ Split',
                   splitOpen, false, toggleSplitOpen)}
@@ -1465,6 +1473,32 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
             </div>
           )}
 
+          {openPanel === 'billing' && form.type === 'transfer' && (
+            <div className="flex items-center gap-3 rounded-xl px-4 py-2" style={{ background: SURFACE }}>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs" style={{ color: 'var(--muted)' }}>Billing date</p>
+                <input
+                  type="date"
+                  className="w-full bg-transparent text-base outline-none"
+                  style={{ color: 'var(--text)', colorScheme: 'dark' }}
+                  value={form.billing_date}
+                  onChange={e => setForm(f => ({ ...f, billing_date: e.target.value }))}
+                />
+              </div>
+              {form.billing_date && (
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, billing_date: '' }))}
+                  className="w-10 h-10 flex items-center justify-center rounded-lg shrink-0"
+                  style={{ color: 'var(--muted)' }}
+                  aria-label="Clear billing date"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+          )}
+
           {openPanel === 'tags' && (
             <div className="rounded-xl px-4 pb-4 pt-1" style={{ background: SURFACE }}>
               <div className="flex items-center justify-end mb-2 mt-1">
@@ -1560,7 +1594,7 @@ export const TransactionFormModal: React.FC<Props> = ({ isOpen, onClose, onSaved
             </div>
           )}
 
-          {openPanel === 'projects' && form.type !== 'transfer' && !splitOpen && (
+          {openPanel === 'projects' && !splitOpen && (
             <div className="rounded-xl px-4 py-3" style={{ background: SURFACE }}>
               <div className="flex flex-wrap gap-1.5">
                 {projects.map(p => {

@@ -5,7 +5,8 @@ import { transactionsApi } from '../../api/transactions';
 import { Transaction, Account } from '../../types';
 import { useTransactionEditor } from '../transactions/useTransactionEditor';
 import { AccountIcon, formatAmount, typeLabel } from '../../pages/Accounts';
-import { onDataChanged } from '../../lib/events';
+import { onDataChanged, emitDataChanged } from '../../lib/events';
+import { TransactionFormModal } from '../transactions/TransactionFormModal';
 import { localISODate } from '../../lib/dates';
 import { usePayeeLogos } from '../../lib/payeeLogos';
 
@@ -16,6 +17,19 @@ const toDate = (m: string) => parse(m, 'yyyy-MM', new Date());
 function effect(t: Transaction, accountId: string) {
   if (t.type === 'transfer') return t.to_account_id === accountId ? t.amount : -t.amount;
   return t.type === 'expense' ? -t.amount : t.amount;
+}
+
+/** What came in and went out of the account, by kind. */
+function flows(list: Transaction[], accountId: string) {
+  const f = { income: 0, refunds: 0, transfersIn: 0, spent: 0, transfersOut: 0 };
+  for (const t of list) {
+    if (t.type === 'transfer') {
+      if (t.to_account_id === accountId) f.transfersIn += t.amount; else f.transfersOut += t.amount;
+    } else if (t.type === 'expense') f.spent += t.amount;
+    else if (t.type === 'refund') f.refunds += t.amount;
+    else f.income += t.amount;
+  }
+  return { ...f, in: f.income + f.refunds + f.transfersIn, out: f.spent + f.transfersOut };
 }
 
 /** One account inside the Accounts page: balance, sub-accounts and its entries month by month. */
@@ -31,6 +45,7 @@ export const AccountDetail: React.FC<{
   const [month, setMonth] = useState(() => localISODate().slice(0, 7));
   const [txns, setTxns] = useState<Transaction[] | null>(null);
   const editor = useTransactionEditor();
+  const [adding, setAdding] = useState(false);
   const logoFor = usePayeeLogos();
 
   // A different account starts on this month again
@@ -57,13 +72,23 @@ export const AccountDetail: React.FC<{
   const thisMonth = localISODate().slice(0, 7);
   const shift = (n: number) => setMonth(m => format(addMonths(toDate(m), n), 'yyyy-MM'));
 
-  const moneyIn = (txns ?? []).reduce((s, t) => s + Math.max(0, effect(t, account.id)), 0);
-  const moneyOut = (txns ?? []).reduce((s, t) => s + Math.max(0, -effect(t, account.id)), 0);
+  const flow = flows(txns ?? [], account.id);
+  const change = flow.in - flow.out;
+  // The parts behind In and Out, only those there are; one part alone just says what it is
+  const breakdown = (parts: [string, number][]) => {
+    const some = parts.filter(([, v]) => v > 0.005);
+    return some.map(([label, v]) => (
+      <p key={label} className="text-xs tabular-nums truncate" style={{ color: 'var(--muted)' }}>
+        {label}{some.length > 1 && ` ${money(v)}`}
+      </p>
+    ));
+  };
   const days = new Map<string, Transaction[]>();
   for (const t of txns ?? []) days.set(t.date, [...(days.get(t.date) ?? []), t]);
 
   return (
-    <div>
+    // Room at the bottom so the + button doesn't cover the last entry
+    <div className="pb-20 lg:pb-0">
       <button
         type="button"
         onClick={onBack}
@@ -145,15 +170,25 @@ export const AccountDetail: React.FC<{
           </button>
         </div>
         <div className="grid grid-cols-2 gap-3 px-4 pb-3">
-          <div>
+          <div className="min-w-0">
             <p className="text-xs" style={{ color: 'var(--muted)' }}>In</p>
-            <p className="text-base font-semibold tabular-nums" style={{ color: 'var(--income)' }}>{money(moneyIn)}</p>
+            <p className="text-base font-semibold tabular-nums truncate" style={{ color: 'var(--income)' }}>+{money(flow.in)}</p>
+            {txns && breakdown([['Income', flow.income], ['Refunds', flow.refunds], ['Transfers in', flow.transfersIn]])}
           </div>
-          <div className="text-right">
+          <div className="min-w-0 text-right">
             <p className="text-xs" style={{ color: 'var(--muted)' }}>Out</p>
-            <p className="text-base font-semibold tabular-nums" style={{ color: 'var(--expense)' }}>{money(moneyOut)}</p>
+            <p className="text-base font-semibold tabular-nums truncate" style={{ color: 'var(--expense)' }}>−{money(flow.out)}</p>
+            {txns && breakdown([['Spent', flow.spent], ['Transfers out', flow.transfersOut]])}
           </div>
         </div>
+        {txns && txns.length > 0 && (
+          <p className="flex items-center justify-between px-4 pb-3 -mt-1 text-xs" style={{ color: 'var(--muted)' }}>
+            <span>Balance change</span>
+            <span className="font-semibold tabular-nums" style={{ color: change >= 0 ? 'var(--income)' : 'var(--expense)' }}>
+              {change >= 0 ? '+' : '−'}{money(Math.abs(change))}
+            </span>
+          </p>
+        )}
 
         {!txns ? (
           <div className="flex items-center justify-center h-32">
@@ -164,9 +199,18 @@ export const AccountDetail: React.FC<{
         ) : (
           [...days.entries()].map(([date, list]) => (
             <div key={date}>
-              <div className="px-4 py-1.5 text-xs font-semibold" style={{ color: 'var(--muted)', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-                {format(new Date(date + 'T00:00:00'), 'EEE d MMM')}
-              </div>
+              {(() => {
+                const d = flows(list, account.id);
+                return (
+                  <div className="flex items-center justify-between gap-3 px-4 py-1.5 text-xs font-semibold" style={{ color: 'var(--muted)', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                    <span>{format(new Date(date + 'T00:00:00'), 'EEE d MMM')}</span>
+                    <span className="flex gap-2.5 tabular-nums">
+                      {d.in > 0.005 && <span style={{ color: 'var(--income)' }}>+{money(d.in)}</span>}
+                      {d.out > 0.005 && <span style={{ color: 'var(--expense)' }}>−{money(d.out)}</span>}
+                    </span>
+                  </div>
+                );
+              })()}
               {list.map(t => {
                 const v = effect(t, account.id);
                 const logo = t.type === 'transfer' ? null : logoFor(t.payee);
@@ -202,6 +246,23 @@ export const AccountDetail: React.FC<{
           ))
         )}
       </section>
+
+      {/* Add an entry straight to this account */}
+      <button
+        type="button"
+        onClick={() => setAdding(true)}
+        className="fixed fab-position w-14 h-14 bg-primary-container text-on-primary-container rounded-2xl shadow-lg flex items-center justify-center transition-all hover:brightness-110 active:scale-95 z-40"
+        title={`Add transaction to ${account.name}`}
+        aria-label={`Add transaction to ${account.name}`}
+      >
+        <Plus size={24} />
+      </button>
+      <TransactionFormModal
+        isOpen={adding}
+        onClose={() => setAdding(false)}
+        onSaved={emitDataChanged}
+        defaultAccountId={account.id}
+      />
 
       {editor.element}
     </div>

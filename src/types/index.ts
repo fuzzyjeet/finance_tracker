@@ -206,8 +206,12 @@ export interface TransactionTotals {
   refunds: number;
   net: number;
   transfers: number;
+  transfer_amount?: number;
   for_others: number;
   paid_back: number;
+  /** Only with an account filter: everything that came into / went out of that account */
+  money_in?: number | null;
+  money_out?: number | null;
 }
 
 export interface TransactionSummary {

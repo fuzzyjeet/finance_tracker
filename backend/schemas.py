@@ -252,8 +252,12 @@ class TransactionTotals(BaseModel):
     refunds: float
     net: float
     transfers: int
+    transfer_amount: float = 0.0
     for_others: float = 0.0
     paid_back: float = 0.0
+    # Only with an account filter: everything that came into / went out of that account
+    money_in: Optional[float] = None
+    money_out: Optional[float] = None
 
 
 class BulkAction(BaseModel):

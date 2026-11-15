@@ -309,16 +309,27 @@ def get_totals(
     expenses = sum(counted(t) * t.own_ratio for t in expense_txns)
     for_others = sum(counted(t) * (1 - t.own_ratio) for t in expense_txns)
     refunds = sum(t.amount for t in refund_txns) - surplus
-    return {
+    transfer_txns = [t for t in txns if t.type == "transfer"]
+    result = {
         "count": len(txns),
         "income": round(income, 2),
         "expenses": round(expenses, 2),
         "refunds": round(refunds, 2),
         "net": round(income - expenses + refunds, 2),
-        "transfers": sum(1 for t in txns if t.type == "transfer"),
+        "transfers": len(transfer_txns),
+        "transfer_amount": round(sum(t.amount for t in transfer_txns), 2),
         "for_others": round(for_others, 2),
         "paid_back": round(sum(counted(t) for t in txns if t.type == "income" and t.paid_back), 2),
     }
+    if account_id:
+        # One account: what actually came in and went out of it, transfers and refunds included
+        def effect(t: Transaction) -> float:
+            if t.type == "transfer":
+                return t.amount if t.to_account_id == account_id else -t.amount
+            return -t.amount if t.type == "expense" else t.amount
+        result["money_in"] = round(sum(max(0.0, effect(t)) for t in txns), 2)
+        result["money_out"] = round(sum(max(0.0, -effect(t)) for t in txns), 2)
+    return result
 
 
 @router.get("", response_model=List[TransactionRead])

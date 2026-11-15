@@ -283,8 +283,12 @@ export const ProjectDetail: React.FC = () => {
                         {txn.category && ` · ${txn.category.icon} ${txn.category.name}`}
                       </p>
                     </div>
-                    <span className={`text-sm font-headline font-bold shrink-0 ${txn.type === 'income' ? 'text-secondary' : 'text-on-surface'}`}>
-                      {txn.type === 'income' ? '+' : '-'}{fmt(txn.amount)}
+                    <span
+                      className={`text-sm font-headline font-bold shrink-0 ${txn.type === 'income' ? 'text-secondary' : 'text-on-surface'}`}
+                      style={txn.type === 'transfer' ? { color: 'var(--transfer)' } : undefined}
+                      title={txn.type === 'transfer' ? 'Transfer: not counted as spending' : undefined}
+                    >
+                      {txn.type === 'income' ? '+' : txn.type === 'transfer' ? '⇄ ' : '-'}{fmt(txn.amount)}
                     </span>
                     {hasSplits && (
                       <span className="text-muted shrink-0">
